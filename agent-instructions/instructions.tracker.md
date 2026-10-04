@@ -5,6 +5,7 @@ Updated: 2026-10-04 (Asia/Dubai). Scope: current instruction state only; applica
 | Artifact | Current status | Owner / source | Next action |
 |---|---|---|---|
 | `AGENTS.md` and `CLAUDE.md` | Current process, approval gates, mandatory development-assistant routing, and stack responsibilities | Owner reaffirmation 2026-10-04; D36, D48, D54, D60, D61, D65 | Apply on future tasks and keep aligned with current owner decisions |
+| Active-work Git synchronization | Procedure added to root and clean-root `AGENTS.md`; routine scoped commit/push authorization applies within approved task scope, with phase gates preserved. No unattended autosync. | Owner request “sync between them all the time,” 2026-10-04 (Asia/Dubai) | Apply at each verified reviewable step; resolve dirty worktrees/divergence before continuing |
 | Roles 01–07 | Current role instructions | Named role standards and current project authority | Apply only to bounded, approved work |
 | Application phase authority | Analysis, architecture, and design approval gates remain in force; `frontend/` and `backend/` remain Planned | Owner phase policy; D61 and current readiness tracker | Read current authority and approvals before application work |
 
