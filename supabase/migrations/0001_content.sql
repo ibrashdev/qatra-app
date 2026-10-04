@@ -455,9 +455,9 @@ create table public.passages (
   constraint passages_id_edition_id_bank_version_key unique (id, edition_id, bank_version),
   constraint passages_bank_version_check check (bank_version >= 1),
   constraint passages_ordinal_check check (ordinal >= 1),
-  -- paths: quran, and the four hadith paths matn, sanad, takhrij, grade
-  -- (owner decision 4 Oct 2026, recorded as D75 (pending register update))
-  constraint passages_path_check check (path in ('quran', 'matn', 'sanad', 'takhrij', 'grade')),
+  -- paths: quran, and the hadith paths matn, sanad, grade (contract §2.3; the owner
+  -- declined takhrij as a path on 4 Oct 2026, D75)
+  constraint passages_path_check check (path in ('quran', 'matn', 'sanad', 'grade')),
   constraint passages_start_ref_check check (start_ref ~ '^[0-9]+:[0-9]+$'),
   constraint passages_end_ref_check check (end_ref ~ '^[0-9]+:[0-9]+$'),
   constraint passages_word_count_check check (word_count >= 1),
