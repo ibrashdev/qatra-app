@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from datetime import datetime
+from typing import TYPE_CHECKING
+
 from fastapi import FastAPI
 
 from app.config import Settings, load_settings, validate_startup
@@ -14,11 +18,26 @@ from app.middleware import (
     NoStoreMiddleware,
     OriginGuardMiddleware,
 )
-from app.routers import health, plan_chats
+from app.routers import catalog, health, plan_chats, plans
+from app.routers.auth import install_auth
+from app.wiring import install_learning_core
+
+if TYPE_CHECKING:
+    import httpx
 
 
-def create_app(settings: Settings | None = None) -> FastAPI:
-    """Build the application. Raises ``StartupConfigError`` (names only) on invalid config."""
+def create_app(
+    settings: Settings | None = None,
+    *,
+    clock: Callable[[], datetime] | None = None,
+    transport: httpx.BaseTransport | None = None,
+) -> FastAPI:
+    """Build the application. Raises ``StartupConfigError`` (names only) on invalid config.
+
+    ``clock`` and ``transport`` are test seams; production passes neither. Authentication
+    (E03-E13) is installed here, so ``require_session`` resolves real sessions; tests that
+    need another identity override ``require_session``.
+    """
     if settings is None:
         settings = load_settings()
     validate_startup(settings)
@@ -35,6 +54,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
     app.state.settings = settings
     app.state.ready_limiter = SlidingWindowLimiter(settings.QATRA_READY_RATE_PER_MIN)
+    install_learning_core(app, settings, clock=clock, transport=transport)
+    install_auth(app, settings, clock=clock)
 
     install_error_handlers(app)
 
@@ -47,6 +68,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.add_middleware(NoStoreMiddleware)
 
     app.include_router(health.router)
+    app.include_router(catalog.router)
+    app.include_router(plans.router)
     app.include_router(plan_chats.router)
     return app
 

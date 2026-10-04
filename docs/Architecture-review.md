@@ -93,7 +93,7 @@ Details: Database-schema §15, API-spec §8.2, and the coordinator brief applied
 - The approved target (basic version 5 October, verification 6 October, D55) and the challenge close (6 October 23:59 Riyadh) are at **very high risk**. No code exists yet, and the design gate plus one owner pause per screen sit on the critical path.
 - As estimated (Qatra-build-plan v14): earliest finish about 9 October, latest about 14 October for A or B; C later.
 - The coordinator's calibration: the package hours may be pessimistic by up to about 2x for routine coding, but even at 2x capacity the close is reached **only** with the R2 levers (Q2) and an approval this evening, and then with a margin of roughly 13 hours. That is a calculation on unmeasured capacity, not a forecast. The first calibration point (CP1, after the first migrations and the frontend foundation) remeasures it.
-- Whether updates after the close count is unknown and is a question for the organizers.
+- Whether updates after the close count was unknown and was a question for the organizers. D76 (4 October 2026) resolved it for the build: the owner answered «no code updates after 6 OCT», so the code is frozen after 6 October and the question no longer blocks a build decision. Still unknown: whether a late delivery is accepted, and the qualification criterion that extends judging to 22 October. D76 does not change the D55 dates or guarantee them.
 
 ## 7. What happens now
 

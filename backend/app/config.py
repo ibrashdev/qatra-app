@@ -5,14 +5,18 @@ Rules:
   (secrets are ``SecretStr``).
 - In production every secret and key is required, and a local ``.env`` file is never read.
   In development and test only ``FRONTEND_ORIGIN`` and ``TERMS_VERSION`` are required.
+- In production the four keys must also decode from base64 to the required lengths and differ
+  from each other (``key_material_problems``); the error names the variable, never its value.
 - ``QATRA_DATA_BACKEND=memory`` is refused when ``APP_ENV=production``.
 """
 
 from __future__ import annotations
 
+import base64
+import binascii
 import os
 from pathlib import Path
-from typing import Literal
+from typing import Final, Literal
 from urllib.parse import urlsplit
 
 from pydantic import Field, SecretStr, ValidationError
@@ -37,6 +41,38 @@ _REQUIRED_IN_PRODUCTION = (
     "QATRA_RECOVERY_HMAC_KEY",
     "QATRA_THROTTLE_HMAC_KEY",
 )
+
+
+# Key material (contract §6, §8): one independent key per purpose, base64 of random bytes.
+# ``QATRA_SESSION_KEY`` is an AES-256-GCM key (exactly 32 bytes); the three HMAC keys need at
+# least 32 bytes. Production fails at startup, by NAME only, when one does not decode.
+AES_KEY_BYTES = 32
+HMAC_KEY_MIN_BYTES = 32
+_KEY_NAMES = (
+    "QATRA_SESSION_KEY",
+    "QATRA_SESSION_HMAC_KEY",
+    "QATRA_RECOVERY_HMAC_KEY",
+    "QATRA_THROTTLE_HMAC_KEY",
+)
+
+
+# Per-client-IP request limits per minute (API-spec §1.7, §1.8): configuration defaults (A-12),
+# not approved numbers. They are the defaults of the ``QATRA_RATE_*`` settings below.
+DEFAULT_RATE_PUBLIC_READ_PER_MIN: Final = 60
+DEFAULT_RATE_ANONYMOUS_ENTRY_PER_MIN: Final = 10
+DEFAULT_RATE_SESSION_READ_PER_MIN: Final = 120
+DEFAULT_RATE_SESSION_WRITE_PER_MIN: Final = 60
+DEFAULT_RATE_CHAT_WRITE_PER_MIN: Final = 20
+
+
+def decode_key_material(value: str) -> bytes | None:
+    """Decode a base64 secret (standard alphabet, padding optional); ``None`` when it is not
+    valid base64. The caller checks the length. The value is never echoed."""
+    text = value.strip()
+    try:
+        return base64.b64decode(text + "=" * (-len(text) % 4), validate=True)
+    except (binascii.Error, ValueError):
+        return None
 
 
 class StartupConfigError(RuntimeError):
@@ -81,6 +117,20 @@ class Settings(BaseSettings):
     QATRA_READY_RATE_PER_MIN: int = 6
     QATRA_BODY_LIMIT_BYTES: int = 65536
 
+    # Per-client-IP limits per minute by class (API-spec §1.8). Readiness has its own setting above.
+    QATRA_RATE_PUBLIC_READ_PER_MIN: int = Field(default=DEFAULT_RATE_PUBLIC_READ_PER_MIN, ge=1)
+    QATRA_RATE_ANONYMOUS_ENTRY_PER_MIN: int = Field(
+        default=DEFAULT_RATE_ANONYMOUS_ENTRY_PER_MIN, ge=1
+    )
+    QATRA_RATE_SESSION_READ_PER_MIN: int = Field(default=DEFAULT_RATE_SESSION_READ_PER_MIN, ge=1)
+    QATRA_RATE_SESSION_WRITE_PER_MIN: int = Field(default=DEFAULT_RATE_SESSION_WRITE_PER_MIN, ge=1)
+    QATRA_RATE_CHAT_WRITE_PER_MIN: int = Field(default=DEFAULT_RATE_CHAT_WRITE_PER_MIN, ge=1)
+
+    # Proxies that append to X-Forwarded-For in front of the app: 0 uses the peer address, N >= 1
+    # the N-th entry from the right (``client_key``). A depth larger than the real chain lets a
+    # client choose its own address, so set it per deployment.
+    QATRA_TRUSTED_XFF_DEPTH: int = Field(default=0, ge=0)
+
     # Plan conversation (Plan-conversation.md §2.5; D75). Configuration defaults, not approved
     # numbers: caps follow OpenRouter's published free-tier limits, verified at provisioning.
     QATRA_OPENROUTER_FREE_REQUESTS_PER_DAY: int = Field(default=50, ge=0)
@@ -123,6 +173,33 @@ def _origin_problem(origin: str, env: AppEnv) -> str | None:
     return None
 
 
+def key_material_problems(settings: Settings) -> list[str]:
+    """Names-only problems of the configured keys: each must be base64, the AES key exactly 32
+    bytes, each HMAC key at least 32 bytes, and no two purposes may share a key. A key that is
+    not set is reported as missing elsewhere and skipped here."""
+    problems: list[str] = []
+    decoded: dict[str, bytes] = {}
+    for name in _KEY_NAMES:
+        if settings.is_missing(name):
+            continue
+        secret = getattr(settings, name)
+        data = decode_key_material(secret.get_secret_value())
+        if data is None:
+            problems.append(f"{name} must be base64")
+        elif name == "QATRA_SESSION_KEY" and len(data) != AES_KEY_BYTES:
+            problems.append(f"{name} must decode to exactly {AES_KEY_BYTES} bytes")
+        elif name != "QATRA_SESSION_KEY" and len(data) < HMAC_KEY_MIN_BYTES:
+            problems.append(f"{name} must decode to at least {HMAC_KEY_MIN_BYTES} bytes")
+        else:
+            decoded[name] = data
+    names = sorted(decoded)
+    for index, first in enumerate(names):
+        for second in names[index + 1 :]:
+            if decoded[first] == decoded[second]:
+                problems.append(f"{first} and {second} must be different keys (one per purpose)")
+    return problems
+
+
 def validate_startup(settings: Settings) -> None:
     """Fail fast with names only. Called by ``create_app`` before the app is built."""
     problems: list[str] = []
@@ -131,6 +208,8 @@ def validate_startup(settings: Settings) -> None:
         problems.append(
             f"missing required variables for APP_ENV={settings.APP_ENV}: " + ", ".join(missing)
         )
+    if settings.APP_ENV == "production":
+        problems.extend(key_material_problems(settings))
     if settings.APP_ENV == "production" and settings.QATRA_DATA_BACKEND == "memory":
         problems.append("QATRA_DATA_BACKEND must not select the memory backend in production")
     if settings.QATRA_READY_RATE_PER_MIN < 1:

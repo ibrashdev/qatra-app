@@ -1,0 +1,187 @@
+/* Design tokens from docs/UI-tokens.md v1.1. Light theme only; lengths are rem (px / 16) so they follow the browser font size. */
+
+:root {
+  color-scheme: light;
+
+  /* Palette and aliases (2.1) */
+  --q-color-primary: #1D78B5;
+  --q-color-primary-deep: #174F76;
+  --q-color-text: #183B52;
+  --q-color-text-secondary: #536E82;
+  --q-color-text-accent: #174F76;
+  --q-color-bg: #F5FAFE;
+  --q-color-surface: #FFFFFF;
+  --q-color-selection: #E6F4FD;
+  --q-color-border: #7890A3;
+  --q-color-divider: #D7E6F0;
+  --q-color-disabled: #DFEAF2;
+  --q-color-on-primary: #FFFFFF;
+  --q-color-border-selected: #1D78B5;
+  --q-color-link: #174F76;
+  --q-color-focus: #174F76;
+
+  /* Derived and status tokens (2.2), status only */
+  --q-color-primary-pressed: #123F5E;
+  --q-color-success-text: #14654E;
+  --q-color-success-border: #1F7A5C;
+  --q-color-success-bg: #E4F4EE;
+  --q-color-error-text: #A8322D;
+  --q-color-error-border: #C0362C;
+  --q-color-error-bg: #FDECEA;
+  --q-color-error-pressed: #8C241F;
+  --q-color-warning-text: #8A5300;
+  --q-color-warning-border: #A15C00;
+  --q-color-warning-bg: #FFF4DB;
+  --q-color-info-text: #174F76;
+  --q-color-info-border: #1D78B5;
+  --q-color-info-bg: #E6F4FD;
+  --q-color-scrim: rgba(24, 59, 82, 0.5);
+  --q-color-inverse-bg: #183B52;
+
+  /* Families (3.1); the font files are self-hosted */
+  --q-font-ui-ar: "Cairo", "Noto Sans Arabic", "Segoe UI", Tahoma, system-ui, sans-serif;
+  --q-font-ui-en: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, Arial, "Cairo", sans-serif;
+  --q-font-quran: "Amiri Quran", "Amiri", "Noto Naskh Arabic", "Traditional Arabic", serif;
+  --q-font-hadith: "Amiri", "Noto Naskh Arabic", "Traditional Arabic", serif;
+  --q-font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  /* Type scale (3.3): Arabic line heights here, English overrides below */
+  --q-text-display-size: 1.75rem;
+  --q-text-display-lh: 1.35;
+  --q-text-display-weight: 700;
+  --q-text-title-size: 1.375rem;
+  --q-text-title-lh: 1.4;
+  --q-text-title-weight: 700;
+  --q-text-section-size: 1.125rem;
+  --q-text-section-lh: 1.5;
+  --q-text-section-weight: 600;
+  --q-text-body-size: 1rem;
+  --q-text-body-lh: 1.7;
+  --q-text-body-weight: 400;
+  --q-text-body-compact-size: 0.9375rem;
+  --q-text-body-compact-lh: 1.65;
+  --q-text-body-compact-weight: 400;
+  --q-text-small-size: 0.875rem;
+  --q-text-small-lh: 1.6;
+  --q-text-small-weight: 400;
+  --q-text-caption-size: 0.8125rem;
+  --q-text-caption-lh: 1.5;
+  --q-text-caption-weight: 600;
+  --q-text-button-size: 1rem;
+  --q-text-button-lh: 1.25;
+  --q-text-button-weight: 600;
+  --q-text-quran-size: 1.625rem;
+  --q-text-quran-lh: 2.2;
+  --q-text-quran-weight: 400;
+  --q-text-hadith-size: 1.5rem;
+  --q-text-hadith-lh: 2.1;
+  --q-text-hadith-weight: 400;
+  --q-text-token-size: 1.375rem;
+  --q-text-token-lh: 1.9;
+  --q-text-token-weight: 400;
+
+  /* Spacing scale (4) */
+  --q-space-4: 0.25rem;
+  --q-space-8: 0.5rem;
+  --q-space-12: 0.75rem;
+  --q-space-16: 1rem;
+  --q-space-24: 1.5rem;
+  --q-space-32: 2rem;
+  --q-space-40: 2.5rem;
+  --q-space-48: 3rem;
+
+  /* Sizes (4); the target is 44 px, the tab bar adds the bottom safe area */
+  --q-size-target: 2.75rem;
+  --q-size-button: 3rem;
+  --q-size-input: 3rem;
+  --q-size-input-recall: 3.5rem;
+  --q-size-tile: 3.5rem;
+  --q-size-row: 3.5rem;
+  --q-size-appbar: 3.5rem;
+  --q-size-tabbar: 4rem;
+  --q-size-rail: 15rem;
+  --q-size-checkbox: 1.5rem;
+  --q-size-progress: 0.5rem;
+  --q-size-badge: 1.75rem;
+  --q-size-form: 30rem;
+  --q-size-textarea-min: 6rem;
+  --q-size-textarea-max: 10.5rem;
+  --q-size-step-marker: 1.5rem;
+  --q-icon-sm: 1rem;
+  --q-icon-md: 1.25rem;
+  --q-icon-lg: 1.5rem;
+  --q-icon-xl: 2rem;
+  --q-border-width: 1px;
+  --q-border-width-strong: 2px;
+
+  /* Shape and elevation (4): cards, bars and rows have no shadow */
+  --q-radius-xs: 0.25rem;
+  --q-radius-sm: 0.5rem;
+  --q-radius-md: 0.75rem;
+  --q-shadow-raised: 0 2px 8px rgba(24, 59, 82, 0.16);
+
+  /* Z-order (4) */
+  --q-z-sticky: 10;
+  --q-z-toast: 40;
+  --q-z-dialog: 50;
+  --q-z-skip: 60;
+
+  /* Breakpoints (5), reference values: media queries use the Tailwind breakpoints in theme.css */
+  --q-bp-tablet: 768px;
+  --q-bp-rail: 1024px;
+  --q-bp-desktop: 1280px;
+
+  /* Page margin and reading column, derived from 4 and 5 */
+  --q-page-margin: var(--q-space-24);
+  --q-column: 35rem;
+
+  /* Motion (8) */
+  --q-duration-fast: 120ms;
+  --q-duration-base: 200ms;
+  --q-duration-slow: 320ms;
+  --q-ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --q-ease-exit: cubic-bezier(0.4, 0, 1, 1);
+}
+
+/* English line heights (3.3: line height resolves per UI language) */
+:root:lang(en) {
+  --q-text-display-lh: 1.25;
+  --q-text-title-lh: 1.3;
+  --q-text-section-lh: 1.4;
+  --q-text-body-lh: 1.5;
+  --q-text-body-compact-lh: 1.5;
+  --q-text-small-lh: 1.45;
+  --q-text-caption-lh: 1.4;
+}
+
+@media (min-width: 48rem) {
+  :root {
+    --q-page-margin: var(--q-space-32);
+    --q-column: 40rem;
+    --q-text-quran-size: 1.75rem;
+    --q-text-hadith-size: 1.625rem;
+    --q-text-token-size: 1.5rem;
+  }
+}
+
+@media (min-width: 64rem) {
+  :root {
+    --q-page-margin: var(--q-space-40);
+    --q-column: 45rem;
+  }
+}
+
+@media (min-width: 80rem) {
+  :root {
+    --q-text-quran-size: 2rem;
+    --q-text-hadith-size: 1.75rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --q-duration-fast: 0ms;
+    --q-duration-base: 0ms;
+    --q-duration-slow: 0ms;
+  }
+}

@@ -1,0 +1,67 @@
+@import "tailwindcss";
+@import "../styles/tokens.css";
+@import "../styles/theme.css";
+
+@layer base {
+  html {
+    background-color: var(--q-color-bg);
+    color: var(--q-color-text);
+    font-family: var(--q-font-ui-ar);
+    font-size: 100%;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    /* Keeps a focused control clear of the sticky app bar and the bottom tab bar (WCAG 2.4.11). */
+    scroll-padding-block-start: calc(var(--q-size-appbar) + env(safe-area-inset-top, 0px) + var(--q-space-8));
+    scroll-padding-block-end: calc(var(--q-size-tabbar) + env(safe-area-inset-bottom, 0px) + var(--q-space-8));
+  }
+
+  html:lang(en) {
+    font-family: var(--q-font-ui-en);
+  }
+
+  /* A fragment in the other UI language keeps its own UI font (the language switch labels). */
+  [lang="ar"]:not(html) {
+    font-family: var(--q-font-ui-ar);
+  }
+
+  [lang="en"]:not(html) {
+    font-family: var(--q-font-ui-en);
+  }
+
+  body {
+    min-height: 100dvh;
+    font-size: var(--q-text-body-size);
+    line-height: var(--q-text-body-lh);
+    font-weight: var(--q-text-body-weight);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--q-color-focus);
+    outline-offset: 2px;
+  }
+
+  /* The skip-link target is large, so its ring sits inside the box instead of spilling out. */
+  main:focus-visible {
+    outline-offset: -2px;
+  }
+
+  /* No top bar and no bottom tab bar from 1024 px: only the side rail remains. */
+  @media (min-width: 64rem) {
+    html {
+      scroll-padding-block-start: var(--q-space-8);
+      scroll-padding-block-end: var(--q-space-8);
+    }
+  }
+}
+
+/* Unlayered so it beats every utility: reduced motion turns transitions and animations off. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

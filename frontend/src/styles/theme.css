@@ -1,0 +1,133 @@
+/* Tailwind mapping of the --q-* tokens. Only the tokens exist as utilities: the default palette, type scale, radii and breakpoints are removed. */
+
+@theme {
+  --color-*: initial;
+  --text-*: initial;
+  --font-*: initial;
+  --radius-*: initial;
+  --shadow-*: initial;
+  --inset-shadow-*: initial;
+  --drop-shadow-*: initial;
+  --ease-*: initial;
+  --breakpoint-*: initial;
+  --container-*: initial;
+
+  /* Media queries cannot read custom properties, so the breakpoints are literal (768, 1024, 1280 px) */
+  --breakpoint-tablet: 48rem;
+  --breakpoint-rail: 64rem;
+  --breakpoint-desktop: 80rem;
+}
+
+/* Colour names drop the redundant prefix: text is ink, bg is page, border is edge; in status families text, border and bg are ink, edge and tint */
+@theme inline {
+  --color-primary: var(--q-color-primary);
+  --color-primary-deep: var(--q-color-primary-deep);
+  --color-primary-pressed: var(--q-color-primary-pressed);
+  --color-on-primary: var(--q-color-on-primary);
+  --color-ink: var(--q-color-text);
+  --color-ink-secondary: var(--q-color-text-secondary);
+  --color-ink-accent: var(--q-color-text-accent);
+  --color-page: var(--q-color-bg);
+  --color-surface: var(--q-color-surface);
+  --color-selection: var(--q-color-selection);
+  --color-edge: var(--q-color-border);
+  --color-edge-selected: var(--q-color-border-selected);
+  --color-divider: var(--q-color-divider);
+  --color-disabled: var(--q-color-disabled);
+  --color-link: var(--q-color-link);
+  --color-focus: var(--q-color-focus);
+  --color-success-ink: var(--q-color-success-text);
+  --color-success-edge: var(--q-color-success-border);
+  --color-success-tint: var(--q-color-success-bg);
+  --color-error-ink: var(--q-color-error-text);
+  --color-error-edge: var(--q-color-error-border);
+  --color-error-tint: var(--q-color-error-bg);
+  --color-error-pressed: var(--q-color-error-pressed);
+  --color-warning-ink: var(--q-color-warning-text);
+  --color-warning-edge: var(--q-color-warning-border);
+  --color-warning-tint: var(--q-color-warning-bg);
+  --color-info-ink: var(--q-color-info-text);
+  --color-info-edge: var(--q-color-info-border);
+  --color-info-tint: var(--q-color-info-bg);
+  --color-scrim: var(--q-color-scrim);
+  --color-inverse: var(--q-color-inverse-bg);
+
+  --font-ui-ar: var(--q-font-ui-ar);
+  --font-ui-en: var(--q-font-ui-en);
+  --font-quran: var(--q-font-quran);
+  --font-hadith: var(--q-font-hadith);
+  --font-mono: var(--q-font-mono);
+
+  --text-display: var(--q-text-display-size);
+  --text-display--line-height: var(--q-text-display-lh);
+  --text-display--font-weight: var(--q-text-display-weight);
+  --text-title: var(--q-text-title-size);
+  --text-title--line-height: var(--q-text-title-lh);
+  --text-title--font-weight: var(--q-text-title-weight);
+  --text-section: var(--q-text-section-size);
+  --text-section--line-height: var(--q-text-section-lh);
+  --text-section--font-weight: var(--q-text-section-weight);
+  --text-body: var(--q-text-body-size);
+  --text-body--line-height: var(--q-text-body-lh);
+  --text-body--font-weight: var(--q-text-body-weight);
+  --text-body-compact: var(--q-text-body-compact-size);
+  --text-body-compact--line-height: var(--q-text-body-compact-lh);
+  --text-body-compact--font-weight: var(--q-text-body-compact-weight);
+  --text-small: var(--q-text-small-size);
+  --text-small--line-height: var(--q-text-small-lh);
+  --text-small--font-weight: var(--q-text-small-weight);
+  --text-caption: var(--q-text-caption-size);
+  --text-caption--line-height: var(--q-text-caption-lh);
+  --text-caption--font-weight: var(--q-text-caption-weight);
+  --text-button: var(--q-text-button-size);
+  --text-button--line-height: var(--q-text-button-lh);
+  --text-button--font-weight: var(--q-text-button-weight);
+  --text-quran: var(--q-text-quran-size);
+  --text-quran--line-height: var(--q-text-quran-lh);
+  --text-quran--font-weight: var(--q-text-quran-weight);
+  --text-hadith: var(--q-text-hadith-size);
+  --text-hadith--line-height: var(--q-text-hadith-lh);
+  --text-hadith--font-weight: var(--q-text-hadith-weight);
+  --text-token: var(--q-text-token-size);
+  --text-token--line-height: var(--q-text-token-lh);
+  --text-token--font-weight: var(--q-text-token-weight);
+
+  /* Spacing steps are named after the token (p-q16 is --q-space-16); sizes share the namespace (min-h-target, h-appbar, w-rail) */
+  --spacing-q4: var(--q-space-4);
+  --spacing-q8: var(--q-space-8);
+  --spacing-q12: var(--q-space-12);
+  --spacing-q16: var(--q-space-16);
+  --spacing-q24: var(--q-space-24);
+  --spacing-q32: var(--q-space-32);
+  --spacing-q40: var(--q-space-40);
+  --spacing-q48: var(--q-space-48);
+  --spacing-page: var(--q-page-margin);
+  --spacing-target: var(--q-size-target);
+  --spacing-button: var(--q-size-button);
+  --spacing-input: var(--q-size-input);
+  --spacing-input-recall: var(--q-size-input-recall);
+  --spacing-tile: var(--q-size-tile);
+  --spacing-row: var(--q-size-row);
+  --spacing-appbar: var(--q-size-appbar);
+  --spacing-tabbar: var(--q-size-tabbar);
+  --spacing-rail: var(--q-size-rail);
+  --spacing-checkbox: var(--q-size-checkbox);
+  --spacing-progress: var(--q-size-progress);
+  --spacing-badge: var(--q-size-badge);
+  --spacing-step-marker: var(--q-size-step-marker);
+  --spacing-icon-sm: var(--q-icon-sm);
+  --spacing-icon-md: var(--q-icon-md);
+  --spacing-icon-lg: var(--q-icon-lg);
+  --spacing-icon-xl: var(--q-icon-xl);
+
+  --container-column: var(--q-column);
+  --container-form: var(--q-size-form);
+
+  --radius-xs: var(--q-radius-xs);
+  --radius-sm: var(--q-radius-sm);
+  --radius-md: var(--q-radius-md);
+  --shadow-raised: var(--q-shadow-raised);
+
+  --ease-standard: var(--q-ease-standard);
+  --ease-exit: var(--q-ease-exit);
+}

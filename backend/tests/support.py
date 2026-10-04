@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import base64
+import secrets
 from typing import Any
 
 from app.config import Settings
@@ -24,8 +26,14 @@ def make_settings(**overrides: Any) -> Settings:
     return Settings(_env_file=None, **values)  # type: ignore[call-arg]
 
 
+def random_key_b64(size: int = 32) -> str:
+    """A fresh random key as base64 (contract §8). Tests generate their keys; none is stored."""
+    return base64.b64encode(secrets.token_bytes(size)).decode("ascii")
+
+
 def production_values(**overrides: Any) -> dict[str, Any]:
-    """A complete production configuration made of obvious dummy values."""
+    """A complete production configuration: dummy hosts and tokens, and freshly generated random
+    keys (production startup validates that the four keys decode to the required lengths)."""
     values: dict[str, Any] = {
         "APP_ENV": "production",
         "QATRA_DATA_BACKEND": "supabase",
@@ -35,10 +43,10 @@ def production_values(**overrides: Any) -> dict[str, Any]:
         "SUPABASE_ANON_KEY": "dummy-anon",
         "SUPABASE_SERVICE_ROLE_KEY": "dummy-service-role",
         "QATRA_SERVER_DB": "postgresql://dummy@db.example/dummy",
-        "QATRA_SESSION_KEY": "dummy-session-key",
-        "QATRA_SESSION_HMAC_KEY": "dummy-session-hmac",
-        "QATRA_RECOVERY_HMAC_KEY": "dummy-recovery-hmac",
-        "QATRA_THROTTLE_HMAC_KEY": "dummy-throttle-hmac",
+        "QATRA_SESSION_KEY": random_key_b64(),
+        "QATRA_SESSION_HMAC_KEY": random_key_b64(),
+        "QATRA_RECOVERY_HMAC_KEY": random_key_b64(),
+        "QATRA_THROTTLE_HMAC_KEY": random_key_b64(),
     }
     values.update(overrides)
     return values

@@ -1,6 +1,6 @@
 # Qatra — UI design tokens and component specification
 
-> Version 1.1 · 4 October 2026 (Asia/Dubai) · Status: Draft — Needs Review (gate G1). Prepared by the Senior Product Designer role (Role 4) for the coordinator's review; extends Design-system.md v10 without changing its approved identity; nothing here is approved or implemented.
+> Version 1.2 · 4 October 2026 (Asia/Dubai) · Status: Approved — D78 (owner, gate G1, 4 October 2026, about 19:12 Asia/Dubai); version 1.2 adds component 6.26 for the owner's S-08 adjustment (cascading select lists) and changes no token value. Prepared by the Senior Product Designer role (Role 4); extends Design-system.md v10 without changing its approved identity; nothing here is implemented.
 
 ## 1. Authority and how to use
 
@@ -11,13 +11,14 @@ This file fixes the design system the frontend will implement and the Figma file
 | [Design-system.md](Design-system.md) v10 | Identity (primary #1D78B5), ten colours, D35 contrast rule, D31, direction rule, D50 notice styling, 24 px phone margins, 8 px rhythm, 8–12 px radii, 44 px touch | Approved (1 and 3 Oct 2026) |
 | D67 in [Decision-register.md](Decision-register.md), [UX.md](UX.md) «الإتاحة» | Device and browser matrix, 320 px floor, WCAG 2.2 AA, reduced motion, text plus icon for correction | Approved (4 Oct 2026) |
 | D69, [Implementation-contract.md](Implementation-contract.md) §1, §9 | Self-hosted SIL OFL fonts, Uthmani-mark check, Playwright and axe baseline | Approved (D74) |
-| This file | Everything else: scales, semantic colours, component states, motion, checklists | **Draft, proposed** |
+| This file | Everything else: scales, semantic colours, component states, motion, checklists | **Approved — D78 (G1)**; values marked proposed are approved with the file |
 
-- A value absent from an approved document is **proposed**; a token name is always a proposal, even for an approved hex. No approved hex is changed; changing one reopens the contrast tables (2.3) and needs owner approval.
+- A value absent from an approved document is **proposed**; a token name is always a proposal, even for an approved hex. No approved hex is changed; changing one reopens the contrast tables (2.3) and needs owner approval. Since D78 (G1) every value in this file, proposed or not, is approved as part of the design: the word marks where a value came from, and changing one later needs owner approval.
 - Naming: CSS custom properties use `--q-`. The Figma variable is the CSS name without `--q-`, first hyphen after the group becoming `/` (`--q-color-text-secondary` is `color/text-secondary`, `--q-space-16` is `space/16`). Figma collections: Color (one mode, Light), Space, Size, Radius, Typography (modes Arabic UI, English UI), Motion.
 - A row that lists several names and several values pairs them in order. Components read semantic tokens only; hex values live in the token file. Mapping into Tailwind is the frontend engineer's choice.
 - Fixed Arabic copy is quoted verbatim from [UX.md](UX.md); every other label is a **proposed** placeholder, and English counterparts belong to the copy deck.
 - Version 1.1 (4 October 2026) adds 6.18–6.25, the 480 px form column, the header language switch exception and the coordinator decisions in section 10, for the open points O-05, O-06 and O-22 of [UI-screens.md](UI-screens.md).
+- Version 1.2 (4 October 2026, D78) adds 6.26, the cascading selection with a multi-select list, for the owner's adjustment at G1 on screen S-08 of [UI-screens.md](UI-screens.md); it adds no token and changes no value.
 - No decoration: no patterns, 3D water effects, certificates, leaderboards, translation toggle or AI toggle (D49, D51).
 
 ## 2. Colour tokens
@@ -510,6 +511,50 @@ Added in 1.1 (UI-screens S-07 section lists, S-34 earlier proposals). Native `<d
 | Loading | skeleton row (6.14) |
 | Disabled, error, success | not used |
 
+### 6.26 Cascading selection with a multi-select list
+
+Added in 1.2 (D78, the owner's adjustment at G1) for [UI-screens.md](UI-screens.md) S-08. It composes components that already exist into a cascade of labelled groups and adds one new part, the multi-select list. A level appears only after the level above it is chosen, in the page flow (not a wizard, no step button); a level with one option is preselected and still shown; choosing a higher level clears the levels below it.
+
+| Level | Component | Content |
+|---|---|---|
+| 1 | single-choice list (6.5): radio rows up to five options, a native `<select>` from six | the categories of the catalog (E14 `category`): «القرآن الكريم» and «الحديث» in this build, later «الفقه» and others with no design change |
+| 2, Quran | segmented radio group (6.4), two segments | «حسب السورة» and «حسب الجزء» (only when the category is the Quran, `contentFormat` quran) |
+| 2, hadith and every other category | single-choice list (6.5), one row per edition: title and author, the edition label as a second line | the books of the category (the Forty alone in this build) |
+| 3 | multi-select list (below), with its tools and its chips | the surahs, the juz' or the sections inside the chosen book |
+
+**Group semantics.** Each level is its own labelled group: levels 1 and 2 are a `radiogroup` (or a native select with a visible label) and level 3 is a `<fieldset>` with a visible `<legend>` that names the noun («السور»، «الأجزاء»، «الأحاديث»، «الأقسام»). Legends and labels are never placeholders, and the visible text is the accessible name (2.5.3).
+
+**Multi-select list anatomy.** Inside the fieldset, in this DOM and visual order: the tools row, the chips row (only when it applies), then the rows.
+
+- *Tools row.* The count line at the start edge (`--q-text-small`, text-secondary) and two tertiary buttons (6.1; at least 44 px high and 88 px wide, 8 px apart) «تحديد الكل» and «مسح الاختيار»; the buttons wrap under the count on a narrow screen. Count line: «لم تختر شيئًا بعد» (nothing checked), «تم اختيار {n} من {m}» (some), «تم اختيار الكل ({m})» (all), digits per 3.4. The count is always of sections, the units of the plan's scope, also in the juz' view. The count line is part of the fieldset's `aria-describedby` and is not a live region itself; one hidden polite region announces the same text, debounced by 500 ms, so a select-all is announced once and not once per row.
+- *Chips row.* Removable chips (below) while 1 to 6 rows of the list on screen are checked (a row is a surah, a hadith, a section or a juz'; a juz' counts as one row), in the book's order, wrapping with 8 px gaps in a `role="group"` named «الأقسام المختارة» / "Selected sections". From 7 checked rows the row of chips is not shown (the count line and the checked rows are the summary), so it never exceeds two lines at 320 px.
+- *Rows.* Native checkboxes (6.3 anatomy: 24×24 px box, radius xs, 2 px border), each row at least 48 px high with the whole row as the target, a 1 px divider between rows, padding-inline 16 px. Row text: the title in `--q-text-body` and, after it, the reference in `--q-text-small` text-secondary inside `<bdi>`; a juz' row adds the line «يشمل كل سور الطبعة ({m})» / "Includes all {m} surahs of the edition". The list stays in the page flow with no inner scroll area (no nested scrolling; the browser's find and zoom behave); from 768 px it runs in two CSS columns, so reading and tab order stay the DOM order (first column down, then the second).
+- *Juz' rows (the Quran, «حسب الجزء»).* A juz' row stands for all the sections it contains; in this build «الجزء ٣٠» stands for every section of the edition (78 to 114). The selection is one set of section ordinals, the same set as in the surah view: a juz' row is checked when all its sections are checked, shows the mixed state (dash icon, `aria-checked="mixed"`) when only some are, and a press checks all of its sections (or unchecks all of them when it was checked). Switching between «حسب السورة» and «حسب الجزء» keeps the set.
+- *Limit.* At most 60 items can be checked (UG-13: the Forty's 42 and Juz' Amma's 37 fit). In a longer future list the unchecked rows take `aria-disabled` once 60 are checked, with the helper «يمكن اختيار ٦٠ قسمًا على الأكثر.» / "You can choose at most 60 sections.", and «تحديد الكل» is hidden; this is not reachable in this build.
+
+**Removable chip.** The 6.11 interactive chip grown to 44 px: fill `--q-color-selection`, 1 px `--q-color-border-selected`, radius sm, label `--q-text-body-compact` weight 600 in `--q-color-text-accent`, padding-inline-start 12 px, then a remove button: an icon button of 44×44 px with a 20 px x icon in text-accent and the name «إزالة {label}» / "Remove {label}". Each remove button is an ordinary button in tab order (at most six). Removing a chip unchecks its row; focus moves to the next chip's remove button, else the previous one, else the first row, and a polite status says «أُزيل {label}. {count line}». The x icon does not mirror; chips flow from the start edge.
+
+| State | Appearance |
+|---|---|
+| Row: default | recipe Default (fill surface), unchecked box |
+| Row: hover, pressed | recipes Hover and Pressed (fill selection) |
+| Row: focus-visible | focus ring inset (offset -2 px so the group does not clip it) |
+| Row: checked | fill selection, box filled `--q-color-primary` with a white check (never colour alone), label `--q-color-text-accent` |
+| Row: mixed (juz' rows only) | as checked with a dash icon in place of the check |
+| Row: disabled | fill disabled, text-secondary, `aria-disabled`; used only at the limit |
+| List: nothing checked | count «لم تختر شيئًا بعد»; no chips; «مسح الاختيار» `aria-disabled` |
+| List: some checked | count «تم اختيار {n} من {m}»; chips when six or fewer rows are checked; both tools enabled |
+| List: all checked | count «تم اختيار الكل ({m})»; «تحديد الكل» `aria-disabled`; no chips except a single juz' chip |
+| List: loading | skeleton rows (6.14) after 300 ms, `aria-busy` |
+| Tool with nothing to do | `aria-disabled`; it keeps focus when it was just pressed, and the count line shows the reason |
+| Error, success | not used at group level; the screen explains why its primary action is disabled |
+
+**Keyboard and screen reader.** Rows are native checkboxes: Tab reaches every row (the group is not one widget, so there is no roving tabindex) and Space toggles. The tools and the chips come before the rows, so select all and clear are reached first, and a juz' row is a single row. Pressing «تحديد الكل» or «مسح الاختيار» keeps focus on that button. Level 1 follows 6.5 and the Quran level 2 follows 6.4 (one tab stop, arrows in the logical direction, Space selects). A level that appears is announced once, politely, as «ظهرت قائمة: {legend}» / "A list appeared: {legend}", and focus does not move.
+
+**Right to left.** The box sits at the start edge (the right in RTL) and the reference follows the title; the tools row, the chips and the second column mirror with `dir`; digits follow 3.4; arrow keys move in the logical direction.
+
+**Contrast and motion.** Row text `--q-color-text` on `--q-color-surface` 11.76 and on `--q-color-selection` 10.48; chip and checked-row label `--q-color-text-accent` on selection 7.75; chip border `--q-color-border-selected` on selection 4.25; white check on `--q-color-primary` 4.77; count text `--q-color-text-secondary` on `--q-color-bg` 5.10; focus ring 8.27 on the page background. Nothing animates (levels, counts and chips change instantly), so reduced motion needs no variant.
+
 ## 7. Focus, keyboard and screen reader
 
 - Focus ring: `outline: 2px solid var(--q-color-focus); outline-offset: 2px` on `:focus-visible` for every focusable element (3:1 or better on every background, Table 4); `outline` survives forced-colors mode; flush elements (rows, tab items) use a negative offset so the ring is not clipped. Never remove the outline without an equivalent.
@@ -519,7 +564,7 @@ Added in 1.1 (UI-screens S-07 section lists, S-34 earlier proposals). Native `<d
 - Focus not obscured (2.4.11): sticky app bar, tab bar and action bars are reflected in `scroll-padding-block-start` and `-end` so a focused control is never fully hidden; test at 320×568 and at 200 % zoom.
 - `aria-live`: errors `role="alert"`; success, info, warning, wake-up, sync and feedback `role="status"` (polite); toast polite and atomic. Do not announce progress on every event; announce milestones, such as reaching 100 % of the daily goal, once.
 - Labels in the UI language (Arabic and English) on every control, icon button, progress bar and status; names are never hard-coded; visible label text is contained in the accessible name (2.5.3). `lang` on the root and `lang="ar"` on original text.
-- Roving tabindex only where a group is one widget (radio groups, option tiles, the quick-reply row); word-order chips are ordinary buttons in tab order. Hidden practice text is removed from the accessibility tree (6.12).
+- Roving tabindex only where a group is one widget (radio groups, option tiles, the quick-reply row); word-order chips are ordinary buttons in tab order, and so are the checkbox rows and the removable chips of 6.26. Hidden practice text is removed from the accessibility tree (6.12).
 
 ## 8. Motion
 
@@ -549,30 +594,32 @@ Criteria mapped to components; applies to the D67 matrix only, and support is cl
 | 2.4.7 Focus visible | 2 px ring, offset 2 px | 7 |
 | 2.4.11 Focus not obscured (minimum) | Scroll padding for sticky bars | 6.6, 7 |
 | 2.5.7 Dragging movements | No drag-only action; tap path always present | 6.16 |
-| 2.5.8 Target size (minimum) | 44×44 px approved (stricter than 24 px), 8 px spacing; consent links get 44 px lines | 6.1–6.6, 6.19–6.22, 6.25 |
+| 2.5.8 Target size (minimum) | 44×44 px approved (stricter than 24 px), 8 px spacing; consent links get 44 px lines | 6.1–6.6, 6.19–6.22, 6.25, 6.26 |
 | 3.2.6 Consistent help | No help mechanism specified; if one is added keep its place fixed | open |
 | 3.3.1, 3.3.2, 3.3.3 Errors and labels | Visible labels, error at the field with icon, no values echoed | 6.2, 6.3, 6.8 |
 | 3.3.7 Redundant entry | Never ask again for data given in the same flow; password confirmation is allowed (security exception) | 6.2, 6.15 |
 | 3.3.8 Accessible authentication (minimum) | Paste and password managers allowed, no cognitive test; recovery code copy, paste and download allowed | 6.2, 6.15 |
-| 4.1.3 Status messages | `role="status"` and `role="alert"` | 6.8, 6.11, 6.13, 6.17, 6.18, 6.19 |
+| 4.1.3 Status messages | `role="status"` and `role="alert"` | 6.8, 6.11, 6.13, 6.17, 6.18, 6.19, 6.26 |
 | 1.3.4, 1.3.5, 3.1.2 | No orientation lock; `autocomplete` tokens; `lang="ar"` on original text | 3.2, 5, 6.2 |
 
 Automated (axe-core, Playwright) can check: contrast on rendered screens (re-run the token script after any hex change), names, roles, labels, landmarks and `lang` (NFR-09: 0 serious or critical on core screens), 44×44 bounding boxes, `scrollWidth` at 360×780, 390×844 and 1280×800 (**proposed** additions 320×640 and 768×1024, because contract §9 lists three viewports), keyboard tab order and Escape, computed outline on `:focus-visible`, `emulateMedia({ reducedMotion: 'reduce' })`, and screenshots of both directions and of the Uthmani mark string. Manual testing is needed for: screen readers in Arabic and English, 200 % zoom and text-spacing override, ring not clipped or hidden, mirrored icons and progress direction, mark rendering, real devices and browsers beyond Chromium (Safari iOS 17+, Samsung Internet, Firefox, Safari macOS), each labelled manual. Automated checks do not prove full WCAG compliance (NFR-09).
 
 ## 10. Open questions and assumptions for the owner at G1
 
-Decisions recorded from the coordinator on 4 October 2026 (accepted by the coordinator, not owner approvals; G1 approval of this file is still pending):
+**Status (D78, 4 October 2026):** G1 was granted, so the owner approved this file with the decisions, questions and assumptions below as recorded: Q3, Q4 and Q1 stand, Q2 is answered by the approval (light theme only), and nothing in this section is still open. The owner's only adjustment at G1 concerns screen S-08 and is specified in 6.26.
+
+Decisions recorded from the coordinator on 4 October 2026 (accepted by the coordinator and approved by the owner with G1, D78):
 
 - **Q3 Numerals, decided:** Arabic-Indic digits in the Arabic UI and Western digits in the English UI (3.4).
 - **Q4 Desktop navigation, decided:** side rail from 1024 px, bottom tab bar below (5, 6.6).
-- **Q1 Semantic colours, standing:** the proposed success, error and warning colours stand until G1 (2.2).
+- **Q1 Semantic colours, standing:** the proposed success, error and warning colours stand (2.2); approved with G1 (D78).
 
-Questions still open:
+Questions that were open at G1 (answered by the approval, D78: the defaults stand):
 
-1. **Q2 Dark mode.** Confirm that only the light theme is in scope (A1).
-2. **Q1 at G1.** The owner still approves, adjusts, or replaces the semantic colours (success deep teal-green #14654E, error crimson #A8322D, warning amber #8A5300, status only), or requires a blue-only treatment for success.
+1. **Q2 Dark mode.** Only the light theme is in scope (A1), as approved with G1.
+2. **Q1 at G1.** The semantic colours (success deep teal-green #14654E, error crimson #A8322D, warning amber #8A5300, status only) stand as proposed; the owner did not adjust them or ask for a blue-only treatment for success.
 
-Assumptions (for confirmation at G1 with the coordinator):
+Assumptions (confirmed by the owner's approval of G1, D78):
 
 - A1 Light theme only; no dark mode and no theme toggle.
 - A2 The type scale, religious text sizes, weights, spacing, sizes, content widths, intermediate breakpoints and motion values are proposals.

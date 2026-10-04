@@ -46,6 +46,13 @@ def test_settings_names_are_the_contract_names_plus_the_documented_additions() -
         "APP_VERSION",
         "QATRA_READY_RATE_PER_MIN",
         "QATRA_BODY_LIMIT_BYTES",
+        # per-client-IP rate classes (API-spec §1.8) and the proxy depth for the client address
+        "QATRA_RATE_PUBLIC_READ_PER_MIN",
+        "QATRA_RATE_ANONYMOUS_ENTRY_PER_MIN",
+        "QATRA_RATE_SESSION_READ_PER_MIN",
+        "QATRA_RATE_SESSION_WRITE_PER_MIN",
+        "QATRA_RATE_CHAT_WRITE_PER_MIN",
+        "QATRA_TRUSTED_XFF_DEPTH",
         # plan conversation (D75, Plan-conversation.md §2.5)
         "QATRA_OPENROUTER_FREE_REQUESTS_PER_DAY",
         "QATRA_OPENROUTER_FREE_REQUESTS_PER_MINUTE",

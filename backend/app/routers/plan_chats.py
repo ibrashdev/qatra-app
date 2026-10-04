@@ -1,7 +1,7 @@
 """Plan conversation endpoints E31-E34 (API-spec §4.10; Plan-conversation.md §2.3).
 
 Every mutation lists ``require_valid_origin`` before ``require_session`` and then the per-IP
-"Chat write" limiter (20 per client IP per minute). Bodies, goal text, messages and model
+"Chat write" limiter (``QATRA_RATE_CHAT_WRITE_PER_MIN``). Bodies, goal text, messages and model
 output are never logged here (API-spec §1.12). Handlers are synchronous: the model call blocks
 for up to 8 s, so they run in the framework's thread pool, not on the event loop.
 
@@ -12,7 +12,6 @@ endpoints answer ``503 unavailable`` (nothing is faked).
 
 from __future__ import annotations
 
-import threading
 from typing import Annotated
 from uuid import UUID
 
@@ -27,16 +26,13 @@ from app.contracts_plan_chat import (
     SendMessageRequest,
 )
 from app.dependencies import SessionContext, require_session, require_valid_origin
-from app.domain.rate_limit import SlidingWindowLimiter
 from app.errors import AppError, ErrorCode
-from app.routers.health import client_key
+from app.routers.health import ip_rate_limit
 from app.services.plan_chat import PlanChatService
 
 router = APIRouter(prefix="/api", tags=["plan-chats"])
 
-CHAT_WRITE_RATE_PER_MIN = 20  # configuration default (API-spec §1.8), not an approved number
 _NO_STORE = "no-store"
-_limiter_lock = threading.Lock()
 
 _ERRORS = {
     401: {"model": ErrorEnvelope, "description": "unauthenticated"},
@@ -56,18 +52,8 @@ def get_plan_chat_service(request: Request) -> PlanChatService:
     return service
 
 
-def enforce_chat_write_limit(request: Request) -> None:
-    """Chat write class: E31, E32 and E34, per client IP (the address is never logged)."""
-    limiter: SlidingWindowLimiter | None = getattr(request.app.state, "chat_write_limiter", None)
-    if limiter is None:
-        with _limiter_lock:
-            limiter = getattr(request.app.state, "chat_write_limiter", None)
-            if limiter is None:
-                limiter = SlidingWindowLimiter(CHAT_WRITE_RATE_PER_MIN)
-                request.app.state.chat_write_limiter = limiter
-    decision = limiter.check(client_key(request))
-    if not decision.allowed:
-        raise AppError(ErrorCode.throttled, retry_after=decision.retry_after_sec)
+# Chat write class: E31, E32 and E34.
+enforce_chat_write_limit = ip_rate_limit("chat_write_limiter", "QATRA_RATE_CHAT_WRITE_PER_MIN")
 
 
 Service = Annotated[PlanChatService, Depends(get_plan_chat_service)]

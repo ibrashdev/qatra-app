@@ -4,11 +4,12 @@
 -- run_local.sh right after that migration (the database then holds 0001-0005). Every
 -- "-- CHECK:" line starts one independent chunk; a chunk passes when psql finishes it
 -- without an error. Rows are synthetic placeholders created inside transactions that are
--- rolled back; the last chunk (concurrency over dblink) must commit for real and removes
--- its rows. Roles are exercised with SET ROLE (qa.as_user, qa.as_anon, qa.as_service,
--- qa.as_server); no Data API runs. Expected values are written out here from
--- docs/Database-schema.md v1.1 (§4.5, §5, §7, §8, §9, §11 `0005_rls_functions`, §12, §14),
--- not read back from the migration.
+-- rolled back; chunk 27 (concurrency over dblink) must commit for real and removes its
+-- rows (chunk 28 follows it and is rolled back again). Roles are exercised with SET ROLE
+-- (qa.as_user, qa.as_anon, qa.as_service, qa.as_server); no Data API runs. Expected values
+-- are written out here from docs/Database-schema.md v1.1 (§4.5, §5, §7, §8, §9, §11
+-- `0005_rls_functions`, §12, §14), not read back from the migration; chunk 28 follows
+-- API-spec E17 (a completed plan is refused with plan_not_active).
 
 -- CHECK: 01 policy inventory: every table of 0001-0004 has exactly the expected policies (names, commands, role authenticated); the other tables have none
 do $$
@@ -2325,3 +2326,92 @@ begin
   if exists (select 1 from pg_extension where extname = 'dblink') then raise exception 'dblink is still installed'; end if;
 end;
 $$;
+
+-- CHECK: 28 app_revise_plan refuses a completed plan with QT003 and the message plan_not_active (tested before the version and before any write), changes nothing, and revises the same plan again once it is not completed
+begin;
+select qa.make_fixture();
+select qa.make_users();
+select qa.make_plan(qa.id(1001), qa.id(901), 'active');
+select qa.make_plan(qa.id(1002), qa.id(901), 'completed');
+select qa.make_plan(qa.id(1003), qa.id(902), 'completed');
+-- QT003 is shared with invalid_state and QT002/P0002 have several causes: the message tells them apart
+create function pg_temp.expect_msg(p_sql text, p_sqlstate text, p_message text, p_label text)
+returns void
+language plpgsql
+as $f$
+begin
+  begin
+    execute p_sql;
+  exception when others then
+    if sqlstate = p_sqlstate and sqlerrm = p_message then
+      return;
+    end if;
+    raise exception 'FAIL [%]: expected SQLSTATE % with the message "%" but got % with "%"', p_label, p_sqlstate, p_message, sqlstate, sqlerrm;
+  end;
+  raise exception 'FAIL [%]: statement succeeded but SQLSTATE % was expected', p_label, p_sqlstate;
+end
+$f$;
+do $$
+declare
+  c_phases constant jsonb := '[{"ordinal":1,"section_refs":[1],"unit_range":{},"goal_size":10,"estimated_window":"[2026-10-05,2026-10-12)"}]';
+  c_bad_phases constant jsonb := '[{"ordinal":1,"section_refs":[],"unit_range":{},"goal_size":0,"estimated_window":"[2026-10-05,2026-10-12)"}]';
+  v_snap text;
+begin
+  v_snap := (select string_agg(id || ':' || status || ':' || current_version || ':' || session_minutes, ',' order by id) from public.master_plans) || '/' ||
+            (select count(*) from public.plan_versions) || '/' || (select count(*) from public.plan_phases);
+  perform qa.as_user(qa.id(901));
+
+  -- a completed plan, with the version it has
+  perform pg_temp.expect_msg(format($q$select public.app_revise_plan(%L, 1, '{"sectionOrdinals":[1]}', array['quran'], 'book', 5::smallint, null, '{}', 'x', '{}', date '2026-10-07', %L::jsonb)$q$, qa.id(1002), c_phases),
+                             'QT003', 'plan_not_active', 'a completed plan');
+  -- the status is tested before the version (retrying with the current version cannot help a completed plan)
+  perform pg_temp.expect_msg(format($q$select public.app_revise_plan(%L, 7, '{"sectionOrdinals":[1]}', array['quran'], 'book', 5::smallint, null, '{}', 'x', '{}', date '2026-10-07', %L::jsonb)$q$, qa.id(1002), c_phases),
+                             'QT003', 'plan_not_active', 'a completed plan with a stale version');
+  perform pg_temp.expect_msg(format($q$select public.app_revise_plan(%L, null, '{"sectionOrdinals":[1]}', array['quran'], 'book', 5::smallint, null, '{}', 'x', '{}', date '2026-10-07', %L::jsonb)$q$, qa.id(1002), c_phases),
+                             'QT003', 'plan_not_active', 'a completed plan without a version');
+  -- and before any write: phases that would break their own rule are never reached
+  perform pg_temp.expect_msg(format($q$select public.app_revise_plan(%L, 1, '{"sectionOrdinals":[1]}', array['quran'], 'book', 5::smallint, null, '{}', 'x', '{}', date '2026-10-07', %L::jsonb)$q$, qa.id(1002), c_bad_phases),
+                             'QT003', 'plan_not_active', 'a completed plan with unusable phases');
+  -- another account's completed plan is not found: its status is not revealed
+  perform pg_temp.expect_msg(format($q$select public.app_revise_plan(%L, 1, '{"sectionOrdinals":[1]}', array['quran'], 'book', 5::smallint, null, '{}', 'x', '{}', date '2026-10-07', %L::jsonb)$q$, qa.id(1003), c_phases),
+                             'P0002', 'plan_not_found', 'another account''s completed plan');
+  perform qa.as_owner();
+  if (select string_agg(id || ':' || status || ':' || current_version || ':' || session_minutes, ',' order by id) from public.master_plans) || '/' ||
+     (select count(*) from public.plan_versions) || '/' || (select count(*) from public.plan_phases) is distinct from v_snap then
+    raise exception 'a refused revision changed the plans, versions or phases';
+  end if;
+
+  -- a plan that is not completed is revised as before; its stale version is still QT002 and an unknown plan P0002
+  perform qa.as_user(qa.id(901));
+  if public.app_revise_plan(qa.id(1001), 1, '{"sectionOrdinals":[1]}', array['quran'], 'book', 5::smallint, null, '{}', 'x', '{}', date '2026-10-07', c_phases) <> 2 then
+    raise exception 'the active plan was not revised to version 2';
+  end if;
+  perform pg_temp.expect_msg(format($q$select public.app_revise_plan(%L, 1, '{"sectionOrdinals":[1]}', array['quran'], 'book', 5::smallint, null, '{}', 'x', '{}', date '2026-10-07', %L::jsonb)$q$, qa.id(1001), c_phases),
+                             'QT002', 'version_conflict', 'a stale version of an active plan');
+  perform pg_temp.expect_msg(format($q$select public.app_revise_plan(%L, 1, '{"sectionOrdinals":[1]}', array['quran'], 'book', 5::smallint, null, '{}', 'x', '{}', date '2026-10-07', %L::jsonb)$q$, qa.id(9999), c_phases),
+                             'P0002', 'plan_not_found', 'an unknown plan');
+
+  -- the status is read at every call: a plan that has just completed is refused, and revised again once it is paused again
+  perform qa.as_owner();
+  update public.master_plans set status = 'completed' where id = qa.id(1001);
+  perform qa.as_user(qa.id(901));
+  perform pg_temp.expect_msg(format($q$select public.app_revise_plan(%L, 2, '{"sectionOrdinals":[1]}', array['quran'], 'book', 5::smallint, null, '{}', 'x', '{}', date '2026-10-07', %L::jsonb)$q$, qa.id(1001), c_phases),
+                             'QT003', 'plan_not_active', 'the plan after it completed');
+  perform qa.as_owner();
+  if (select (status, current_version)::text from public.master_plans where id = qa.id(1001)) <> '(completed,2)' then
+    raise exception 'the refused revision of the plan that completed changed it';
+  end if;
+  update public.master_plans set status = 'paused' where id = qa.id(1001);
+  perform qa.as_user(qa.id(901));
+  if public.app_revise_plan(qa.id(1001), 2, '{"sectionOrdinals":[1]}', array['quran'], 'book', 5::smallint, null, '{}', 'x', '{}', date '2026-10-08', c_phases) <> 3 then
+    raise exception 'the plan was not revised again after it was paused';
+  end if;
+  perform qa.as_owner();
+  if (select (status, current_version)::text from public.master_plans where id = qa.id(1001)) <> '(paused,3)'
+     or (select count(*) from public.plan_versions where plan_id = qa.id(1001)) <> 3 then
+    raise exception 'the revised plan differs';
+  end if;
+  set constraints all immediate;
+  set constraints all deferred;
+end $$;
+rollback;

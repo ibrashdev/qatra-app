@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import ipaddress
+import threading
+from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Annotated
 
@@ -22,14 +25,71 @@ router = APIRouter(prefix="/api", tags=["health"])
 _NO_STORE = "no-store"
 
 
-def client_key(request: Request) -> str:
-    """Rate-limit key: the peer address as the server sees it.
+def _trusted_depth(request: Request) -> int:
+    # ``scope["app"]`` is absent when a bare ``Request`` is built (tests).
+    state = getattr(request.scope.get("app"), "state", None)
+    settings: Settings | None = getattr(state, "settings", None)
+    return settings.QATRA_TRUSTED_XFF_DEPTH if settings is not None else 0
 
-    Trusted-proxy handling of ``X-Forwarded-For`` on Render is verified at provisioning
-    (P2) and is not assumed here. The address is used in memory only and must never be
-    logged or returned.
+
+def forwarded_client(header: str, depth: int) -> str | None:
+    """The ``depth``-th entry from the right of an ``X-Forwarded-For`` value in canonical form
+    (an IPv4-mapped IPv6 address becomes IPv4), or ``None`` when the header has fewer entries or
+    the entry is not a plain IP address."""
+    entries = header.split(",")
+    if depth < 1 or len(entries) < depth:
+        return None
+    try:
+        address = ipaddress.ip_address(entries[-depth].strip())
+    except ValueError:
+        return None
+    if isinstance(address, ipaddress.IPv6Address):
+        if address.scope_id is not None:
+            return None
+        if address.ipv4_mapped is not None:
+            return str(address.ipv4_mapped)
+    return str(address)
+
+
+def client_key(request: Request) -> str:
+    """The client address behind ``QATRA_TRUSTED_XFF_DEPTH`` proxies: the key of every per-IP
+    limiter and the source of the throttle prefix.
+
+    Depth 0 is the peer address. Otherwise each trusted proxy appends the address it saw, so only
+    the entries counted from the right are believed: the left ones are client-written. A short
+    header or an entry that is not an IP falls back to the peer. Memory only: never log or return
+    the address.
     """
-    return request.client.host if request.client else "unknown"
+    peer = request.client.host if request.client else "unknown"
+    depth = _trusted_depth(request)
+    if depth < 1:
+        return peer
+    header = ",".join(request.headers.getlist("x-forwarded-for"))
+    return forwarded_client(header, depth) or peer
+
+
+_limiter_lock = threading.Lock()
+
+
+def ip_rate_limit(state_attr: str, setting_name: str) -> Callable[[Request], None]:
+    """A dependency that counts requests per client address in the limiter
+    ``app.state.<state_attr>``, created on first use with the limit of the setting
+    ``setting_name``. Routers of one rate class share an instance by using the same name."""
+
+    def enforce(request: Request) -> None:
+        limiter: SlidingWindowLimiter | None = getattr(request.app.state, state_attr, None)
+        if limiter is None:
+            with _limiter_lock:
+                limiter = getattr(request.app.state, state_attr, None)
+                if limiter is None:
+                    limit = getattr(get_settings(request), setting_name)
+                    limiter = SlidingWindowLimiter(limit)
+                    setattr(request.app.state, state_attr, limiter)
+        decision = limiter.check(client_key(request))
+        if not decision.allowed:
+            raise AppError(ErrorCode.throttled, retry_after=decision.retry_after_sec)
+
+    return enforce
 
 
 def enforce_ready_rate_limit(request: Request) -> None:
