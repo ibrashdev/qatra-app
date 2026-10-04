@@ -684,7 +684,7 @@ Policies use `(select auth.uid())` so that the planner evaluates it once per sta
 | `P-SRC` | a `published` edition uses the source | `sources` |
 | `P-TPL` | `generic_plan_templates.status = 'published'` | `generic_plan_templates` |
 
-`P-ED` reads `status = 'published'` only; whether `superseded` editions and older bank versions remain readable for pinned plans is OPEN-03.
+`P-ED` reads `status = 'published'` only; whether `superseded` editions and older bank versions remain readable for pinned plans is OPEN-03. Learner reads of content are limited by publication state only: the plan-scope and edition checks of D42 (every question, passage and event must lie inside the active plan's `target_scope` and edition) are validated by the service on each session, question and event (contract §7), not by RLS.
 
 ## 5. Roles, grants and access matrix
 
@@ -1462,7 +1462,7 @@ The memorization state per account, plan and passage (D41, D56, D64, D66; contra
 | `created_at` | timestamptz | no | `now()` | |
 | `updated_at` | timestamptz | no | `now()` | maintained by trigger |
 
-- **Checks (state consistency from contract §4; the transitions themselves belong to the domain policy):** `(status = 'confirmed') = (confirmed_at is not null)`; `confirmed_at` null or `first_confirmed_at` not null; `status <> 'needs_refresh'` or `first_confirmed_at` not null; `status` in (`reviewing`, `needs_refresh`) implies `review_stage` between 1 and 3 and `next_review_due` not null; `(initial_success_at is null) = (initial_learning_date is null)`; `status` in (`reviewing`, `confirmed`, `needs_refresh`) implies `initial_success_at` not null.
+- **Checks (state consistency from contract §4; the transitions themselves belong to the domain policy):** `(status = 'confirmed') = (confirmed_at is not null)`; `confirmed_at` null or `first_confirmed_at` not null; `status <> 'needs_refresh'` or `first_confirmed_at` not null; `status` in (`reviewing`, `needs_refresh`) implies `review_stage` between 1 and 3 (what is scheduled when stage 3 passes before every part is covered is not stated by contract §4, so `next_review_due` is deliberately not constrained); `(initial_success_at is null) = (initial_learning_date is null)`; `status` in (`reviewing`, `confirmed`, `needs_refresh`) implies `initial_success_at` not null.
 - **PK:** `(user_id, plan_id, passage_id)`. **FKs:** `(plan_id, user_id, edition_id)` to `master_plans (id, user_id, edition_id)` (class B, `ON DELETE CASCADE`); `(passage_id, edition_id)` to `passages (id, edition_id)` (class C, `RESTRICT`). **Unique:** none beyond the key.
 - **Indexes:** `(user_id, plan_id, next_review_due)` where `next_review_due` is not null — due and overdue reviews (replaces the `reviews (user_id, due_at)` index); `(passage_id)` — foreign-key support.
 - **RLS:** enabled · anon: none · authenticated: select, insert, update own rows (`P-OWN`; update excludes the key and `edition_id`) · qatra_server: none · service_role: none (revoked).
