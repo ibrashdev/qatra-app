@@ -4,14 +4,14 @@
 
 | ابدأ بالوثيقة | الغرض |
 |---|---|
-| [Decision-register.md](Decision-register.md) | القرارات الثابتة D01–D70 وأثر القرارات الأحدث |
+| [Decision-register.md](Decision-register.md) | القرارات الثابتة D01–D71 وأثر القرارات الأحدث |
 | [Readiness.tracker.md](Readiness.tracker.md) | حالات الاعتماد والأسئلة المتبقية والإجراء التالي |
 | [Programming-guide.md](Programming-guide.md) | خريطة المهمة إلى الوثائق والملفات المخططة؛ بداية أي مهمة برمجية |
 | [PRD.md](PRD.md) | النطاق والمتطلبات ومعايير القبول |
 | [UX.md](UX.md) | الشاشات والرحلات والحالات |
 | [Design-system.md](Design-system.md) | الهوية والألوان وقواعد الوضوح والصور المرجعية |
 | [Architecture-and-data.md](Architecture-and-data.md) | البيانات والحدود والخطط وعقود API |
-| [Implementation-contract.md](Implementation-contract.md) | عقد الواجهات المشتركة v1.1: حزمة المحتوى والجداول وواجهات API وقواعد الإتقان والجلسات والتخطيط والمصادقة والإعداد؛ قرارات D66–D69 معتمدة والمخرجات المعمارية المتبقية في المهمة التالية؛ لا يأذن بالتنفيذ |
+| [Implementation-contract.md](Implementation-contract.md) | عقد الواجهات المشتركة v1.2: حزمة المحتوى والجداول وواجهات API وقواعد الإتقان والجلسات والتخطيط والمصادقة والإعداد؛ قرارات D66–D69 معتمدة والمخرجات المعمارية المتبقية في المهمة التالية؛ لا يأذن بالتنفيذ |
 | [Authentication-and-privacy.md](Authentication-and-privacy.md) | الحساب والاسترجاع والبيانات وشروط الاستخدام |
 | [Content-and-sources.md](Content-and-sources.md) | النص والطبعات والصفحات والحقوق وسير الإعداد |
 | [Question-bank-rules.proposal.md](Question-bank-rules.proposal.md) | قواعد القرآن والحديث والفقه والعبادات ودور AI ومراجعة مدير المحتوى، الإصدار ٢، معتمدة في D69؛ QBR-04 إلى QBR-06 بلا أثر في هذا البناء (جزء عم والأربعون فقط) |

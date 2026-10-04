@@ -1,6 +1,6 @@
-# Qatra — Implementation Contract v1.1
+# Qatra — Implementation Contract v1.2
 
-Version 1.1 · 2026-10-04 · Asia/Dubai · Status: **Approved decisions (D66–D69); remaining architecture deliverables are the next task; implementation not yet authorized.** Owner: root coordinator.
+Version 1.2 · 2026-10-04 · Asia/Dubai · Status: **Approved decisions (D66–D69); remaining architecture deliverables are the next task; implementation not yet authorized.** Owner: root coordinator.
 
 This file is the single source of truth for **cross-package interfaces**: content bundle, database tables, API DTOs, mastery/session/planning rules, auth flow and configuration. It fills the remaining Needs Review/Needs Input details of the approved package (D01–D69) with concrete, implementable choices. Where it is silent, follow [Architecture-and-data.md](Architecture-and-data.md), [Programming-guide.md](Programming-guide.md) and the owning policy document. A worker that finds a contradiction or gap returns it to the coordinator instead of inventing a rule. Changes to this file are made by the coordinator only.
 
@@ -106,7 +106,7 @@ Migrations live in `supabase/migrations/` and are applied in order. Every table 
 
 ### 3.1 `0001_content.sql` (content worker)
 
-Tables per Architecture "المخطط المنطقي: المحتوى المشترك" with these concrete additions: `book_editions.edition_key text unique`, `book_editions.bank_version int`; `book_sections.kind text`, `title_ar`, `title_en`, `source_url`; `units.kind`, `units.source_url`, `units.token_spans jsonb` (the token array), `units.hadith_meta jsonb`; `edition_pages`/`unit_page_spans` exist but stay empty for web editions; new `passages(id, edition_id, bank_version, ordinal, section_id, path, start_ref, end_ref, word_count, reference, unique(edition_id,bank_version,path,ordinal))`; new `passage_parts(id, passage_id, edition_id, ordinal, start_ref, end_ref, word_count, unique(passage_id,ordinal))`; `lessons.passage_id`; `question_items(… type, variant, passage_id, covered_part_ids uuid[], token_refs jsonb, option_refs jsonb, correct_ref jsonb, context_refs jsonb …)`; `unit_embeddings(embedding vector(384))` created but not populated (D69: embeddings are postponed for the MVP, amending D37/D65 for the MVP only; the workflow's `embedded` step is skipped and D31 candidates come from normalized text matching inside one edition, §2.4); `content_jobs` as documented. RLS: `authenticated` may `select` content rows whose edition is `published` and not revoked; writes only via `service_role`. `create extension if not exists vector`.
+Tables per Architecture "المخطط المنطقي: المحتوى المشترك" with these concrete additions: `book_editions.edition_key text unique`, `book_editions.bank_version int`; `book_sections.kind text`, `title_ar`, `title_en`, `source_url`; `units.kind`, `units.source_url`, `units.token_spans jsonb` (the token array), `units.hadith_meta jsonb`; `edition_pages`/`unit_page_spans` exist but stay empty for web editions; new `passages(id, edition_id, bank_version, ordinal, section_id, path, start_ref, end_ref, word_count, reference, unique(edition_id,bank_version,path,ordinal))`; new `passage_parts(id, passage_id, edition_id, ordinal, start_ref, end_ref, word_count, unique(passage_id,ordinal))`; `lessons.passage_id`; `question_items(… type, variant, passage_id, covered_part_ids uuid[], token_refs jsonb, option_refs jsonb, correct_ref jsonb, context_refs jsonb …)`; `unit_embeddings(embedding vector(384))` created but not populated (D69: embeddings are postponed for the MVP, amending D37/D65 for the MVP only; the workflow's `embedded` step is skipped and D31 candidates come from normalized text matching inside one edition, §2.4); `content_jobs` as documented. RLS: `authenticated` may `select` content rows whose edition is `published` and not revoked; writes only via `service_role`. Anonymous read access is limited to published catalog metadata (books, edition metadata, sections); the exact grants will be designed in the architecture step (D71). `create extension if not exists vector`.
 
 ### 3.2 `0002_identity.sql` … `0005_rls_functions.sql` (backend worker)
 
@@ -279,7 +279,7 @@ interface RevalidationResult { status: OfflineStatus; currentPlanVersion: number
 | POST `/auth/logout` | — | 204, cookie cleared |
 | GET/PATCH `/me` | PATCH `{language?, timeZone?, sessionMinutes?, reminderSettings?}` | `Profile` (minutes/zone become `pendingSettings` for the next learning day) |
 | DELETE `/account` | `{password, confirm:'DELETE'}` | 204 |
-| GET `/catalog` | — | `{editions: CatalogEdition[]}` |
+| GET `/catalog` | — | `{editions: CatalogEdition[]}` — public, no session; metadata only (D71) |
 | POST `/plans/estimate` | `{editionId, targetScope, paths, sessionMinutes, preferredDate?, placementSessionId?}` | `{estimate, alternatives: Estimate[], reasonCode}` (no writes) |
 | POST `/plans` | `{editionId, targetScope, paths, order, sessionMinutes, preferredDate?, placementSessionId?, confirmedEstimate}` | 201 `Plan` (previous active plan → paused) |
 | POST `/plans/:id/revise` | `{expectedVersion, sessionMinutes?, preferredDate?, paths?}` | `Plan` or 409 |
