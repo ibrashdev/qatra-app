@@ -1,6 +1,6 @@
 # Qatra — UI design tokens and component specification
 
-> Version 1 · 4 October 2026 (Asia/Dubai) · Status: Draft — Needs Review (gate G1). Prepared by the Senior Product Designer role (Role 4) for the coordinator's review; extends Design-system.md v10 without changing its approved identity; nothing here is approved or implemented.
+> Version 1.1 · 4 October 2026 (Asia/Dubai) · Status: Draft — Needs Review (gate G1). Prepared by the Senior Product Designer role (Role 4) for the coordinator's review; extends Design-system.md v10 without changing its approved identity; nothing here is approved or implemented.
 
 ## 1. Authority and how to use
 
@@ -17,6 +17,7 @@ This file fixes the design system the frontend will implement and the Figma file
 - Naming: CSS custom properties use `--q-`. The Figma variable is the CSS name without `--q-`, first hyphen after the group becoming `/` (`--q-color-text-secondary` is `color/text-secondary`, `--q-space-16` is `space/16`). Figma collections: Color (one mode, Light), Space, Size, Radius, Typography (modes Arabic UI, English UI), Motion.
 - A row that lists several names and several values pairs them in order. Components read semantic tokens only; hex values live in the token file. Mapping into Tailwind is the frontend engineer's choice.
 - Fixed Arabic copy is quoted verbatim from [UX.md](UX.md); every other label is a **proposed** placeholder, and English counterparts belong to the copy deck.
+- Version 1.1 (4 October 2026) adds 6.18–6.25, the 480 px form column, the header language switch exception and the coordinator decisions in section 10, for the open points O-05, O-06 and O-22 of [UI-screens.md](UI-screens.md).
 - No decoration: no patterns, 3D water effects, certificates, leaderboards, translation toggle or AI toggle (D49, D51).
 
 ## 2. Colour tokens
@@ -166,9 +167,9 @@ Each row defines `-size`, `-lh` (line height) and `-weight` (for example `--q-te
 
 Religious text is larger than UI body with generous line height (approved direction); the three religious rows are **proposed**.
 
-### 3.4 Numerals and font loading (proposed)
+### 3.4 Numerals and font loading
 
-- Numerals (question Q3): the Arabic UI shows Arabic-Indic digits (٠–٩), matching the approved examples («٧/١٠ دقائق = ٧٠٪»); the English UI shows Western digits. One formatter serves both and must request the digit system explicitly (`ar-u-nu-arab`), since a bare `ar-AE` locale does not guarantee it. Username, password, recovery code and URLs always use Western digits, left to right; ayah and hadith numbers are shown as stored.
+- Numerals (decided, see section 10): the Arabic UI shows Arabic-Indic digits (٠–٩), matching the approved examples («٧/١٠ دقائق = ٧٠٪»); the English UI shows Western digits. One formatter serves both and must request the digit system explicitly (`ar-u-nu-arab`), since a bare `ar-AE` locale does not guarantee it. Username, password, recovery code and URLs always use Western digits, left to right; ayah and hadith numbers are shown as stored.
 - Cairo and Inter: `font-display: swap`, preload the active language's 400 file.
 - Amiri Quran and Amiri: `font-display: block`, preload the arabic file on routes that show original text; declare `@font-face` in our CSS pointing at the package files (Fontsource defaults to `swap`). Original text never renders in a fallback lacking the marks.
 - Font files belong to the offline shell ([PWA-design.md](PWA-design.md)); no network font requests.
@@ -184,13 +185,16 @@ Space scale (multiples of 4, mostly 8): `--q-space-4`, `-8`, `-12`, `-16`, `-24`
 | `--q-size-input-recall`, `--q-size-tile`, `--q-size-row`, `--q-size-appbar` | 56 px | Recall input; option tile; list row; top bar (minimums) |
 | `--q-size-tabbar`, `--q-size-rail` | 64 px, 240 px | Bottom bar (plus safe area); side rail |
 | `--q-size-checkbox`, `--q-size-progress`, `--q-size-badge` | 24, 8, 28 px | Checkbox box (in a 44 px target); track; chip |
+| `--q-size-form` | 480 px | Maximum width of a single-column form, centred; fluid below 560 px (1.1) |
+| `--q-size-textarea-min`, `--q-size-textarea-max` | 96, 168 px | Text area minimum and auto-grow maximum (6.19, 1.1) |
+| `--q-size-step-marker` | 24 px | Stage indicator marker (6.23, 1.1) |
 | `--q-icon-sm`, `-md`, `-lg`, `-xl` | 16, 20, 24, 32 px | Inline; buttons and banners; default and navigation; empty state |
 | `--q-border-width`, `--q-border-width-strong` | 1, 2 px | Default; selected, error, focus-within |
 | `--q-radius-sm`, `--q-radius-md` | 8, 12 px | Buttons, inputs, chips, tiles, badges, track; cards, banners, dialogs, toast |
 | `--q-radius-xs` | 4 px | Checkbox box only (**proposed** exception to the 8–12 px band) |
 | `--q-shadow-raised` | 0 2px 8px rgba(24, 59, 82, 0.16) | Toast and dialog only; cards, bars and rows have no shadow |
 
-Sizes other than target and the 8/12 px radii are **proposed**. Icons: simple line icons on a 24 px grid, 1.5 px stroke (2 px active or selected), `currentColor`, bundled locally; the icon set is left to the frontend plan. Z-order: sticky bars 10, toast 40, dialog 50, skip link 60. Content widths: reading column 640 px below 1024, 720 px from 1024; wide pages 960 px from 1280.
+Sizes other than target and the 8/12 px radii are **proposed**. Icons: simple line icons on a 24 px grid, 1.5 px stroke (2 px active or selected), `currentColor`, bundled locally; the icon set is left to the frontend plan. Z-order: sticky bars 10, toast 40, dialog 50, skip link 60. Content widths: reading column 640 px below 1024, 720 px from 1024; wide pages 960 px from 1280; forms use `--q-size-form`. Message bubbles are at most 85 % of the column (80 % from 768).
 
 ## 5. Breakpoints and layout grid (D67)
 
@@ -200,7 +204,7 @@ Sizes other than target and the 8/12 px radii are **proposed**. Icons: simple li
 | phone | 360–430 px | Primary, portrait first (design at 390×844); as floor | Bottom tab bar |
 | phone-large | 431–767 px | Single column, max 560 px, centred, 24 px margin | Bottom tab bar |
 | tablet | 768–1023 px | 8 columns, 24 px gutter, 32 px margin, reading column 640 px | Bottom tab bar |
-| rail | 1024 px and up | Rail 240 px plus 12 columns, 24 px gutter, 40 px margin | Side rail (**proposed**, Q4) |
+| rail | 1024 px and up | Rail 240 px plus 12 columns, 24 px gutter, 40 px margin | Side rail (accepted by the coordinator, section 10) |
 | desktop | 1280 px and up | Content max 960 px, reading column 720 px | Side rail |
 
 Breakpoint tokens (**proposed**): `--q-bp-tablet` 768, `--q-bp-rail` 1024, `--q-bp-desktop` 1280 px, in `min-width` queries only. The 24 px phone margin is kept at 320 px (272 px content) and every component fits it. Do not lock orientation or disable zoom; use `100dvh`, `viewport-fit=cover` and `env(safe-area-inset-*)` on bottom and sticky bars.
@@ -260,6 +264,8 @@ Box 24×24 px (radius xs, 2 px border) in a row at least 44 px high; the label i
 
 For session minutes (5, 10, 15), plan order («ترتيب الكتاب» default, «من الناس رجوعًا»; Quran edition only, D72) and the optional self-rating («لم أحفظ» / «بعضه» / «أغلبه»). Native radios in `role="radiogroup"` with a visible group label; equal-width segments at least 44 px high and 88 px wide (three fit in 272 px; longer labels stack). States by recipe: default, hover, focus-visible, selected, disabled, error (group message below). Arrow keys move the selection in the logical direction (Left is next in RTL); test both directions.
 
+Header language switch (exception, 1.1): two segments «العربية» and «EN» in a `radiogroup`, each at least 44×44 px instead of 88 px wide, so the switch fits beside the back control and the app name at 320 px; every other rule and state is as above. Each label carries its own `lang`; switching flips `lang` and `dir`, keeps the values entered and leaves focus on the switch.
+
 ### 6.5 Single-choice list and select (category, book, edition)
 
 Up to 5 options (the challenge sample) are a vertical list of radio rows, 56 px high, states by recipe; six or more use a native `<select>` styled as 6.2 (native pickers, RTL and screen-reader support). A category without material stays visible as a disabled row with visible text saying so (UX.md; copy owned by U1). Loading shows skeleton rows; errors show a message below.
@@ -268,7 +274,7 @@ Up to 5 options (the challenge sample) are a vertical list of radio rows, 56 px 
 
 Tab bar (below 1024 px): fixed bottom, 64 px plus `env(safe-area-inset-bottom)`, fill surface, 1 px divider on its top edge, four equal items (target at least 44 px, 80 px wide at 320 px): «اليوم»، «الألعاب»، «التقدم»، «الإعدادات» (English **proposed**: Today, Games, Progress, Settings), 24 px icon above a `--q-text-caption` label. Item states: default (icon stroke 1.5, label text-secondary), hover (fill selection), focus-visible (ring inside the item, negative offset), active (icon stroke 2, icon and label primary-deep, 3 px top indicator in primary, `aria-current="page"`); never disabled, the missing-plan state is explained inside the screen.
 
-Side rail (1024 px and up, **proposed**): same items and labelled `nav`, vertical, 240 px at the start edge, 48 px items, app name and droplet mark on top, active item fill selection with a 3 px indicator at the start edge. Top app bar: 56 px plus top safe area in standalone mode, fill bg, no shadow, a 1 px divider when content scrolls; back control (icon button) at the start edge pointing to it; title `--q-text-title` start-aligned, wrapping to two lines rather than clipping; actions at the end edge.
+Side rail (1024 px and up): same items and labelled `nav`, vertical, 240 px at the start edge, 48 px items, app name and droplet mark on top, active item fill selection with a 3 px indicator at the start edge. Top app bar: 56 px plus top safe area in standalone mode, fill bg, no shadow, a 1 px divider when content scrolls; back control (icon button) at the start edge pointing to it; title `--q-text-title` start-aligned, wrapping to two lines rather than clipping; actions at the end edge.
 
 ### 6.7 Card and list row
 
@@ -394,6 +400,116 @@ Appears after an answer as a polite `role="status"` region without moving focus;
 
 Original text inside the block is `--q-color-text` on the tint (at least 10.28:1). Correctness is never colour alone.
 
+### 6.18 Message bubble (plan conversation)
+
+Added in 1.1 for [UI-screens.md](UI-screens.md) S-34. Anatomy: author label (icon and name, `--q-text-caption`, text-secondary), then the bubble; body `--q-text-body`, padding 12 px 16 px, radius md. Assistant bubbles sit at the start edge, learner bubbles at the end edge (logical, so they mirror in LTR); at most 85 % of the column (80 % from 768 px); the plan card (6.21) is full width. The thread is `role="log"`; a new assistant message is announced politely. Bubbles are not interactive (no hover, active or disabled states); the script may focus one (`tabindex="-1"`) and then the focus ring applies. Never shown: timestamps, avatars, typing animation, reactions, an assistant switch, a model name.
+
+| Variant (`kind`) | Fill and border | Icon | Notes |
+|---|---|---|---|
+| Learner message | fill selection, no border | none | `dir="auto"`; a quick reply shows its label |
+| Assistant text | fill surface, 1 px divider, text `--q-color-text` | none | Server text as received |
+| `refusal` | as assistant text | info, `--q-color-info-border`, start edge | Fixed copy from UI-screens c9; neutral, never an error tone |
+| `redirect` | as assistant text | info | Fixed copy (UI-screens c10) |
+| `fallback` | as assistant text | info | Calm message once per conversation (UI-screens c11); never an error and never a banner |
+
+| State | Appearance |
+|---|---|
+| Sending | the learner bubble shows at once; below it a status line (loader icon, `role="status"`) in text-secondary; the loader is a static icon under reduced motion |
+| Send failed | the learner bubble stays; below it an error line (alert-circle, error-text) and a tertiary retry button of at least 44 px; the text is kept |
+| Loading, success | not used |
+
+Contrast: `--q-color-text` on surface 11.76 and on selection 10.48; error-text on page and surface at least 5.93 (Table 3).
+
+### 6.19 Text area with counter
+
+Added in 1.1 (UI-screens S-08 goal box, S-34 composer). Extends 6.2: visible label above, field, then one line with the helper at the start edge and the counter at the end edge. Field: minimum height 96 px (`--q-size-textarea-min`), grows with its content up to 168 px (`--q-size-textarea-max`) and then scrolls inside; the composer variant starts at one line (48 px) and may grow to the same maximum. Padding 12 px 16 px, radius sm, `--q-text-body`, `dir="auto"`, `autocomplete="off"`; no `maxlength` (pasting is never blocked and text is never truncated). Counter `{n}/500` in `<bdi>`, `--q-text-small`, tabular figures, digits per 3.4; limit 500 characters, counted as the server counts. The counter and helper are in `aria-describedby`; the counter itself is not a live region. A hidden polite region announces only at 450 and at 500.
+
+| State | Appearance |
+|---|---|
+| Default, hover, focus-visible, filled | as 6.2; counter text-secondary |
+| Near the limit (450 to 500) | counter in warning-text with an alert-triangle icon (6.33 on surface, 6.02 on page); field unchanged |
+| Over the limit (above 500) | recipe Error on the field; counter in error-text with an alert-circle icon; an error message states the limit; nothing is cut |
+| Disabled (demo accounts) | fill disabled, text-secondary, `aria-disabled` and still in tab order, with a Notice under the label stating why |
+| Sending (composer) | field kept, send button `aria-disabled` and Loading |
+
+Send button (composer): icon button 44×44 px at the end edge inside the composer, send arrow that mirrors in RTL, `aria-label` in the UI language (**proposed** «إرسال»). The restore action («استعادة الجملة المقترحة», UI-screens) is a tertiary button of at least 44 px under the field, shown only after a manual edit.
+
+### 6.20 Quick-reply chip row
+
+Added in 1.1 (UI-screens c12). Interactive chips: the 6.11 chip grown to a 44 px target (minimum 44 px high and wide), padding-inline 16 px, radius sm, label `--q-text-body-compact` weight 600; the label wraps to two lines rather than being cut. The row wraps with 8 px gaps in both directions and sits in a `role="group"` named by the screen (UI-screens c12 «اختصارات التعديل»). Chips are shown exactly as received and in the received order. **One tab stop** (roving tabindex): arrow keys move along DOM order in the logical direction (Left is next in RTL), Home and End jump, Enter or Space activates. A chip is an action, not a toggle, so it has no selected state.
+
+| State | Chip |
+|---|---|
+| Default | recipe Default |
+| Hover, pressed | recipes Hover and Pressed |
+| Focus-visible | focus ring around the chip (offset 2 px, not clipped by the row) |
+| Disabled (assistant replying, demo limits) | fill disabled, text-secondary, `aria-disabled` and still reachable by arrows |
+| Loading, error, success | not used; the reply and its failure appear in the thread (6.18) |
+
+### 6.21 Plan card with six labelled sections
+
+Added in 1.1 (UI-screens P-13, S-11, S-12, S-13, S-34). It is the 6.7 card (fill surface, 1 px divider, radius md, padding 16 px, no shadow). Anatomy: a header row with the proposal label («الاقتراح {n}») and a status chip, then six pairs, always in this order with these exact labels: «الهدف الكلي»، «الزمن الكلي»، «الزمن اليومي»، «المراحل»، «المراجعات»، «الخطوة التالية». Pair label `--q-text-section`, text `--q-text-body-compact`, `--q-space-12` between pairs, dates and numbers printed as received in the digits of 3.4 (durations such as «٩:٠٠» in `<bdi dir="ltr">`). Hosts: in the conversation one `dl` (`dt` label, `dd` text, `dd` margin-inline-start 0); on the plan screens a `section` with an `h2` per pair. A screen may omit a pair (S-11 has no «الزمن الكلي») but never reorders or renames. No percentage, remaining time or celebration is shown.
+
+| State | Card |
+|---|---|
+| Current | chip «الحالي» (status chip, text-accent on selection) |
+| Earlier | collapsed disclosure (6.25), chip «سابق» (text on disabled), no actions |
+| Loading | six skeleton pairs after 300 ms (6.14), `aria-busy` |
+| Stale | the card is replaced by the newer one; a Warning banner (6.8) outside the card says so |
+| Hover, active, disabled, error | not used (the card is not a control; errors appear in banners) |
+
+### 6.22 Bottom-sheet presentation of the dialog
+
+Added in 1.1 (UI-screens P-12, leave and pause sheets). The 6.9 `<dialog>` below 768 px: docked to the bottom edge, full viewport width, margin 0, top corners `--q-radius-md` and square bottom corners, fill surface, padding 24 px with `env(safe-area-inset-bottom)` added below, maximum height `100dvh` minus 48 px with internal scroll, `--q-shadow-raised`, `--q-color-scrim` backdrop. From 768 px it is the centred dialog of 6.9 (up to 400 px). No drag handle and no swipe is required; if a swipe-to-dismiss is added later, the buttons remain (2.5.7). Buttons stack, full width, primary first.
+
+| Rule | Leave or pause sheet |
+|---|---|
+| Initial focus and Escape | the safe action («continue» or «cancel»), which is the primary button on top; leaving is the secondary button, not destructive in style |
+| Backdrop click | acts as the safe action (it loses nothing) |
+| Focus on close | returns to the opener |
+| Motion | slides up over `--q-duration-slow` with `--q-ease-standard`; instant under reduced motion |
+
+States: closed, open, submitting (the leaving action in Loading, the rest inert), error (banner inside the sheet, which stays open).
+
+### 6.23 Steps progress variants
+
+Added in 1.1 (UI-screens S-09, S-19). Both are progress of steps, never time, and are never mixed with the daily indicator (6.10); no countdown and no percent figure.
+
+Question count («السؤال {k} من {n}»): the 6.10 track (8 px, fill disabled, radius sm) with the fill in primary growing from the start edge, equal to answered questions divided by n (so the last question shows (n−1)/n and the done step shows full; **proposed**). `role="progressbar"`, `aria-valuemin="0"`, `aria-valuemax` n, `aria-valuenow` answered, `aria-valuetext` the visible text, which is always shown above the track in `--q-text-small`. Fill changes over `--q-duration-slow`, instant under reduced motion.
+
+Stage indicator (session: «مراجعة»، «جديد»، «اختبار»; the drills belong to «جديد», so there are three stages, not four): a non-interactive `ol` of equal items, each a 24 px marker with a `--q-text-caption` label beneath, joined by 2 px connectors; it renders the stages the screen passes (two or three). Never focusable.
+
+| State | Marker and label |
+|---|---|
+| Done | fill primary with a white check icon (4.77), label text, connector primary; hidden text «مكتملة» (**proposed**) |
+| Current | `aria-current="step"`, fill selection, 2 px border-selected, step number in text-accent, label primary-deep weight 600 |
+| Upcoming | fill surface, 1 px border (3.16 on page), step number in text-secondary, label text-secondary, connector divider |
+
+### 6.24 Passage highlight in the original-text block
+
+Added in 1.1 (UI-screens S-19 learn step). Inside the 6.12 block the whole unit is shown and the range of today's passage is wrapped in `<mark>`: background `--q-color-selection`, text colour unchanged (`--q-color-text`, 10.48 on selection), no bold, underline, padding or border that could move or cover letters or marks, `box-decoration-break: clone`. Line height stays at the religious-text value so the fill is continuous. Because the fill is only 1.12:1 against the reading surface, the highlight is never the only cue: a legend line («المظلل هو مقطع اليوم.», `--q-text-small`, text-secondary) sits with the block, and the screen spec names the passage by its reference. Assistive-technology exposure of `<mark>` varies, so it is checked manually with screen readers.
+
+| State | Appearance |
+|---|---|
+| No highlight | block as 6.12, no legend |
+| Highlighted | the range filled, legend shown |
+| Hidden (practice mode) | the whole block, highlight included, removed from the DOM and accessibility tree |
+| Loading, error | as 6.12 |
+
+### 6.25 Disclosure row (accordion)
+
+Added in 1.1 (UI-screens S-07 section lists, S-34 earlier proposals). Native `<details>` and `<summary>`; the summary is the 6.7 list row: at least 56 px, padding-inline 16 px, label at the start edge in `--q-text-body` with its count in the label («الأقسام (٣٧)»), the chevron at the end edge, 1 px divider between rows. The chevron is vertical (down when closed, up when open) and does not mirror in RTL. Enter or Space toggles; the expanded state is the native one. Content rows inside are text and are not focusable. No height animation (instant), the open state is not remembered between visits.
+
+| State | Summary row |
+|---|---|
+| Default | fill surface |
+| Hover | fill selection |
+| Focus-visible | focus ring inset (offset -2 px) |
+| Active | fill selection, label primary-deep |
+| Expanded | chevron up, content shown below with the same divider rule |
+| Loading | skeleton row (6.14) |
+| Disabled, error, success | not used |
+
 ## 7. Focus, keyboard and screen reader
 
 - Focus ring: `outline: 2px solid var(--q-color-focus); outline-offset: 2px` on `:focus-visible` for every focusable element (3:1 or better on every background, Table 4); `outline` survives forced-colors mode; flush elements (rows, tab items) use a negative offset so the ring is not clipped. Never remove the outline without an equivalent.
@@ -403,7 +519,7 @@ Original text inside the block is `--q-color-text` on the tint (at least 10.28:1
 - Focus not obscured (2.4.11): sticky app bar, tab bar and action bars are reflected in `scroll-padding-block-start` and `-end` so a focused control is never fully hidden; test at 320×568 and at 200 % zoom.
 - `aria-live`: errors `role="alert"`; success, info, warning, wake-up, sync and feedback `role="status"` (polite); toast polite and atomic. Do not announce progress on every event; announce milestones, such as reaching 100 % of the daily goal, once.
 - Labels in the UI language (Arabic and English) on every control, icon button, progress bar and status; names are never hard-coded; visible label text is contained in the accessible name (2.5.3). `lang` on the root and `lang="ar"` on original text.
-- Roving tabindex only where a group is one widget (radio groups, option tiles); word-order chips are ordinary buttons in tab order. Hidden practice text is removed from the accessibility tree (6.12).
+- Roving tabindex only where a group is one widget (radio groups, option tiles, the quick-reply row); word-order chips are ordinary buttons in tab order. Hidden practice text is removed from the accessibility tree (6.12).
 
 ## 8. Motion
 
@@ -433,24 +549,28 @@ Criteria mapped to components; applies to the D67 matrix only, and support is cl
 | 2.4.7 Focus visible | 2 px ring, offset 2 px | 7 |
 | 2.4.11 Focus not obscured (minimum) | Scroll padding for sticky bars | 6.6, 7 |
 | 2.5.7 Dragging movements | No drag-only action; tap path always present | 6.16 |
-| 2.5.8 Target size (minimum) | 44×44 px approved (stricter than 24 px), 8 px spacing; consent links get 44 px lines | 6.1–6.6 |
+| 2.5.8 Target size (minimum) | 44×44 px approved (stricter than 24 px), 8 px spacing; consent links get 44 px lines | 6.1–6.6, 6.19–6.22, 6.25 |
 | 3.2.6 Consistent help | No help mechanism specified; if one is added keep its place fixed | open |
 | 3.3.1, 3.3.2, 3.3.3 Errors and labels | Visible labels, error at the field with icon, no values echoed | 6.2, 6.3, 6.8 |
 | 3.3.7 Redundant entry | Never ask again for data given in the same flow; password confirmation is allowed (security exception) | 6.2, 6.15 |
 | 3.3.8 Accessible authentication (minimum) | Paste and password managers allowed, no cognitive test; recovery code copy, paste and download allowed | 6.2, 6.15 |
-| 4.1.3 Status messages | `role="status"` and `role="alert"` | 6.8, 6.11, 6.13, 6.17 |
+| 4.1.3 Status messages | `role="status"` and `role="alert"` | 6.8, 6.11, 6.13, 6.17, 6.18, 6.19 |
 | 1.3.4, 1.3.5, 3.1.2 | No orientation lock; `autocomplete` tokens; `lang="ar"` on original text | 3.2, 5, 6.2 |
 
 Automated (axe-core, Playwright) can check: contrast on rendered screens (re-run the token script after any hex change), names, roles, labels, landmarks and `lang` (NFR-09: 0 serious or critical on core screens), 44×44 bounding boxes, `scrollWidth` at 360×780, 390×844 and 1280×800 (**proposed** additions 320×640 and 768×1024, because contract §9 lists three viewports), keyboard tab order and Escape, computed outline on `:focus-visible`, `emulateMedia({ reducedMotion: 'reduce' })`, and screenshots of both directions and of the Uthmani mark string. Manual testing is needed for: screen readers in Arabic and English, 200 % zoom and text-spacing override, ring not clipped or hidden, mirrored icons and progress direction, mark rendering, real devices and browsers beyond Chromium (Safari iOS 17+, Samsung Internet, Firefox, Safari macOS), each labelled manual. Automated checks do not prove full WCAG compliance (NFR-09).
 
 ## 10. Open questions and assumptions for the owner at G1
 
-Questions:
+Decisions recorded from the coordinator on 4 October 2026 (accepted by the coordinator, not owner approvals; G1 approval of this file is still pending):
 
-1. **Q1 Semantic colours.** The approved palette has no success, error or warning colour. Proposed, for status only: success deep teal-green #14654E, error crimson #A8322D, warning amber #8A5300. Approve, adjust, or require a blue-only treatment for success (icon and phrase on blue tokens)?
-2. **Q2 Dark mode.** Confirm that only the light theme is in scope (A1).
-3. **Q3 Numerals.** Arabic-Indic digits in the Arabic UI and Western digits in the English UI (proposed, matches the approved examples), or Western digits in both?
-4. **Q4 Desktop navigation.** Side rail from 1024 px (proposed), or the bottom tab bar at every width?
+- **Q3 Numerals, decided:** Arabic-Indic digits in the Arabic UI and Western digits in the English UI (3.4).
+- **Q4 Desktop navigation, decided:** side rail from 1024 px, bottom tab bar below (5, 6.6).
+- **Q1 Semantic colours, standing:** the proposed success, error and warning colours stand until G1 (2.2).
+
+Questions still open:
+
+1. **Q2 Dark mode.** Confirm that only the light theme is in scope (A1).
+2. **Q1 at G1.** The owner still approves, adjusts, or replaces the semantic colours (success deep teal-green #14654E, error crimson #A8322D, warning amber #8A5300, status only), or requires a blue-only treatment for success.
 
 Assumptions (for confirmation at G1 with the coordinator):
 
