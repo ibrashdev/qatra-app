@@ -20,7 +20,8 @@ export function createApiRuntime(options: { mode?: ApiMode; fetch?: typeof fetch
   const monitor = new RequestMonitor();
   const client = createApiClient({
     monitor,
-    fetch: options.fetch ?? (mode === "mock" ? createMockFetch() : undefined),
+    // The mock starts as a visitor; the synthetic accounts in mock/fixtures.ts sign in through the login screen.
+    fetch: options.fetch ?? (mode === "mock" ? createMockFetch({ scenario: { signedIn: false } }) : undefined),
   });
   const api = createEndpoints(client);
   const wakeUp = new WakeUpController({ probe: (signal) => probeHealth(api, signal) });

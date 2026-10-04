@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { createApiClient } from "@/lib/api/client";
 import { createEndpoints } from "@/lib/api/endpoints";
 import { ApiError, ConnectivityError, isSessionEnded } from "@/lib/api/errors";
-import { createMockFetch, mockCatalog, mockProfile, mockToday, mockTodayWithoutPlan } from "@/lib/api/mock";
+import { createMockFetch, MOCK_LOGINS, MOCK_PASSWORD, mockCatalog, mockProfile, mockToday, mockTodayWithoutPlan } from "@/lib/api/mock";
 import { createApiRuntime } from "@/lib/api/runtime";
 import type { CatalogEdition, Profile, Today } from "@/lib/api/types";
 import { resolveApiMode } from "@/lib/config";
@@ -88,6 +88,71 @@ describe("mock layer: handlers for E01, E11, E14 and E18", () => {
   });
 });
 
+describe("mock layer: E04 POST /api/auth/login with synthetic accounts", () => {
+  const login = (api: ReturnType<typeof mockApi>["api"], username: string, password = MOCK_PASSWORD) => api.login({ username, password });
+  const failure = async (promise: Promise<unknown>) => (await promise.catch((e: unknown) => e)) as ApiError;
+
+  it("answers 200 with a profile and the consent flag, and signs the mock in", async () => {
+    const { api } = mockApi({ latencyMs: 0, scenario: { signedIn: false } });
+    expect(isSessionEnded(await failure(api.me()))).toBe(true);
+    await expect(login(api, "sample_user_01")).resolves.toEqual({ profile: mockProfile, reconsentRequired: false });
+    await expect(api.me()).resolves.toEqual(mockProfile);
+    await expect(api.today()).resolves.toEqual(mockToday);
+  });
+
+  it("normalises the name like the server: NFKC, Latin letters lowercased", async () => {
+    const { api } = mockApi({ latencyMs: 0, scenario: { signedIn: false } });
+    await expect(login(api, "Sample_User_01")).resolves.toMatchObject({ reconsentRequired: false });
+  });
+
+  it("asks for consent with reconsentRequired, and leaves an account without a plan with an empty E18", async () => {
+    const { api } = mockApi({ latencyMs: 0, scenario: { signedIn: false } });
+    await expect(login(api, "reconsent_user_01")).resolves.toMatchObject({ reconsentRequired: true });
+    await expect(login(api, "new_user_01")).resolves.toMatchObject({ reconsentRequired: false });
+    expect((await api.today()).plan).toBeNull();
+  });
+
+  it("answers invalid_credentials for a wrong password and for an unknown name alike, and stays signed out", async () => {
+    const { api } = mockApi({ latencyMs: 0, scenario: { signedIn: false } });
+    for (const call of [login(api, "sample_user_01", "not the passphrase"), login(api, "nobody_here_01")]) {
+      const error = await failure(call);
+      expect(error).toBeInstanceOf(ApiError);
+      expect([error.status, error.code]).toEqual([401, "invalid_credentials"]);
+    }
+    expect(isSessionEnded(await failure(api.me()))).toBe(true);
+  });
+
+  it.each([
+    ["throttled_user_01", 429, "throttled", 20],
+    ["locked_user_01", 429, "throttled", 900],
+    ["unavailable_user_01", 503, "unavailable", null],
+    ["internal_user_01", 500, "internal", null],
+    ["origin_user_01", 403, "forbidden_origin", null],
+  ] as const)("%s answers %i %s whatever the password is", async (username, status, code, retryAfterSec) => {
+    const { api } = mockApi({ latencyMs: 0, scenario: { signedIn: false } });
+    const error = await failure(login(api, username, "anything"));
+    expect([error.status, error.code, error.retryAfterSec]).toEqual([status, code, retryAfterSec]);
+    expect(isSessionEnded(await failure(api.me()))).toBe(true);
+  });
+
+  it("rejects a body whose fields are not strings with validation_error", async () => {
+    const { client } = mockApi({ latencyMs: 0 });
+    const error = await failure(client.post("/auth/login", { username: 1 }));
+    expect([error.status, error.code]).toEqual([422, "validation_error"]);
+    expect(error.details).toEqual({
+      fields: [
+        { field: "username", rule: "invalid_type" },
+        { field: "password", rule: "invalid_type" },
+      ],
+    });
+  });
+
+  it("names every synthetic account as such and shares no real secret", () => {
+    for (const name of MOCK_LOGINS.keys()) expect(name).toMatch(/^[a-z]+(_[a-z]+)*_01$/);
+    expect(MOCK_PASSWORD).toBe("synthetic passphrase for docs only");
+  });
+});
+
 describe("mock data is synthetic", () => {
   const serialized = JSON.stringify({ mockProfile, mockCatalog, mockToday });
 
@@ -116,6 +181,9 @@ describe("API mode (NEXT_PUBLIC_API_MODE)", () => {
 
   it("builds a runtime whose client talks to the mock layer in mock mode and to fetch in live mode", async () => {
     const mock = createApiRuntime({ mode: "mock" });
+    // The mock starts as a visitor: the login screen is the way in.
+    expect(isSessionEnded(await mock.api.me().catch((e: unknown) => e))).toBe(true);
+    await mock.api.login({ username: "sample_user_01", password: MOCK_PASSWORD });
     await expect(mock.api.me()).resolves.toEqual(mockProfile);
 
     const fetchSpy = vi.fn<typeof fetch>(async () => new Response(JSON.stringify(mockProfile), { status: 200 }));

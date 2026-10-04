@@ -3,19 +3,45 @@ import { expect, NAV_NAME, TAB_NAMES, test, VIEWPORTS } from "./fixtures";
 test.describe("direction, language and the four tabs (Arabic default)", () => {
   test.use({ viewport: VIEWPORTS.phone });
 
-  test("/ redirects to /login, which is a placeholder in the public shell", async ({ page }) => {
+  test("/ redirects to /login, the login screen in the public shell", async ({ page }) => {
     const response = await page.goto("/");
     expect(new URL(page.url()).pathname).toBe("/login");
     expect(response?.ok()).toBe(true);
     await expect(page.locator("html")).toHaveAttribute("lang", "ar");
     await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("الدخول");
-    await expect(page.getByText("هذه الشاشة لم تُبنَ بعد، وستصل في دفعة لاحقة.")).toBeVisible();
-    // A placeholder, not the login screen: no field and no submit button.
-    await expect(page.getByRole("textbox")).toHaveCount(0);
-    await expect(page.getByRole("button")).toHaveCount(0);
+    await expect(page.getByText("هذه الشاشة لم تُبنَ بعد، وستصل في دفعة لاحقة.")).toHaveCount(0);
+    await expect(page.getByLabel("اسم المستخدم")).toBeVisible();
+    await expect(page.getByLabel("كلمة المرور", { exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "دخول" })).toBeVisible();
     await expect(page).toHaveTitle("الدخول · قطرة غيث");
     await expect(page.getByRole("navigation")).toHaveCount(0);
+  });
+
+  test("the register and recovery routes are placeholders in the public shell until their screens arrive", async ({ page }) => {
+    for (const [path, name] of [
+      ["/register", "إنشاء الحساب"],
+      ["/recovery", "استرجاع الحساب"],
+    ] as const) {
+      await page.goto(path);
+      await expect(page.getByRole("heading", { level: 1 })).toHaveText(name);
+      await expect(page.getByText("هذه الشاشة لم تُبنَ بعد، وستصل في دفعة لاحقة.")).toBeVisible();
+      await expect(page.getByRole("radiogroup", { name: "اللغة" })).toBeVisible();
+      await expect(page.getByRole("navigation")).toHaveCount(0);
+    }
+  });
+
+  test("the consent and start routes are placeholders in the focus shell: no switch, no tab bar", async ({ page }) => {
+    for (const [path, name] of [
+      ["/consent", "موافقة جديدة على الشروط"],
+      ["/start", "ما هي خطتك؟"],
+    ] as const) {
+      await page.goto(path);
+      await expect(page.getByRole("heading", { level: 1 })).toHaveText(name);
+      await expect(page.getByText("هذه الشاشة لم تُبنَ بعد، وستصل في دفعة لاحقة.")).toBeVisible();
+      await expect(page.getByRole("radiogroup", { name: "اللغة" })).toHaveCount(0);
+      await expect(page.getByRole("navigation")).toHaveCount(0);
+    }
   });
 
   test("the shell renders dir=rtl with the four tabs, today first at the start edge (the right)", async ({ page }) => {
@@ -154,11 +180,13 @@ test.describe("navigation and focus", () => {
     await page.getByRole("link", { name: "قطرة غيث" }).first().click();
     await expect(page).toHaveURL(/\/today$/);
 
-    await page.goto("/login");
+    // The public screens that have no lockup of their own show it in the header. The login page carries it in the page instead.
+    await page.goto("/register");
     await page.getByRole("link", { name: "قطرة غيث" }).click();
     // The public home is / until the catalog ships, and / leads to /login.
     await expect(page).toHaveURL(/\/login$/);
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("الدخول");
+    await expect(page.getByRole("link", { name: "قطرة غيث" })).toHaveCount(0);
   });
 
   test("the side rail opens each destination too, in English", async ({ page }) => {

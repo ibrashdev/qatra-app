@@ -1,4 +1,7 @@
-// Shell strings only. Arabic is verbatim where docs/UX.md or UI-tokens fix it; the rest is proposed copy (UI-tokens A7), so English wording is not sourced.
+// Shell strings, plus the catalogs of the screens built so far (auth-messages.ts, form-messages.ts).
+// Arabic is verbatim where docs/UX.md, UI-tokens or UI-screens fix it; the rest is proposed copy (UI-tokens A7), so English wording is not sourced.
+import { authAr, authEn, type AuthMessages } from "./auth-messages";
+import { formAr, formEn, type FormMessages } from "./form-messages";
 
 export type Locale = "ar" | "en";
 export type Direction = "rtl" | "ltr";
@@ -31,10 +34,13 @@ export interface UiMessages {
   back: string;
   backTo: (destination: string) => string;
   placeholder: { notBuilt: string };
-  screens: { login: string };
+  // Screen names: the H1 and the document title. Register, recovery, consent and start are still placeholders.
+  screens: { login: string; register: string; recovery: string; consent: string; start: string };
   notFound: { title: string; body: string; action: string };
   error: { title: string; retry: string };
   server: { waking: string; retry: string; ready: string; busy: string };
+  form: FormMessages;
+  auth: AuthMessages;
 }
 
 const ar: UiMessages = {
@@ -53,7 +59,13 @@ const ar: UiMessages = {
   back: "رجوع",
   backTo: (destination) => `رجوع إلى ${destination}`,
   placeholder: { notBuilt: "هذه الشاشة لم تُبنَ بعد، وستصل في دفعة لاحقة." },
-  screens: { login: "الدخول" },
+  screens: {
+    login: "الدخول",
+    register: "إنشاء الحساب",
+    recovery: "استرجاع الحساب",
+    consent: "موافقة جديدة على الشروط",
+    start: "ما هي خطتك؟",
+  },
   notFound: {
     title: "الصفحة غير موجودة",
     body: "لم نعثر على هذه الصفحة.",
@@ -66,6 +78,8 @@ const ar: UiMessages = {
     ready: "الخادم جاهز. يمكنك المحاولة الآن.",
     busy: "جارٍ التحميل",
   },
+  form: formAr,
+  auth: authAr,
 };
 
 const en: UiMessages = {
@@ -84,7 +98,13 @@ const en: UiMessages = {
   back: "Back",
   backTo: (destination) => `Back to ${destination}`,
   placeholder: { notBuilt: "This screen has not been built yet. It arrives in a later batch." },
-  screens: { login: "Log in" },
+  screens: {
+    login: "Log in",
+    register: "Create an account",
+    recovery: "Account recovery",
+    consent: "Agree to the updated terms",
+    start: "What is your plan?",
+  },
   notFound: {
     title: "Page not found",
     body: "We could not find this page.",
@@ -97,6 +117,8 @@ const en: UiMessages = {
     ready: "The server is ready. You can try again now.",
     busy: "Loading",
   },
+  form: formEn,
+  auth: authEn,
 };
 
 const CATALOGS: Record<Locale, UiMessages> = { ar, en };

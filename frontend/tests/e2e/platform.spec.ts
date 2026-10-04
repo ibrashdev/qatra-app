@@ -10,10 +10,17 @@ test.describe("same-origin API through the rewrite (API-spec 1.1)", () => {
   });
 
   test("any other /api path is forwarded too, and the envelope comes back untouched", async ({ request }) => {
-    const response = await request.get("/api/me");
+    const response = await request.get("/api/catalog");
     expect(response.status()).toBe(404);
     expect(response.headers()["x-stub-backend"]).toBe("1");
     expect(await response.json()).toEqual({ error: { code: "not_found", message: "Not found.", details: {} } });
+  });
+
+  test("GET /api/me, the session probe of the guest screens, is answered as a visitor: 401 with the envelope", async ({ request }) => {
+    const response = await request.get("/api/me");
+    expect(response.status()).toBe(401);
+    expect(response.headers()["x-stub-backend"]).toBe("1");
+    expect(await response.json()).toEqual({ error: { code: "unauthenticated", message: "Authentication is required.", details: {} } });
   });
 
   test("the page's own health request goes to same-origin /api/health with the same-origin credentials mode", async ({ page }) => {

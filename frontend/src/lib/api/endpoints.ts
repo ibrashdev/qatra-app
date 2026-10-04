@@ -1,6 +1,6 @@
-import { HEALTH_REQUEST_TIMEOUT_MS, type ApiClient, type RequestOptions } from "./client";
+import { HEALTH_REQUEST_TIMEOUT_MS, THROTTLED_REQUEST_TIMEOUT_MS, type ApiClient, type RequestOptions } from "./client";
 import { ConnectivityError } from "./errors";
-import type { CatalogResponse, HealthResponse, Profile, Today } from "./types";
+import type { CatalogResponse, HealthResponse, LoginRequest, LoginResponse, Profile, Today } from "./types";
 
 type ReadOptions = Pick<RequestOptions, "signal" | "timeoutMs" | "retry">;
 
@@ -10,9 +10,10 @@ export interface HealthOptions {
   track?: boolean;
 }
 
-// Only the operations F0 mocks; later packages add theirs here.
+// Only the operations the screens built so far call; later packages add theirs here.
 export interface Endpoints {
   health(options?: HealthOptions): Promise<HealthResponse>; // E01
+  login(request: LoginRequest, options?: Pick<RequestOptions, "signal">): Promise<LoginResponse>; // E04
   me(options?: ReadOptions): Promise<Profile>; // E11
   catalog(options?: ReadOptions): Promise<CatalogResponse>; // E14
   today(options?: ReadOptions): Promise<Today>; // E18
@@ -30,6 +31,8 @@ export function createEndpoints(client: ApiClient): Endpoints {
       if (!isHealthResponse(body)) throw new ConnectivityError("invalid_response");
       return body;
     },
+    // The auth throttle can hold the answer for about 60 s (G-15). A credential submit is never retried.
+    login: (request, options) => client.post<LoginResponse>("/auth/login", request, { signal: options?.signal, timeoutMs: THROTTLED_REQUEST_TIMEOUT_MS }),
     me: (options) => client.get<Profile>("/me", options),
     catalog: (options) => client.get<CatalogResponse>("/catalog", options),
     today: (options) => client.get<Today>("/today", options),
