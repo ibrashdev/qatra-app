@@ -1,6 +1,6 @@
 # Qatra — Plan conversation (Teaching Agent for every learner): analysis and architecture amendment
 
-> Version 1.1 · 4 October 2026 (Asia/Dubai) · Status: **Needs Review — owner approval of A1 requested (gate G0-A: analysis and architecture amendment for modules M3 and M8)**; A2 declined, A3 and A4 approved by the owner (§5). Prepared by the coordinator with the Business Analyst (Role 2), Solutions Architect (Role 3) and Senior Software Architect (Role 1) roles. This record implements the owner's decision of 4 October 2026 (§0) as a bounded amendment of the approved analysis (PRD v14, D71) and architecture (D74). Nothing in it is implemented; it opens no gate on its own. Companion documents are amended only after the owner approves §9.
+> Version 1.1 · 4 October 2026 (Asia/Dubai) · Status: **Approved — owner, 4 October 2026 («A1 approved , best practice»): gate G0-A closed for the analysis and architecture amendment of modules M3 and M8**; A2 declined, A3 and A4 approved by the owner (§5). Implementation of B2b, B13 and F14 is authorized under G3 (backend) and G1/G2 (frontend, still pending); G5 and G6 unchanged. Prepared by the coordinator with the Business Analyst (Role 2), Solutions Architect (Role 3) and Senior Software Architect (Role 1) roles. This record implements the owner's decision of 4 October 2026 (§0) as a bounded amendment of the approved analysis (PRD v14, D71) and architecture (D74). Nothing in it is implemented; it opens no gate on its own. Companion documents are amended only after the owner approves §9.
 
 ## 0. The owner's decision (4 October 2026, verbatim) and what it changes
 
@@ -217,9 +217,9 @@ Estimated added effort 25–38 hours; with the R2 workers the backend part runs 
 
 | # | Decision | Default if the answer is «best practice» |
 |---|---|---|
-| A1 | Approve this amendment package (§1 analysis, §2 architecture, as amended in v1.1 by the owner's second answer) for modules M3 and M8, so that B2b, B13 and F14 may be scheduled | **Open — an explicit answer is requested** (the owner's second answer settled A2–A4 but did not name A1) |
+| A1 | Approve this amendment package (§1 analysis, §2 architecture, as amended in v1.1 by the owner's second answer) for modules M3 and M8, so that B2b, B13 and F14 may be scheduled | **Approved by the owner** («A1 approved , best practice», 4 October 2026) |
 | A2 | ~~Confirm that takhrij becomes a fourth hadith memorization path~~ | **Declined by the owner** («لا داعي للتخريج», 4 October 2026): the three paths of contract §2.3 stay; takhrij is display-only |
 | A3 | Confirm the privacy paragraph and the transparency line of §2.6 (wording), and that `TERMS_VERSION` is set before the first public account | **Approved by the owner** («use best practice», 4 October 2026): the v1.1 wording of §2.6 |
 | A4 | Confirm the configuration defaults of NFR-18 as tunable settings, not promises | **Approved by the owner** («use best practice as mentioned in open router», 4 October 2026): caps derived from OpenRouter's published free-tier limits (§2.5), verified at provisioning |
 
-Silence, a timeout or a specialist recommendation is not approval. The document amendments of §4 proceed as drafts (Needs Review) because they record the owner's decision; until A1 is answered, the only work that proceeds is documentation and the already-authorized B0–B2 and B7 packages; the migration `0006_plan_chats` and the B13/F14 code wait for A1.
+A1 was approved by the owner on 4 October 2026 («A1 approved , best practice»); the document amendments of §4 are applied as Approved (D75), and B2b, B13 and F14 are scheduled under G3 and G1/G2. Before that answer, the only work that proceeds is documentation and the already-authorized B0–B2 and B7 packages; the migration `0006_plan_chats` and the B13/F14 code wait for A1.
