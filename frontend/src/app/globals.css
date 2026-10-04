@@ -45,6 +45,13 @@
     outline-offset: -2px;
   }
 
+  /* Autofill keeps the text colour of the design system on the white field instead of the browser's own tint (UI-screens S-01). */
+  input:-webkit-autofill {
+    -webkit-text-fill-color: var(--q-color-text);
+    caret-color: var(--q-color-text);
+    box-shadow: inset 0 0 0 100rem var(--q-color-surface);
+  }
+
   /* No top bar and no bottom tab bar from 1024 px: only the side rail remains. */
   @media (min-width: 64rem) {
     html {

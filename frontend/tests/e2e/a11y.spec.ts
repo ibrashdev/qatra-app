@@ -1,13 +1,4 @@
-import AxeBuilder from "@axe-core/playwright";
-import type { Page } from "@playwright/test";
-import { controlHealth, expect, test, VIEWPORTS, waitForFirstHealthRequest, WAKE_LINE } from "./fixtures";
-
-const WCAG_TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa", "best-practice"];
-
-async function violations(page: Page) {
-  const result = await new AxeBuilder({ page }).withTags(WCAG_TAGS).analyze();
-  return result.violations.map((violation) => `${violation.id} (${violation.impact}): ${violation.nodes.map((node) => node.target.join(" ")).join(" | ")}`);
-}
+import { axeViolations as violations, controlHealth, expect, test, VIEWPORTS, waitForFirstHealthRequest, WAKE_LINE } from "./fixtures";
 
 test.describe("axe-core: no violation on any shell route (NFR-09 baseline)", () => {
   const routes = ["/login", "/today", "/games", "/progress", "/settings"];

@@ -1,6 +1,11 @@
-import { PlaceholderPage } from "@/components/ui/PlaceholderPage";
+import { LoginForm } from "@/components/auth/LoginForm";
+import { PublicShell } from "@/components/ui/PublicShell";
 
-// Placeholder only: the login screen (S-01) is built in Batch 1.
+// S-01. No logo in the header (the page carries the lockup) and no wake-up line at the top (the form shows it above its button).
 export default function LoginPage() {
-  return <PlaceholderPage screen="login" />;
+  return (
+    <PublicShell logo={false} wakeUp={false}>
+      <LoginForm />
+    </PublicShell>
+  );
 }

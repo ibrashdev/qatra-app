@@ -18,6 +18,7 @@ import { NotFoundView } from "@/components/ui/NotFoundView";
 import { PlaceholderPage } from "@/components/ui/PlaceholderPage";
 import { PublicShell } from "@/components/ui/PublicShell";
 import { WakeUpStatus } from "@/components/ui/WakeUpStatus";
+import { resetRouteFocusForTests } from "@/components/ui/use-page-chrome";
 
 const healthy = () => new Response(JSON.stringify({ status: "ok", version: "t", time: "2026-10-05T00:00:00Z" }), { status: 200 });
 
@@ -40,6 +41,7 @@ function renderWithApp(ui: ReactNode, { fetchImpl = vi.fn<typeof fetch>(async ()
 beforeEach(() => {
   localStorage.clear();
   resetLocaleStoreForTests();
+  resetRouteFocusForTests();
   navigation.pathname = "/today";
 });
 
@@ -149,6 +151,69 @@ describe("PublicShell and the language switch (F0-3, UA-11)", () => {
     const arabic = screen.getByRole("radio", { name: "العربية" }).closest("label");
     expect(arabic).toHaveAttribute("lang", "ar");
   });
+
+  it("shows the lockup as a link at the start edge, the droplet glyph hidden from assistive technology", () => {
+    setLanguage("ar");
+    renderWithApp(<PublicShell>content</PublicShell>);
+    const lockup = screen.getByRole("link", { name: "قطرة غيث" });
+    expect(lockup).toHaveAttribute("href", "/");
+    const glyph = lockup.querySelector("svg");
+    expect(glyph).toHaveAttribute("aria-hidden", "true");
+    expect(glyph).toHaveClass("size-icon-xl", "text-primary");
+  });
+
+  it("leaves the lockup out of the header when the page carries its own, and keeps the switch at the end edge", () => {
+    setLanguage("ar");
+    renderWithApp(<PublicShell logo={false}>content</PublicShell>);
+    expect(screen.queryByRole("link", { name: "قطرة غيث" })).not.toBeInTheDocument();
+    expect(screen.getByRole("radiogroup", { name: "اللغة" }).closest("div.ms-auto")).not.toBeNull();
+  });
+
+  it("keeps the wake-up line out of the page top when the screen shows it above its own button", () => {
+    setLanguage("ar");
+    renderWithApp(<PublicShell wakeUp={false}>content</PublicShell>);
+    act(() => runtime.monitor.settle(runtime.monitor.start(), "connectivity"));
+    expect(screen.queryByText("جارٍ تشغيل الخادم المجاني، قد يستغرق ذلك دقيقة.")).not.toBeInTheDocument();
+  });
+});
+
+describe("route focus (UI-screens P-01)", () => {
+  it("leaves focus alone on the first load, then moves it to the heading when another shell mounts on a new path", () => {
+    setLanguage("ar");
+    navigation.pathname = "/register";
+    const first = renderWithApp(
+      <PublicShell>
+        <PlaceholderPage screen="register" />
+      </PublicShell>,
+    );
+    expect(document.body).toHaveFocus();
+    first.unmount();
+
+    navigation.pathname = "/today";
+    renderWithApp(
+      <AppShell>
+        <PlaceholderPage screen="today" />
+      </AppShell>,
+    );
+    expect(screen.getByRole("heading", { level: 1, name: "اليوم" })).toHaveFocus();
+  });
+
+  it("does not move focus when a shell mounts again on the same path", () => {
+    setLanguage("ar");
+    navigation.pathname = "/register";
+    const first = renderWithApp(
+      <PublicShell>
+        <PlaceholderPage screen="register" />
+      </PublicShell>,
+    );
+    first.unmount();
+    renderWithApp(
+      <PublicShell>
+        <PlaceholderPage screen="register" />
+      </PublicShell>,
+    );
+    expect(document.body).toHaveFocus();
+  });
 });
 
 describe("FocusShell: the focus-flow variant (UA-10)", () => {
@@ -192,13 +257,14 @@ describe("FocusShell: the focus-flow variant (UA-10)", () => {
   });
 });
 
-describe("placeholder pages (no real screens in F0)", () => {
+describe("placeholder pages (screens that arrive in a later step)", () => {
   it.each([
     ["today", "اليوم"],
     ["games", "الألعاب"],
     ["progress", "التقدم"],
     ["settings", "الإعدادات"],
-    ["login", "الدخول"],
+    ["register", "إنشاء الحساب"],
+    ["recovery", "استرجاع الحساب"],
   ] as const)("%s shows its name and says plainly that it is not built yet, with no control", (screen_, name) => {
     setLanguage("ar");
     renderWithApp(<PlaceholderPage screen={screen_} />);
