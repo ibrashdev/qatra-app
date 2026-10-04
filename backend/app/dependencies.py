@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from uuid import UUID
 
 from fastapi import Request
+from pydantic import SecretStr
 
 from app.config import Settings
 from app.domain.origin_policy import is_origin_allowed
@@ -32,11 +33,19 @@ def require_valid_origin(request: Request) -> None:
 
 @dataclass(frozen=True, slots=True)
 class SessionContext:
-    """Identity resolved from the server-side session. Fields only in B0."""
+    """Identity resolved from the server-side session (B3 fills it; routes never build it).
+
+    ``session_id`` is the ``app_sessions`` row. ``access_token`` is the learner's current
+    Supabase access token, decrypted and refreshed server-side by B3; repositories use it so
+    that row-level security applies (API-spec §1.3). It is ``None`` in memory mode, is never
+    returned to the browser, and is excluded from ``repr`` and comparisons.
+    """
 
     user_id: UUID
     is_demo: bool
     auth_epoch: int
+    session_id: UUID | None = None
+    access_token: SecretStr | None = field(default=None, repr=False, compare=False)
 
 
 def require_session(request: Request) -> SessionContext:
