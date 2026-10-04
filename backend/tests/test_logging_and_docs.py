@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 
 from app.config import Settings
 from app.main import create_app
-from tests.support import production_values
+from tests.support import FRONTEND_ORIGIN, production_values
 
 
 @pytest.fixture
@@ -110,7 +110,9 @@ def test_every_route_is_logged_by_its_full_template(app: FastAPI, log_lines: lis
         for path, operations in app.openapi()["paths"].items():
             for method in operations:
                 url = re.sub(r"\{[^}]+\}", "00000000-0000-0000-0000-000000000000", path)
-                client.request(method, url)
+                # A browser always sends Origin on mutations; without it the guard answers
+                # before routing and the route would be logged as unmatched.
+                client.request(method, url, headers={"Origin": FRONTEND_ORIGIN})
                 expected.append(path)
     assert expected  # at least the health endpoints
     assert [entry["route"] for entry in parse(log_lines)] == expected

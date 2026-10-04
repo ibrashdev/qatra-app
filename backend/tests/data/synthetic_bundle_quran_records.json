@@ -1,0 +1,98 @@
+{
+  "formatVersion": 1,
+  "tool": "get_quran_verses",
+  "retrievedAt": "2026-10-04T10:00:00Z",
+  "acquisition": "mcp_tool",
+  "records": [
+    {
+      "surah": 112,
+      "ayah": 1,
+      "text": "كَلِمَةٌ مِثَالٌ تَجْرِيبِيٌّ",
+      "url": "https://islamenc.com/ar/quran/112"
+    },
+    {
+      "surah": 112,
+      "ayah": 2,
+      "text": "هَٰذَا نَصٌّ تَجْرِيبِيٌّ",
+      "url": "https://islamenc.com/ar/quran/112"
+    },
+    {
+      "surah": 112,
+      "ayah": 3,
+      "text": "ٱلْكَلِمَةُ ٱلتَّجْرِيبِيَّةُ مِثَالٌ",
+      "url": "https://islamenc.com/ar/quran/112"
+    },
+    {
+      "surah": 112,
+      "ayah": 4,
+      "text": "تَجْرِيبِيٌّ مِثَالٌ كَلِمَةٌ",
+      "url": "https://islamenc.com/ar/quran/112"
+    },
+    {
+      "surah": 113,
+      "ayah": 1,
+      "text": "كَلِمَةٌ مِثَالٌ",
+      "url": "https://islamenc.com/ar/quran/113"
+    },
+    {
+      "surah": 113,
+      "ayah": 2,
+      "text": "نَصٌّ",
+      "url": "https://islamenc.com/ar/quran/113"
+    },
+    {
+      "surah": 113,
+      "ayah": 3,
+      "text": "كَلِمَةٌ تَجْرِيبِيَّةٌ مِثَالٌ بَيَانٌ لَفْظٌ ۖ فِقْرَةٌ جُزْءٌ ۚ عِبَارَةٌ سَطْرٌ نَمُوذَجٌ وَصْفٌ",
+      "url": "https://islamenc.com/ar/quran/113"
+    },
+    {
+      "surah": 113,
+      "ayah": 4,
+      "text": "هَٰذَا مِثَالٌ لَا يُحْفَظُ",
+      "url": "https://islamenc.com/ar/quran/113"
+    },
+    {
+      "surah": 113,
+      "ayah": 5,
+      "text": "كَلِمَةٌ تَجْرِيبِيَّةٌ مِثَالٌ بَيَانٌ نَمُوذَجٌ",
+      "url": "https://islamenc.com/ar/quran/113"
+    },
+    {
+      "surah": 114,
+      "ayah": 1,
+      "text": "نَصٌّ فِقْرَةٌ سَطْرٌ اِخْتِبَارٌ قِسْمٌ دَرْسٌ جَوَابٌ مَوْضِعٌ تَرْتِيبٌ مُرَاجَعَةٌ نَصٌّ فِقْرَةٌ",
+      "url": "https://islamenc.com/ar/quran/114"
+    },
+    {
+      "surah": 114,
+      "ayah": 2,
+      "text": "نَمُوذَجٌ حَرْفٌ دَرْسٌ هَٰذَا بِنَاءٌ مُرَاجَعَةٌ بَيَانٌ عِبَارَةٌ اِخْتِبَارٌ بَابٌ سُؤَالٌ",
+      "url": "https://islamenc.com/ar/quran/114"
+    },
+    {
+      "surah": 114,
+      "ayah": 3,
+      "text": "فَصْلٌ سُؤَالٌ عُنْوَانٌ بِنَاءٌ حِفْظٌ مِثَالٌ لَفْظٌ عِبَارَةٌ وَصْفٌ حَرْفٌ",
+      "url": "https://islamenc.com/ar/quran/114"
+    },
+    {
+      "surah": 114,
+      "ayah": 4,
+      "text": "مَوْضِعٌ اِخْتِيَارٌ مِثَالٌ فِقْرَةٌ نَمُوذَجٌ حَرْفٌ ۞ دَرْسٌ رَقْمٌ بِنَاءٌ مُرَاجَعَةٌ بَيَانٌ عِبَارَةٌ",
+      "url": "https://islamenc.com/ar/quran/114"
+    },
+    {
+      "surah": 114,
+      "ayah": 5,
+      "text": "كَلِمَةٌ بَيَانٌ جُزْءٌ نَمُوذَجٌ مَعْنًى بَابٌ تَمْرِينٌ رَقْمٌ مَقْطَعٌ اِخْتِيَارٌ",
+      "url": "https://islamenc.com/ar/quran/114"
+    },
+    {
+      "surah": 114,
+      "ayah": 6,
+      "text": "عِبَارَةٌ اِخْتِبَارٌ بَابٌ سُؤَالٌ مَوْضِعٌ اِخْتِيَارٌ مِثَالٌ فِقْرَةٌ نَمُوذَجٌ حَرْفٌ",
+      "url": "https://islamenc.com/ar/quran/114"
+    }
+  ]
+}

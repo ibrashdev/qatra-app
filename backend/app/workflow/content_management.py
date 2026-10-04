@@ -733,7 +733,7 @@ def _verify_quran(
     return units
 
 
-def _hadith_pass(
+def hadith_pass_records(
     storage: RawStorage, edition_key: str, bank_version: int, pass_number: int
 ) -> dict[int, HadithRecord]:
     records: dict[int, HadithRecord] = {}
@@ -775,8 +775,8 @@ def _verify_hadith(
     client: McpJsonRpcClient | None,
     edition_key: str,
 ) -> tuple[list[VerificationRecord], list[Gap], list[dict[str, Any]]]:
-    pass1 = _hadith_pass(storage, edition_key, bank_version, 1)
-    pass2 = _hadith_pass(storage, edition_key, bank_version, 2)
+    pass1 = hadith_pass_records(storage, edition_key, bank_version, 1)
+    pass2 = hadith_pass_records(storage, edition_key, bank_version, 2)
     gaps = hadith_gaps(pass1, pass2, scope.forty_numbers)
     gap_numbers = {g.forty_number for g in gaps}
     units: list[VerificationRecord] = []

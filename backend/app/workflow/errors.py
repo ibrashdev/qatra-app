@@ -111,6 +111,12 @@ class VerificationFailedError(StepFailure):
     exit_code = ExitCode.VERIFICATION_FAILED
 
 
+class ValidationFailedError(StepFailure):
+    """``validate`` found at least one issue: the edition is not validated (fails closed)."""
+
+    exit_code = ExitCode.VERIFICATION_FAILED
+
+
 class AcquisitionInterruptedError(StepFailure):
     """Acquisition over HTTP stopped midway; the cursor keeps what was stored so far."""
 

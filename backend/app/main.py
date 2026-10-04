@@ -14,7 +14,7 @@ from app.middleware import (
     NoStoreMiddleware,
     OriginGuardMiddleware,
 )
-from app.routers import health
+from app.routers import health, plan_chats
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -47,6 +47,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.add_middleware(NoStoreMiddleware)
 
     app.include_router(health.router)
+    app.include_router(plan_chats.router)
     return app
 
 

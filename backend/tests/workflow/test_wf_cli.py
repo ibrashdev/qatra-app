@@ -137,9 +137,6 @@ def test_registered_commands_refuse_a_step_order_violation_with_exit_3(
 @pytest.mark.parametrize(
     ("command", "done"),
     [
-        ("segment", ORDER[:2]),
-        ("build-bank", ORDER[:3]),
-        ("validate", ORDER[:4]),
         ("approve", ORDER[:5]),
         ("withdraw", ORDER),
         ("archive", ORDER),
@@ -283,7 +280,7 @@ def test_unexpected_errors_print_only_the_exception_type(
         raise RuntimeError("this message could contain source text")
 
     monkeypatch.setattr(cli, "_cmd_not_implemented", boom)
-    assert stub("segment", tmp_path) == ExitCode.UNEXPECTED
+    assert stub("approve", tmp_path) == ExitCode.UNEXPECTED
     captured = capsys.readouterr()
     assert "RuntimeError" in captured.err and "source text" not in captured.err + captured.out
 

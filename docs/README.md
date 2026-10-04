@@ -10,7 +10,7 @@
 | [PRD.md](PRD.md) | النطاق والمتطلبات ومعايير القبول |
 | [UX.md](UX.md) | الشاشات والرحلات والحالات |
 | [Design-system.md](Design-system.md) | الهوية والألوان وقواعد الوضوح والصور المرجعية |
-| [Figma-prototype.md](Figma-prototype.md) | مسودة نموذج Figma المصرح بها ونطاقها ومعايير مراجعتها؛ Needs Review |
+| [Figma-prototype.md](Figma-prototype.md) | مسودة نموذج Figma المصرح بها ونطاقها ومعايير مراجعتها وسجل حالتها الحية (الإصدار ٧)؛ Needs Review، مطابقة UI-screens غير مكتملة |
 | [Architecture-and-data.md](Architecture-and-data.md) | البيانات والحدود والخطط وعقود API |
 | [Database-schema.md](Database-schema.md) | المخطط الفيزيائي لقاعدة البيانات: ERD بالمفاتيح والجداول والأدوار والمنح وترتيب الترحيلات (الإصدار ١٫١، Approved — D74) |
 | [API-spec.md](API-spec.md) | واجهات REST الكاملة: المسارات والمصادقة والصلاحيات والمخططات والحدود والأخطاء (الإصدار ١٫١، Approved — D74) |
@@ -26,7 +26,7 @@
 | [Plan-conversation.md](Plan-conversation.md) | تعديل التحليل والمعمارية لمحادثة بناء الخطة وتعديلها بالذكاء الاصطناعي (قرار D75): المتطلبات R24–R29 وNFR-15–18، والجداول والعمليات E31–E34 وخط أنابيب الدور والخصوصية والحزم؛ الإصدار ١٫١، Approved (A1، ٤ أكتوبر ٢٠٢٦؛ A2 مرفوض: لا مسار تخريج) |
 | [UI-design.md](UI-design.md) | تصميم الواجهات (U1): جرد الشاشات والتنقل والرحلات والحالات العامة وتتبع العمليات E01–E34 ودفعات الشاشات الأربع والأسئلة؛ الإصدار ١، Draft — Needs Review (G1) |
 | [UI-tokens.md](UI-tokens.md) | رموز التصميم ومواصفة المكونات (U3): الألوان والتباين والخطوط والمسافات ونقاط الفصل والمكونات بحالاتها والتركيز والحركة وقائمة WCAG 2.2 AA؛ الإصدار ١، Draft — Needs Review (G1) |
-| [UI-screens.md](UI-screens.md) | وصف الشاشات بالأبعاد الستة (U2) دفعةً دفعة؛ قيد الإعداد، Draft |
+| [UI-screens.md](UI-screens.md) | وصف الشاشات بالأبعاد الستة (U2): ٢٧ شاشة (الحساب والكتالوج والخطة والمحادثة والجلسة والتقدم والألعاب والإعدادات) وأنماط مشتركة ونقاط مفتوحة؛ الإصدار ١، Draft — Needs Review (G1)؛ شاشات الخيار C المؤجلة غير موصوفة |
 | [Architecture-review.md](Architecture-review.md) | طلب اعتماد المعمارية وملخص جولة الاتساق والأسئلة Q1–Q7 (Approved — D74؛ سجل الأجوبة Q1–Q7) |
 | [Competition-alignment.md](Competition-alignment.md) | متطلبات التحدي وأدلتها وحدود المطابقة |
 | [Delivery-and-baseline.md](Delivery-and-baseline.md) | شروط الجاهزية والتوثيق والتسليم |

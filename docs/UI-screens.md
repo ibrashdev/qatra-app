@@ -1,6 +1,6 @@
 # Qatra — UI screen specifications (six dimensions)
 
-> Version 1 · 4 October 2026 (Asia/Dubai) · Status: Draft — Needs Review (gate G1). Prepared by the Senior Product Designer role (Role 4); companion of UI-design.md (inventory) and UI-tokens.md (tokens); nothing here is approved or implemented.
+> Version 1 · 4 October 2026 (Asia/Dubai) · Status: Draft — Needs Review (gate G1); all 34 inventory screens except the deferred S-28…S-33 are specified (parts A, B, C). Prepared by the Senior Product Designer role (Role 4); companion of UI-design.md (inventory) and UI-tokens.md (tokens); nothing here is approved or implemented.
 
 **Contents:** [0 How to read](#0-how-to-read) · [1 Batch 1 — Account](#1-batch-1--account) · [2 Batch 2 — Catalog and plan](#2-batch-2--catalog-and-plan) · [3 Batch 3 — Games](#3-batch-3--games) · [4 Batch 4 — Session, progress, settings](#4-batch-4--session-progress-settings) · [5 Open points](#5-open-points)
 
@@ -775,7 +775,269 @@ S-02 and S-06 prefetch this route, so "text unavailable" should not follow a loa
 
 ## 3. Batch 3 — Games
 
-appended by U2 part B.
+Work package U2, part C. **S-14** (the hub, an app-shell screen) and **S-15 to S-18** (the four rounds, focus flows). All Draft, Needs Review; none is approved or implemented. The IDs are fixed in [UI-design.md](UI-design.md) §1 and only cited here. Functional sources: [UX.md](UX.md) «العودة والألعاب» and the row «صفحة الألعاب»; [API-spec.md](API-spec.md) E18, E20 (`kind: "game"`), E21, E22; [Implementation-contract.md](Implementation-contract.md) §2.4 (templates and hints), §4 (an assisted answer covers no part), §7 (`QuestionBase` and the four question types); D31, D40, D42, D64, D66, D68. A round is not a screen of its own in the inventory: its start, question loop, result and leave sheet are states of S-15 to S-18 (UI-design §3.7), defined once below.
+
+### 3.0 Shared patterns of the games (P-18 to P-25)
+
+- **P-18 Round frame (S-15 to S-18).** Focus flow (UA-10): no tab bar, no rail at any width, no language switch (the profile language rules); chrome per P-01. Top app bar (§6.6): back control at the start edge (icon button 44×44, arrow mirrors, name «مغادرة الجولة» / "Leave the round"; it opens the leave sheet, P-23) and the H1 as the bar title (`--q-text-title`, wraps to two lines, never clipped). One reading column below, centred: 560 px at 431–767 px, 640 px at 768–1023, 720 px from 1024; margins `--q-space-24`, `-32`, `-40` by width; 24 px between regions, 16 px inside one, 8 px between adjacent targets. Order: H2 (counter and prompt); the question piece; hint row; feedback block (P-21); source line and notice (P-20); action bar. **Action bar:** sticky at the bottom up to 767 px (fill `--q-color-bg`, 1 px `--q-color-divider` on its top edge, `padding-block-end: env(safe-area-inset-bottom)`), inline at the end of the column from 768 px. It holds Slot B (a banner raised by a press: P-04 to P-07, P-22) above one primary button whose label follows the step: «تحقق» / "Check", then «التالي» / "Next", and «إنهاء الجولة» / "Finish the round" on the last question; the same element keeps focus when its label changes. `scroll-padding-block-start` and `-end` cover both bars (2.4.11; check at 320×568 and at 200 % zoom). **H2:** a visible counter «السؤال {i} من {n}» / "Question {i} of {n}" (`--q-text-small`, `--q-color-text-secondary`; `n` is the number of question steps in the snapshot, at most 10, never a fixed 10) above the prompt (`--q-text-section`); the H2 takes focus (`tabindex="-1"`) at each new question and its text is its accessible name. `<title>` «{game name} — قطرة غيث» («نتيجة الجولة — قطرة غيث» at the result). **Never shown in a round:** a timer or countdown, a running score or percentage, a streak, a rank or certificate, a skip control (no E21 event records one; UG-12 covers the placement test only), a translation, any text that explains or interprets the passage.
+- **P-19 Starting and replaying a round (E20 `game`).** Used by the S-14 rows and by «العب مرة أخرى» (P-25). Request `kind: "game"`, `planId` and `expectedPlanVersion` from E18 (`plan.planId`, `plan.currentVersion`), `gameType` of the row; no `passageIds` (UG-03: the server samples inside the plan's scope, edition and selected paths, future days included, D42). The pressed control takes Loading (spinner at the start edge, width fixed, `aria-busy`) and every other start control is inert (`aria-disabled`); E20 creates a row, so it is never retried automatically. `201` pushes the round route with the snapshot in memory only (UG-02) and focus moves to its H1. Failures appear in Slot T of S-14 (or Slot B of the result screen), replacing any earlier banner, values kept: `version_conflict` with `plan_version` (G-09) Warning «عُدّلت خطتك في مكان آخر. حدّث الصفحة ثم أعد المحاولة.» / "Your plan was changed elsewhere. Refresh the page and try again." with «تحديث» / "Refresh" (re-reads E18); `plan_not_active` (G-11) «هذه الخطة غير نشطة.» / "This plan is not active." with «تحديث»; `edition_not_available` and `out_of_scope` (G-20) Warning «هذه النسخة لم تعد متاحة. يمكنك بدء خطة على نسخة أخرى.» / "This edition is no longer available. You can start a plan on another edition." with «ابدأ خطتك» to S-08 (the plan and its history stay); `throttled`: P-06 (the pressed control is the retry); `forbidden_origin`, `internal`, `unavailable`: P-07; no response: P-04 or P-05. Any other `validation_error` cannot come from the UI (a fixed list of four types) and is treated as `internal`.
+- **P-20 Question source, original text and notice.** *Source line* under every question, before and after the answer: `--q-text-small`, `--q-color-text-secondary`, parts joined by « · » in `<bdi>`: `source.bookTitleAr` · `source.editionLabel` · `source.reference` · the canonical URL `source.url` as a text link with the external-link icon (`--q-color-link`, underlined, `rel="noopener noreferrer"`, accessible name «{reference} — يفتح في نافذة جديدة» / "{reference} — opens in a new tab"; the URL wraps with `overflow-wrap: anywhere` and is never shortened). `pages` is empty for the web editions (D68); a printed edition would add the printed page after the reference. No publisher name, ruling, takhrij or grade is shown in a round. *Original text:* every word of the book (context, chips, tiles, the recall input, the original inside feedback) is `dir="rtl" lang="ar"` at `--q-text-token`, in `--q-font-quran` for a Quran edition and `--q-font-hadith` for a hadith edition (Cairo has none of the six Uthmani marks, UI-tokens §3.2; the format is taken from the plan's edition, O-39), `text-align: start`, never truncated, no `letter-spacing`, no justify. Context words (`context.before`, `context.after`) are plain text around the interactive area for orientation; they are not coverage (D64). A **blank** is a slot of at least 56×44 px with a 1 px dashed `--q-color-border` and `aria-label` «الكلمة الناقصة» / "the missing word" (segment variant: «الجزء الناقص» / "the missing part"). *D50 notice:* beside a hadith question whose edition gives neither an attribution to the Sahihayn nor a grade, the fixed Notice «تنبيه: نُقل هذا النص حرفيًا عن الكتاب، ولم يُتحقق من صحة الحديث.» (§6.12, G-29) follows the source line; otherwise absent (O-39). *Synthetic examples only:* examples in this file use «كلمة١» placeholders; no verse or hadith is written here.
+- **P-21 Check, hint and feedback (also the answer flow of S-19 for the same pieces).** *Submit model:* the learner builds or chooses an answer, then presses «تحقق»; a tap grades nothing. An incomplete answer shows the Error recipe on the answer area (message per screen), sends nothing, moves focus to the first unfilled control and leaves the button enabled. After «تحقق» the answer area is read-only (`aria-disabled`; inputs `readonly`), the answer event is queued (below) and the feedback block (§6.17) appears in its fixed place as `role="status"` without moving focus; the action button now reads «التالي». *Feedback copy* (aligned with S-19): correct (success tokens, check-circle) «إجابة صحيحة.» / "Correct."; needs review (warning tokens, refresh icon, never an error tone) «هذا الموضع يحتاج إلى مراجعة. الأصل:» / "This spot needs review. The original:" followed by the correct original (§6.12 style, `--q-color-text` on the tint, at least 10.28:1); an answered question never shows blame. An assisted answer adds «الإجابة بمساعدة تُحتسب تدريبًا ولا تُعدّ دليلًا مستقلًا على الاسترجاع.» / "An answer with help counts as practice, not as independent recall." *Hint control* (§6.16): tertiary button, lightbulb icon, «تلميح» / "Hint", one use per question, in the hint row under the piece; the effect is fixed per game (contract §2.4): order places the first token, choice and similar remove one wrong option, recall shows the first letter. After use the button takes Disabled (`aria-disabled`, still focusable) and the info chip «بمساعدة» / "With help" (icon plus text, §6.11) stays on the question and in the feedback; `hintUsed: true` is sent, and the answer covers no part and changes no streak (contract §4, D66). A hint cannot be undone. *Events:* each answer is an E21 `answer` event (`clientEventId` a new UUID per answer and never regenerated, `questionId`, `answer` by type, `hintUsed`, `occurredAt`, `durationMs` of the interaction) batched, at most 100 per request, with the round's `activity` events (active time only: page visible and the leave sheet closed, D40; never shown as a ticking clock). The feedback is computed at once from the question's `answerKey` and policy as the snapshot ships them and reconciled with the matching `results[]` entry (`correct`, `assisted`, `expected`); if they differ the server's verdict replaces the block and a polite status says «تم تحديث نتيجة هذا السؤال.» / "The result of this question was updated." (O-41). The recall text lives in memory only until acknowledged and is never stored or logged.
+- **P-22 Outcomes and connectivity inside a round.** `acknowledged` and `duplicate`: nothing is shown. `rejected` (final, never resent): an inline line in the feedback block «لم تُحتسب هذه الإجابة.» / "This answer was not counted." (G-21, no blame). `pending`: «ما زالت هذه الإجابة قيد التحقق.» / "This answer is still being verified." (kept without credit). Codes that end the round: `plan_not_active` (G-11) Warning banner «هذه الخطة غير نشطة.»; `session_closed` Warning banner «انتهت هذه الجولة.» / "This round has ended."; `edition_mismatch` (G-20) «هذه النسخة لم تعد متاحة. يمكنك بدء خطة على نسخة أخرى.» with the feedback original and every remaining question removed (a revoked text is never shown or guessed); the round turns inert and the action bar offers only «العودة إلى الألعاب» / "Back to Games" (replace to S-14). The other rejected codes (`question_not_in_session`, `out_of_scope`, `bank_version_mismatch`, `invalid_answer_shape`, `activity_out_of_bounds`) show the calm `rejected` line. `envelope_mismatch` and the four `pending` reason codes belong to offline replay (option C) and do not arise online. **Connectivity (G-02):** Info banner in Slot B «لا يوجد اتصال بالشبكة. سنعيد المحاولة تلقائيًا، أو اضغط «إعادة المحاولة».» / "There is no network connection. We will try again automatically, or press «Try again»." Unlike the forms (O-02) this promise is true: E21 is idempotent, so unsent answers wait in a page-memory queue (lost on reload in option B), are resent with the same `clientEventId`, and the round goes on from the local feedback; the unsent count is not shown. Wake-up (G-01): P-04. `throttled` on E21 or E22: P-06 (events kept and resent at zero). `payload_too_large` (G-19): events are resent in smaller batches with no message; if it persists, Error banner «تعذّر إرسال الطلب لأنه أكبر من الحد المسموح.» / "The request could not be sent because it is larger than the allowed limit." `internal`, `unavailable`, `forbidden_origin`: P-07 (events kept and resent). `unauthenticated` (G-03): answers cannot be saved; S-01 with `next=/games` and the round is lost.
+- **P-23 Leave sheet (UA-09, UI-design §2.5).** On entering a round the route pushes one history entry. The back control, the browser back button, the iOS edge swipe and the Android back gesture open the sheet instead of leaving. The sheet is a Dialog (§6.9, `role="dialog"`: nothing is deleted), docked to the bottom edge up to 767 px and centred (up to 400 px) from 768 px (a presentation of the same component, O-40). Title «مغادرة الجولة؟» / "Leave the round?"; body «سنحفظ إجاباتك حتى الآن، ولا يمكن استئناف الجولة. يمكنك بدء جولة جديدة في أي وقت.» / "We will save your answers so far, and a round cannot be resumed. You can start a new round at any time."; buttons, primary first: «متابعة اللعب» / "Keep playing" (initial focus) and «إنهاء الجولة والخروج» / "End the round and leave" (secondary; it replaces the label «إيقاف مؤقت والخروج» of UI-design §2.5, which promises a resume that a round does not have, UG-02). Esc, a backdrop click and the first button all mean keep playing. Leaving sends the pending events (E21), then E22, goes to S-14 by `replace` and drops the snapshot; while they run the second button is Loading and the first inert. If they fail (no response, 5xx) the dialog stays open with an Error banner inside it (§6.9) «تعذّر حفظ إجاباتك الأخيرة.» / "We could not save your latest answers." and the buttons «إعادة المحاولة» / "Try again" (primary) and «المغادرة دون حفظ» / "Leave without saving" (secondary). Active time pauses while the sheet is open. After the result (P-25) the guard is released: back goes to S-14.
+- **P-24 No questions (G-26).** If E20 answers `201` with no `question` step, the round route opens an Empty state (§6.14, info icon, no illustration, `role="status"`) in place of the first question. S-15, S-16, S-18: title «لا توجد مادة للعب ضمن خطتك الآن.» / "There is nothing to play in your plan right now." S-17: title «لا يوجد موضع متشابه ولا خطأ مسجل لك في هذا المقطع؛ جرّب لعبة أخرى.» / "There is no similar position and no error recorded for you in this passage; try another game." One button «اختر لعبة أخرى» / "Choose another game" to S-14 by `replace`. No E21 or E22 call (nothing was answered), and never an invented question (O-42).
+- **P-25 Round result (E22).** After the last «التالي», labelled «إنهاء الجولة», the client sends the pending events, then E22 (no body; idempotent, so a repeat is safe). The screen changes in place: the app bar title becomes «نتيجة الجولة» / "Round result" and takes focus, the back control becomes «رجوع إلى الألعاب» / "Back to Games" (to S-14, no sheet), and the question and action bar give way to a summary in the style of S-20, counts only, never a percentage or a score: row «الإجابات: {correct} من {answered} صحيحة» / "Answers: {correct} of {answered} correct"; a row «منها بمساعدة: {k}» / "With help: {k}" when {k} > 0 (counted from the E21 results, which E22 does not give); row «الوقت النشط: {m:ss} دقائق» / "Active time: {m:ss} minutes" (`<bdi dir="ltr">`). Then the daily bar (§6.10 Daily variant, label «الإنجاز اليومي», value from `daily`, for example «٧/١٠ دقائق»، «٧٠٪», capped at 100 %), extra minutes on their own line «+ {x} دقيقة إضافية» / "+ {x} extra minutes", and, when `dailyCompleted` is true, a check icon and «أكملت هدف اليوم» / "You reached today's goal" (once, no second completion, no celebration). When any answer needed review: «تُضاف الأجزاء التي تحتاج إلى مراجعة إلى مراجعاتك القادمة.» / "Parts that need review are added to your coming reviews." (UX.md). Buttons: «العب مرة أخرى» / "Play again" (primary; P-19 with the same `gameType`, always allowed, replay is free) and «الألعاب» / "Games" (secondary, S-14, `replace`). `newPassages`, `reviewsPassed` and `reviewsFailed` are not shown for a game. If E22 fails: the summary area keeps a skeleton and a Warning banner (P-22 mapping) with «إعادة المحاولة» appears in Slot B; the answers are already saved. Never shown: a certificate, a share action, a ranking, a comparison with other learners, a streak effect.
+
+### S-14 Games hub — صفحة الألعاب
+
+**1. Purpose, role, entry and exit, acceptance**
+- **Purpose and role.** A learner or demo account with an active plan picks one of the four games and plays a round of up to 10 questions taken from the plan's own scope and edition, future days included, with no lesson to finish first; replay is always open (D42, D40). There is no independent book picker and nothing finer than the game type (UG-03).
+- **Entry.** `/games`, tab «الألعاب» of the app shell (tab bar below 1024, rail from 1024); «الألعاب» and «اختر لعبة أخرى» of every round; a reload inside a round (guard 7, UG-02). Guard 1 sends a visitor to `/login?next=/games`; guard 4 keeps the tab open without a plan (G-24); guard 12 shows G-20.
+- **Exit.** A game row starts E20 `game` (P-19) and pushes S-15, S-16, S-17 or S-18. «ابدأ خطتك» goes to S-08. The other tabs are free (no round is open here). Back: none, a tab root.
+- **Primary action.** Start a round: four equal game rows, no single primary button. **References.** R05, R06, R20; M5; D31, D40, D42, D64, D66; NFR-09, 10, 14; UX.md row «صفحة الألعاب», § «العودة والألعاب»; E18, E20; G-01, G-02, G-09, G-11, G-15 to G-17, G-20, G-23, G-24, G-26; UA-03, UA-10; UG-02, UG-03.
+
+**2. Layout and hierarchy**
+- App shell (P-26), tab «الألعاب» active; the H1 is the bar title, no back control. Phone order, 24 px between regions: Slot T; plan line; Notice; the four game rows as one list (a row is a list row, §6.7: at least `--q-size-row`, about 88 px with a two-line description, divider between rows). **Rows, not cards:** all four fit 390×844 above the bar, so a banner in Slot T stays in view when a row is pressed. One column at every width (640 px below 1024, 720 px from 1024); from 1024 the rail replaces the bar.
+
+**3. Components, content, validation, dialogs**
+
+| # | Element (component) | Arabic | English (proposed) | Src |
+|---|---|---|---|---|
+| c1 | H1 (bar title) | الألعاب | Games | F UX.md (tab name; the screen is «صفحة الألعاب») |
+| c2 | Plan line, `--q-text-small` | من خطتك النشطة: {titleAr} | From your active plan: {titleEn} | P (E18 `plan.titleAr`/`titleEn`) |
+| c3 | Notice (§6.8, no fill, not dismissible) | تُختار الأسئلة من مادة خطتك ونسختها، بما فيها أيام قادمة، دون إكمال درس. في كل جولة حتى ١٠ أسئلة، ويُحتسب وقت اللعب من هدفك اليومي. | Questions come from your plan's material and edition, including coming days, with no lesson to finish first. A round has up to 10 questions, and playing time counts toward your daily goal. | P (R05, R20, D40, D66) |
+| c4 | Game row, word order (name, description, chevron) | ترتيب الكلمات — رتّب كلمات جزء من النص كما وردت. | Word order — Put the words of a part of the text in their original order. | name F inventory; description P |
+| c5 | Game row, word choice | اختيار كلمة أو جزء — اختر الكلمة أو الجزء المتصل الذي يكمل النص. | Word or segment choice — Choose the word or connected part that completes the text. | as c4 |
+| c6 | Game row, similar distinction | تمييز المتشابه — اختر الصحيح من خيارين متشابهين كما ورد في الكتاب. | Similar distinction — Choose the correct one of two similar options as it appears in the book. | as c4 |
+| c7 | Game row, word recall | استرجاع كلمة — اكتب الكلمة الناقصة من الذاكرة. | Word recall — Type the missing word from memory. | as c4 |
+| c8 | Empty state (§6.14): title, sentence, button | لا توجد خطة نشطة بعد. — تحتاج الألعاب إلى خطة نشطة لاختيار المادة منها. — ابدأ خطتك | There is no active plan yet. — Games need an active plan to choose material from. — Start your plan | title and button F G-24 (UX.md «الانتقال لإنشاء خطة»); sentence P |
+| c9 | Banner actions | تحديث؛ إعادة المحاولة | Refresh; Try again | P |
+
+- **Rows.** Each row is a button (name = the game name, `aria-describedby` its description; the visible name is contained in the accessible name, 2.5.3). Order as in the inventory: c4, c5, c6, c7. A row shows no score, progress, lock or count, and the hub offers no passage, section or book picker. Pressing a row runs P-19.
+- **Validation and dialogs.** None here; the leave sheet belongs to the rounds (P-23). **Never shown.** A book or section picker, a per-game score or progress, a lock or «unlock», a leaderboard, a streak effect (games never double the streak, UX.md), a translation, an AI switch, any text of a book (a round starts only on a press).
+
+**4. States**
+
+| State | Trigger | What changes and copy | Focus | Announcement |
+|---|---|---|---|---|
+| Loading | E18 in flight | skeleton plan line and four skeleton rows after 300 ms (§6.14), region `aria-busy`, hidden «جارٍ التحميل» / "Loading" (G-23) | c1 | none |
+| Wake-up; offline | G-01; G-02 | P-04; P-05 with «إعادة المحاولة» (a read, so a retry is safe); rows hidden until E18 answers | unchanged | status |
+| Populated | E18 `200` with a `plan` | c2 to c7 | unchanged | none |
+| No plan (G-24) | E18 `plan` is null | c8 replaces c2 to c7 (Notice stays); the tab bar stays | c1 | none |
+| Starting | a row pressed | P-19: the row Loading, the others inert | stays on the row | polite «جارٍ بدء الجولة» / "Starting the round" |
+| Start failed | E20 errors | P-19 mapping in Slot T; rows stay (except G-20) | the banner's action, else the row | alert (Error) or status |
+| Content unavailable (G-20) | `edition_not_available`, `out_of_scope` | Warning banner with «ابدأ خطتك»; rows hidden (a retry cannot succeed) | the banner action | status |
+| E18 failed | 500, 503, no answer | Error banner (P-07 wording) with «إعادة المحاولة»; rows hidden | the banner action | alert or status |
+| Session ended | `401` on E18 or E20 | S-01 with the session-ended banner, `next=/games` (G-03) | H1 of S-01 | its title |
+| Back from a round | S-14 shown again | nothing carries over from the round; E18 is read again | c1 | title |
+| Not applicable | field errors and access denied (a form-free screen; guard 1 only; a demo account sees the same hub, D71); empty besides no plan; **no games material (G-26): no field says a game has no material before E20 runs, so the hub never pre-disables a row, and the state appears on the round (P-24, O-42)**; pending sync (option B, G-22); disabled (rows are inert only while one starts); success (the result is P-25) | — | — | — |
+
+**5. Responsive, RTL/LTR, accessibility**
+- 320 px: row text wraps, no horizontal scroll; 200 % zoom: rows grow, nothing clips. Logical properties; the chevron mirrors in RTL; targets: rows 56 px minimum, banner buttons 44×44. Language and direction come from the profile.
+- **Focus order.** (1) skip link, (2) [banner dismiss or action], (3) c4, (4) c5, (5) c6, (6) c7 or the c8 button, (7) the four tab-bar items (the rail items come before `main` from 1024 and are skipped by the skip link). **Keyboard.** Enter or Space on a row starts the round; Esc has no role.
+- A pressed row announces «جارٍ بدء الجولة» once; names of the rows are the game names. The page has one H1 and the plan line is not a heading.
+- **Contrast pairs.** `--q-color-text` on `--q-color-surface` 11.76; `--q-color-text-secondary` on `--q-color-surface` 5.36 (descriptions) and on `--q-color-bg` 5.10 (plan line, Notice); `--q-color-warning-text` on `--q-color-warning-bg` 5.79; focus ring 8.69 on `--q-color-surface`. Static loaders and instant banners under reduced motion.
+
+**6. Colour and typography**
+- Page `--q-color-bg`; rows `--q-color-surface` with `--q-color-divider` between them; row name `--q-text-body` at weight 600, description `--q-text-small` in `--q-color-text-secondary`, chevron `--q-color-text-secondary`; H1 `--q-text-title`; plan line and Notice `--q-text-small`; buttons `--q-text-button`; UI fonts only (`--q-font-ui-ar` or `--q-font-ui-en`). No religious text appears on this screen and no religious font is loaded for it.
+
+### S-15 Word order — ترتيب الكلمات
+
+**1. Purpose, role, entry and exit, acceptance**
+- **Purpose and role.** The learner puts the words of one **part** (3 to 8 words; two adjacent parts of fewer than 4 words may be merged, contract §2.4) back in the order of the book by tapping, with remove and undo. D64: larger parts instead of many small questions; a correct, unassisted answer covers every tested part (contract §4). Learner and demo.
+- **Entry.** `/games/word-order` after P-19 (from S-14 or «العب مرة أخرى»); guard 7 sends a reload or a missing round to S-14. **Exit.** Result (P-25) then S-14 or a new round; the leave sheet (P-23); no questions (P-24).
+- **Primary action.** «تحقق» then «التالي» (P-18). **References.** R05, R19, R20; M5; D31 (not applicable here), D40, D64, D66; UX.md § «العودة والألعاب»; E20, E21, E22; G-02, G-19 to G-21, G-26, G-29; UA-09, UA-10; UG-02, UG-09.
+
+**2. Layout and hierarchy**
+- Focus flow (P-18). Phone order inside the question, 16 px between blocks, 8 px between chips: H2 and helper; context before (when present); the **answer line**; context after; the **pool**; the hint row (hint at the start edge, undo at the end edge); error line; feedback block; source line and notice; action bar. The answer line is an original-text block (§6.12) at least 56 px high, filling from the right (`dir="rtl"`); chips wrap onto further lines. Tablet and desktop keep the column (640 and 720 px) and only the `--q-text-token` size grows (22 to 24 px from 768).
+
+**3. Components, content, validation, dialogs**
+
+| # | Element (component) | Arabic | English (proposed) | Src |
+|---|---|---|---|---|
+| c1 | Back control, name; H1 (bar title) | مغادرة الجولة؛ ترتيب الكلمات | Leave the round; Word order | P; F inventory |
+| c2 | H2: counter and prompt | السؤال {i} من {n} — رتّب الكلمات كما وردت في النص. | Question {i} of {n} — Put the words in the order they appear in the text. | P |
+| c3 | Helper, `--q-text-small` | اضغط كلمة لوضعها، واضغطها في سطر الإجابة لإزالتها. | Tap a word to place it; tap it in the answer line to remove it. | P (UX.md: tap with remove and undo) |
+| c4 | Context before and after (plain original text) | `context.before`, `context.after` | as stored | data |
+| c5 | Answer line (`ol`, one group), name; placed token chips | ترتيبك | Your order | P |
+| c6 | Pool (one group), name; token chips (§6.16) | الكلمات المتاحة | Available words | P |
+| c7 | Icon button, undo icon (mirrors in RTL) | تراجع | Undo | P (§6.16) |
+| c8 | Hint control; chip | تلميح؛ بمساعدة | Hint; With help | P (§6.16) |
+| c9 | Error line (Error recipe) | رتّب جميع الكلمات أولًا. | Place all the words first. | P |
+| c10 | Feedback block; source line; notice | P-21; P-20 | — | — |
+| c11 | Primary, sticky | تحقق؛ التالي؛ إنهاء الجولة | Check; Next; Finish the round | P |
+
+- **Chips.** Token chips are buttons of at least 44×44 px, `--q-text-token`, `overflow: visible` with at least 8 px vertical padding. Pool chip names: the word (`lang="ar"`), when placed «{word}، مستخدمة» / "{word}, used"; placed chip names: «{word}، الموضع {p} من {n}، اضغط لإزالتها» / "{word}, position {p} of {n}, press to remove"; a chip placed by the hint: «{word}، الموضع ١، وُضعت بتلميح» / "{word}, position 1, placed by hint" with the lock icon, not removable.
+- **Placing and removing.** A tap, Enter or Space on a pool chip appends it to the answer line and the pool chip takes the *used* state (fill `--q-color-disabled`, `aria-disabled`, slot kept so nothing moves). The same on a placed chip, or Delete or Backspace on it, returns it to the pool and closes the gap. Undo removes the last chip that is not locked and takes `aria-disabled` when none is left. Identical words are separate chips told apart by `TokenView.ref`. **No drag exists in this build; the tap path is the only path** (2.5.7), and a later drag must keep it.
+- **Answer.** `{order: TokenRef[]}`, the refs of the answer line in order. **Hint.** Places `answerKey.order[0]` at position 1, locked; chips already placed stay after it; if that token was placed elsewhere it moves to position 1. Announced «وُضعت الكلمة الأولى في موضعها.» / "The first word was placed in its position."
+- **After «تحقق».** Each placed chip gets a result icon with hidden text, never colour alone: check-circle «في موضعها» / "in place", or refresh «ليست في موضعها» / "not in place" (warning tokens). Needs review shows the original: the tokens of `expected.order` in order in an original-text block, then the source line (P-20). Correct shows only «إجابة صحيحة.»
+- **Dialogs.** The leave sheet (P-23). **Never shown.** The words of other passages, a drag handle, a partial score, a timer.
+
+**4. States**
+
+| State | Trigger | What changes and copy | Focus | Announcement |
+|---|---|---|---|---|
+| Question shown | arrival or «التالي» | empty answer line, full pool; c2 | the H2 | the H2 text |
+| Placing | tap or Enter on a pool chip | chip placed; pool chip used | the next unused pool chip, else c11 | polite «وُضعت «{word}» في الموضع {p}.» / "“{word}” placed in position {p}." |
+| Removing | tap on a placed chip | back to the pool, gap closed | the chip now in that slot, else the previous, else the first pool chip | polite «أُزيلت «{word}».» / "“{word}” removed." |
+| Undo | c7 | last unlocked chip removed | stays on c7 | polite as removing |
+| Incomplete | «تحقق» with words unplaced | c9 under the answer line, `aria-describedby` | the first unused chip | via the description |
+| Hint used | c8 | first token locked, marker, c8 `aria-disabled` | stays on c8 | polite |
+| Checked | «تحقق» with all placed | read-only answer line with result icons; feedback block; c11 «التالي» | stays on c11 | feedback status |
+| Last question | the last one checked | c11 «إنهاء الجولة» | stays | none |
+| Round states | P-18 to P-25 | start, outcomes, connectivity, leave, no questions, result | per pattern | per pattern |
+| Not applicable | loading (the snapshot is in memory; E20 loading is on S-14); empty (P-24); field errors beyond c9; access denied (guards 1 and 7); pending sync (option B, G-22); disabled (c11 is never disabled); success beyond P-25 | — | — | — |
+
+**5. Responsive, RTL/LTR, accessibility**
+- At 320 px (272 px content) chips wrap, one chip per line when long, no horizontal scroll; at 200 % zoom the pool grows downwards. The answer line and pool stay right to left in the English UI (the book's order); the page chrome mirrors (undo icon, hint row order).
+- **Roving tabindex.** The answer line and the pool are each **one tab stop** (a `role="group"` of buttons, tabindex 0 on the current chip, -1 on the rest); arrows move focus in the group's visual direction (Left is next in RTL, also in the English UI), Home and End jump; used chips are skipped. This departs from UI-tokens §7 (word-order chips as ordinary buttons) to keep 16 chips from becoming 16 tab stops (O-43).
+- **Focus order.** (1) skip link, (2) c1, (3) answer line, (4) pool, (5) c8, (6) c7, (7) the source link, (8) [banner action], (9) c11. **Keyboard.** Enter or Space places or removes; Enter on c11 checks; Esc has no role; the leave sheet opens from c1 or the browser back.
+- Placement and removal are announced through one visually hidden polite status; the feedback block is a second, separate status, so the two never overlap. Targets: chips 44×44, c7 44×44, c11 48 px.
+- **Contrast pairs.** `--q-color-text` on `--q-color-surface` 11.76 (chips, original); placed chip `--q-color-text-accent` on `--q-color-selection` 7.75 with `--q-color-border-selected` 4.25; used chip `--q-color-text-secondary` on `--q-color-disabled` 4.38 (inactive, exempt); `--q-color-success-border` on `--q-color-success-bg` 4.62; `--q-color-warning-border` on `--q-color-warning-bg` 4.75; focus ring at least 7.11 on every surface. No animation of chip movement under reduced motion.
+
+**6. Colour and typography**
+- Page `--q-color-bg`; answer line and chips `--q-color-surface` with `--q-color-border` (3.32 on surface), `--q-radius-md` and `--q-radius-sm`; placed chips take the Selected recipe; feedback tokens as P-21. Words: `--q-text-token` in `--q-font-quran` or `--q-font-hadith` (P-20); H2 `--q-text-section`; counter and helper `--q-text-small`; button `--q-text-button`; UI text in the interface font.
+
+### S-16 Word choice — اختيار كلمة أو جزء
+
+**1. Purpose, role, entry and exit, acceptance**
+- **Purpose and role.** The learner picks the missing **word** (a blank in the context; 4 options of one word) or the **segment** that comes next (3 options of 2 to 4 contiguous words), from options taken from the same edition (D64, contract §2.4). A correct, unassisted answer covers the part holding the blank or segment. Learner and demo.
+- **Entry and exit.** `/games/word-choice` after P-19; guard 7; exit as S-15 (P-23, P-24, P-25). **Primary action.** «تحقق» then «التالي». **References.** R05, R19, R20; M5; D40, D64, D66; UX.md § «العودة والألعاب»; E20, E21, E22; G-02, G-19 to G-21, G-26, G-29; UA-09, UA-10; UG-02, UG-09.
+
+**2. Layout and hierarchy**
+- Focus flow (P-18). Order: H2 and prompt; the **context line** (an original-text block: `context.before`, the blank slot, `context.after`; segment variant: the context before and one blank slot for the segment); the option group; hint row; feedback block; source line and notice; action bar. Single words in two columns when each tile is at least 128 px wide (272 px content fits 2 × 128 plus 8 px), otherwise one; segments always stacked. 16 px between tiles' rows, 8 px between tiles.
+
+**3. Components, content, validation, dialogs**
+
+| # | Element (component) | Arabic | English (proposed) | Src |
+|---|---|---|---|---|
+| c1 | Back control; H1 | مغادرة الجولة؛ اختيار كلمة أو جزء | Leave the round; Word or segment choice | P; F inventory |
+| c2 | H2: counter and prompt, word variant | السؤال {i} من {n} — اختر الكلمة الناقصة. | Question {i} of {n} — Choose the missing word. | P |
+| c3 | H2 prompt, segment variant | اختر ما يأتي بعد ذلك. | Choose what comes next. | P (contract §2.4 wording "choose what comes next") |
+| c4 | H2 prompt, hadith grade passage (when the question is of the `grade` path, O-39) | اختر العبارة التي ذكرها المصدر عن درجة هذا الحديث | Choose the phrase the source gives for this hadith's grade | F contract §2.3 |
+| c5 | Context line; blank slot (P-20) | الكلمة الناقصة؛ الجزء الناقص | the missing word; the missing part | data; P |
+| c6 | Option group (`role="radiogroup"`), name; option tiles (§6.16) | الخيارات | Options | P |
+| c7 | Hint control; chip | تلميح؛ بمساعدة | Hint; With help | P (§6.16) |
+| c8 | Error line | اختر إجابة أولًا. | Choose an answer first. | P (as S-19) |
+| c9 | Feedback block; source line; notice; primary | P-21; P-20; P-18 | — | — |
+
+- **Tiles.** At least 56 px high (`--q-size-tile`), original text at `--q-text-token`, one option per tile; one tab stop per group. Space or Enter selects; **arrows only move focus** (§6.16): next is Down or the logical-next arrow (Left in RTL, Right in LTR), previous is Up or the other; Home and End jump. Selected = Selected recipe (check icon at the start edge). The answer is `{optionId}`.
+- **Hint.** Removes one wrong option other than a selected one (the first wrong one in snapshot order); a 4-option word question keeps 3 options, a segment question 2; the tile leaves the layout and a polite status says «حُذف خيار خاطئ» / "A wrong option was removed" (as S-19).
+- **After «تحقق».** The group becomes read-only. The correct tile takes success tokens, the check-circle icon and the phrase «الصحيح» / "The correct one"; a wrong chosen tile takes warning tokens, the refresh icon and «اخترته — يحتاج مراجعة» / "Your choice — needs review"; other tiles stay in the default recipe. The correct option fills the blank slot. Needs review shows the original (the context with the correct option in place) and the source line, per P-21.
+- **Dialogs.** The leave sheet (P-23). **Never shown.** Why an option is right, a translation, the other passages' text, a score.
+
+**4. States**
+
+| State | Trigger | What changes and copy | Focus | Announcement |
+|---|---|---|---|---|
+| Question shown | arrival or «التالي» | tiles unselected; word or segment prompt | the H2 | the H2 text |
+| Selected | Space, Enter or tap | tile Selected; one selection at a time | the tile | polite «تم اختيار «{text}».» / "“{text}” selected." |
+| Nothing chosen | «تحقق» with no selection | c8 at the group | the first tile | via the description |
+| Hint used | c7 | an option removed; marker; c7 `aria-disabled` | stays on c7 | polite |
+| Checked: correct; needs review | «تحقق» | tile states above; the blank filled; feedback; «التالي» | stays on c9 | feedback status |
+| Round states | P-18 to P-25 | as S-15 | per pattern | per pattern |
+| Not applicable | as S-15 (loading, empty, field errors beyond c8, access denied, pending sync, disabled, success beyond P-25) | — | — | — |
+
+**5. Responsive, RTL/LTR, accessibility**
+- 320 px: one tile per row when under 128 px each; text wraps, nothing is truncated (marks are not clipped: `overflow: visible`, at least 8 px padding). Tiles stay right to left in the English UI (`dir="rtl" lang="ar"`); the grid order follows the DOM.
+- **Focus order.** (1) skip link, (2) c1, (3) the option group (one stop), (4) c7, (5) the source link, (6) [banner action], (7) the primary button. **Keyboard.** As above; Enter on the primary checks.
+- After checking the result is spoken through the feedback status; each tile's name carries its state («{text}، الصحيح» / "{text}, the correct one"; «{text}، اخترته، يحتاج مراجعة» / "{text}, your choice, needs review"). Targets 56 px tiles, 48 px button.
+- **Contrast pairs.** `--q-color-text` on `--q-color-surface` 11.76; `--q-color-text-accent` on `--q-color-selection` 7.75 (selected); `--q-color-success-text` on `--q-color-success-bg` 6.16; `--q-color-warning-text` on `--q-color-warning-bg` 5.79; borders `--q-color-success-border` 4.62 and `--q-color-warning-border` 4.75 on their tints; focus ring at least 7.65 on the tints.
+
+**6. Colour and typography**
+- Tiles `--q-color-surface`, `--q-color-border`, `--q-radius-sm`; selected `--q-color-selection` with `--q-color-border-selected` 2 px; states as P-21. Tile text `--q-text-token` in the original font (P-20); tile phrases `--q-text-caption`; prompt `--q-text-section`; error `--q-text-small`.
+
+### S-17 Similar distinction — تمييز المتشابه
+
+**1. Purpose, role, entry and exit, acceptance**
+- **Purpose and role (D31).** The learner chooses between **two options** at one position: the true original word and a **programmatic wrong one** (a word from the similar position elsewhere in the same edition, or a wrong word the learner recorded earlier), so the screen corrects the learner's slip, not the source. The option is built by code, never by AI. The inventory's «hidden earlier passage» is read as the context line with a blank, never the full passage. Learner and demo.
+- **Entry and exit.** `/games/similar-distinction` after P-19; guard 7; exit as S-15. With no eligible position the round shows the G-26 state (P-24). **Primary action.** «تحقق» then «التالي». **References.** R05, R19, R20; M5; D31, D40, D64, D66; UX.md § «العودة والألعاب»; E20, E21, E22; G-02, G-19 to G-21, G-26, G-29; UA-09, UA-10; UG-02, UG-09.
+
+**2. Layout and hierarchy**
+- As S-16, word variant: H2 and prompt; context line with one blank; **two option tiles**, side by side when each is at least 128 px, else stacked; hint row with a helper line; feedback block with the original; source line and notice; action bar. Up to the same 10 questions; `n` may be smaller.
+
+**3. Components, content, validation, dialogs**
+
+| # | Element (component) | Arabic | English (proposed) | Src |
+|---|---|---|---|---|
+| c1 | Back control; H1 | مغادرة الجولة؛ تمييز المتشابه | Leave the round; Similar distinction | P; F inventory |
+| c2 | H2: counter and prompt | السؤال {i} من {n} — اختر الصحيح كما ورد في الكتاب. | Question {i} of {n} — Choose the correct one as it appears in the book. | P |
+| c3 | Context line with one blank (P-20) | الكلمة الناقصة | the missing word | data; P |
+| c4 | Option group, name; two tiles (§6.16) | الخيارات | Options | P |
+| c5 | Hint control, helper, chip | تلميح — يُزيل الخيار الخاطئ فيبقى الخيار الصحيح، وتُحتسب الإجابة بمساعدة.؛ بمساعدة | Hint — It removes the wrong option, leaving the correct one, and the answer counts as with help.; With help | P (UG-09) |
+| c6 | Error line | اختر إجابة أولًا. | Choose an answer first. | P |
+| c7 | Tile labels after the answer: correct; mistake | الصحيح؛ خطأ في الحفظ | The correct one; A memorization error | P (D31: «يوسم خطأً»); words and icon |
+| c8 | Feedback block with the **original and its reference**; source line; primary | P-21 (original shown for both outcomes); P-20; P-18 | — | — |
+
+- **Behaviour.** Selection and keyboard as S-16 c6 (one tab stop, arrows move, Space or Enter selects). Answer `{optionId}`. **Hint (UG-09):** with two options the hint removes the wrong one, which reveals the answer; it is allowed, the helper line c5 says so before the press, the remaining tile is not auto-selected (the learner still selects and checks), and the answer is *with help*: no part covered, no streak change. Announced «حُذف خيار خاطئ» / "A wrong option was removed".
+- **After the answer (D31), for either outcome.** Both tiles stay visible and read-only. The correct tile: success tokens, check-circle, «الصحيح». The **wrong option is labelled a mistake in words and icon**: warning tokens, alert-triangle icon, «خطأ في الحفظ», never colour alone. The tile the learner chose keeps its 2 px selected border. The feedback block shows the **original** (the context with the correct word in place, `expected.optionId`) and the source line with its reference (P-20) even after a correct answer. If the hint removed the wrong option, only the correct tile is shown.
+- **The wrong option is never saved or shown as text anywhere else.** It appears only inside its own tile during this question: not in the feedback sentence, any live-region announcement, `title` or `aria-label` outside the tile, the result, a list of mistakes, the clipboard (no copy action), the URL, storage, logs or analytics; the snapshot is dropped when the round ends. Announcements read the original, never the wrong word on its own.
+- **Dialogs.** The leave sheet (P-23). **Never shown.** A list of the learner's past mistakes, which kind of wrong option it was, an explanation, a score.
+
+**4. States**
+
+| State | Trigger | What changes and copy | Focus | Announcement |
+|---|---|---|---|---|
+| Question shown; selected; nothing chosen | arrival; selection; «تحقق» unselected | as S-16 (c6 «اختر إجابة أولًا.») | the H2; the tile; the first tile | as S-16 |
+| Hint used | c5 | the wrong tile leaves the layout; marker; c5 `aria-disabled` | stays on c5 | polite «حُذف خيار خاطئ» |
+| Checked | «تحقق» | tile labels c7; feedback with the original; «التالي» | stays on the primary | feedback status (original only) |
+| No similar position (G-26) | E20 `201` without question steps | P-24: «لا يوجد موضع متشابه ولا خطأ مسجل لك في هذا المقطع؛ جرّب لعبة أخرى.» and «اختر لعبة أخرى» | the button | status |
+| Round states | P-18 to P-25 | as S-15 | per pattern | per pattern |
+| Not applicable | as S-15 | — | — | — |
+
+**5. Responsive, RTL/LTR, accessibility**
+- Two tiles at 128 px or more, else stacked; original text right to left in both UI languages; the labels c7 are UI text and mirror with the page. Targets 56 px tiles, 48 px button.
+- **Focus order.** (1) skip link, (2) c1, (3) the option group (one stop), (4) c5, (5) the source link, (6) [banner action], (7) the primary. The mistake label is part of the tile's accessible name («{text}، خطأ في الحفظ» / "{text}, a memorization error") and is spoken when the tile is focused after checking, but the live region repeats only the original.
+- **Contrast pairs.** As S-16; `--q-color-warning-text` on `--q-color-warning-bg` 5.79 (label, 14 px caption at weight 600), alert-triangle `--q-color-warning-border` 4.75.
+
+**6. Colour and typography**
+- As S-16; the mistake tile uses warning tokens (UI-tokens A4: gentle, not error tokens). Words `--q-text-token` in the original font; labels `--q-text-caption`.
+
+### S-18 Word recall — استرجاع كلمة
+
+**1. Purpose, role, entry and exit, acceptance**
+- **Purpose and role.** The learner types **one missing word** with no options, from a key word or a continuation point with about six words of context on each side (D64, contract §2.4). The server grades with `arabic-norm-v1` (marks, hamza and ya forms normalised; the answer must be exactly one word). The fixed hint shows the first letter and makes the answer *with help* (D66). Learner and demo.
+- **Entry and exit.** `/games/word-recall` after P-19; guard 7; exit as S-15. **Primary action.** «تحقق» then «التالي». **References.** R05, R19, R20; M5; D40, D64, D66; UX.md § «العودة والألعاب»; contract §2.4, §2.5; E20, E21, E22; G-02, G-19 to G-21, G-26, G-29; UA-09, UA-10; UG-02, UG-09.
+
+**2. Layout and hierarchy**
+- Focus flow (P-18). Order: H2 and prompt; the context line (before, blank slot, after); the **recall input** (label above, 56 px, §6.2); helper and error lines; the hint row with the first-letter line; feedback block; source line and notice; action bar. A virtual keyboard may cover the lower half: the input and the action bar stay reachable through `scroll-padding-block-end` and `visualViewport` handling (2.4.11).
+
+**3. Components, content, validation, dialogs**
+
+| # | Element (component) | Arabic | English (proposed) | Src |
+|---|---|---|---|---|
+| c1 | Back control; H1 | مغادرة الجولة؛ استرجاع كلمة | Leave the round; Word recall | P; F inventory |
+| c2 | H2: counter and prompt | السؤال {i} من {n} — اكتب الكلمة الناقصة. | Question {i} of {n} — Type the missing word. | P |
+| c3 | Context line; blank slot (P-20) | الكلمة الناقصة | the missing word | data; P |
+| c4 | Text input (§6.2 recall input), label | الكلمة الناقصة | The missing word | P |
+| c5 | Helper, `--q-text-small` | اكتب الكلمة بالعربية. لا يلزم كتابة الحركات. | Type the word in Arabic. Vowel marks are not needed. | P (§6.2: «اكتب الكلمة بالعربية»; marks not required) |
+| c6 | Error: empty; more than one word | اكتب كلمة أولًا.؛ اكتب كلمة واحدة. | Type a word first.; Type one word only. | P (§6.2: «اكتب كلمة واحدة») |
+| c7 | Hint control; first-letter line; chip | تلميح؛ أول حرف: {x}؛ بمساعدة | Hint; First letter: {x}; With help | P (§6.16); line as S-19 |
+| c8 | Feedback block; source line; notice; primary | P-21; P-20; P-18 | — | — |
+
+- **Input.** 56 px (`--q-size-input-recall`), `--q-text-token` in the original font, `dir="rtl" lang="ar"`, `inputmode="text"`, `autocomplete="off"`, `autocorrect="off"`, `autocapitalize="off"`, `spellcheck="false"` (no keyboard suggestions); paste is allowed. A page cannot switch the keyboard layout, hence c5. Enter checks, except while an IME composition is open. Outer spaces are trimmed; if the trimmed text holds a space, c6 «اكتب كلمة واحدة.» and nothing is sent. Answer `{text}`, never stored, logged or echoed in announcements.
+- **Hint.** `hintFirstLetter` shown in the line c7 (`lang="ar"`, `--q-text-token`); the input is **not** pre-filled. Announced «أول حرف: {x}» / "First letter: {x}".
+- **After «تحقق».** The input becomes `readonly`. Correct: success tokens, the typed word kept in the input. Needs review: warning tokens, the original with `expected.word` in the blank (context restored) and the source line; the typed text is not repeated in the feedback.
+- **Dialogs.** The leave sheet (P-23). **Never shown.** Letter-by-letter checking, an auto-complete list, the learner's wrong text anywhere but the input, a score.
+
+**4. States**
+
+| State | Trigger | What changes and copy | Focus | Announcement |
+|---|---|---|---|---|
+| Question shown | arrival or «التالي» | empty input | the H2 | the H2 text |
+| Empty; two words | «تحقق» with nothing, or two words | c6; nothing sent | the input | via `aria-describedby` |
+| Hint used | c7 | first-letter line and marker; c7 `aria-disabled` | stays on c7 | polite |
+| Checked | «تحقق» | input readonly; feedback; «التالي» | stays on the primary | feedback status |
+| Round states | P-18 to P-25 | as S-15 | per pattern | per pattern |
+| Not applicable | as S-15 | — | — | — |
+
+**5. Responsive, RTL/LTR, accessibility**
+- The input keeps `dir="rtl"` in the English UI; the label and helpers mirror. At 320 px the input is 272 px wide; at 200 % zoom it still fits one line of a long word, wrapping is never needed in an `input`.
+- **Focus order.** (1) skip link, (2) c1, (3) c4, (4) c7, (5) the source link, (6) [banner action], (7) the primary. Label, helper and error are tied by `for` and `aria-describedby`.
+- **Contrast pairs.** Input border `--q-color-border` on `--q-color-surface` 3.32; `--q-color-text` on `--q-color-surface` 11.76; error `--q-color-error-text` on `--q-color-bg` 6.33 (the Error recipe of P-03, with the alert-circle icon); other pairs as S-16.
+
+**6. Colour and typography**
+- Input `--q-color-surface` with `--q-color-border`, `--q-radius-sm`; error recipe of P-03; feedback tokens as P-21. Label `--q-text-body-compact`, helper `--q-text-small`, typed word and context `--q-text-token`.
 
 ## 4. Batch 4 — Session, progress, settings
 
@@ -937,7 +1199,286 @@ appended by U2 part B.
 **6. Colour and typography**
 - Page `--q-color-bg`; cards `--q-color-surface` with `--q-color-divider`; bars: track `--q-color-disabled`, fill `--q-color-primary`; badges §6.11 (confirmed success tokens, in progress and learning selection tokens, needs refresh warning tokens); the Notice `--q-color-text-secondary`. H1 `--q-text-title`; card labels `--q-text-section`; the overall figure `--q-text-display`; lines `--q-text-body-compact`; helpers and dates `--q-text-small`; badges `--q-text-caption`. UI fonts only.
 
-*S-22…S-27: appended by U2 part C.*
+### 4.x Settings screens S-22 to S-27 (part C)
+
+Work package U2, part C, second half. Sources: [UX.md](UX.md) row «الإعدادات والمصادر», § «الحساب والخصوصية في النصوص», § «عرض الكتاب دون إضافات»; [API-spec.md](API-spec.md) §4.2 E08 to E10, §4.3 E11 to E13, §4.4 E14; contract §7 (`Profile`, `pendingSettings`); D51, D57, D68, D70, D75. Roles: learner and demo (a demo account may change settings and password and delete the account, D71; nothing here differs for `isDemo`). Option B only: sync-state and unsynced-event variants are listed as deferred.
+
+**Shared patterns of the settings screens**
+
+- **P-26 App-shell frame (S-14 and S-22 to S-27).** Page chrome per P-01 with the landmarks `header`, `nav` (labelled «التنقل الرئيسي» / "Main navigation", proposed), `main`; language and direction come from the profile (E11), so there is no language switch (P-02 does not apply). Top app bar (§6.6): the H1 is its title, start-aligned (`--q-text-title`, wraps to two lines, never clipped); a back control at the start edge on S-23 to S-27 only (icon button 44×44, arrow mirrors, name «رجوع إلى الإعدادات» / "Back to Settings"); tab roots (S-14, S-22) have none. Navigation: the tab bar (below 1024) and the rail (from 1024) are **two instances**, one per width, `display: none` removing the other from the tab order (the technique of S-07's header actions); the bar follows `main` in the DOM and the rail precedes it; both list «اليوم»، «الألعاب»، «التقدم»، «الإعدادات», the current tab `aria-current="page"` (S-23 to S-27 keep «الإعدادات»). Content: one column centred in the area beside the rail, 640 px below 1024 and 720 px from 1024, forms at most 480 px (O-06), margins `--q-space-24`, `-32`, `-40`; `scroll-padding-block-start` covers the bar. Slot T is directly under the app bar and Slot B directly above the submit button (§0). An **arrival banner** comes from in-memory flash state, never a URL parameter; it is dismissible, shown once, and not announced on load (it follows the H1, P-09).
+- **P-27 Re-authentication form (S-23, S-24, S-27).** Field «كلمة المرور الحالية» / "Current password": P-08 without length checks, `autocomplete="current-password"`, `enterkeyhint="go"`, plus a visually hidden username field (`autocomplete="username"`, `tabindex="-1"`, `aria-hidden`, value from E11) so password managers fill the right account. Empty on submit «أدخل كلمة المرور الحالية.» / "Enter your current password." (P-03). Server mapping: `invalid_credentials` (G-04, re-authentication) Error banner Slot B «كلمة المرور الحالية غير صحيحة.» / "The current password is not correct.", no field marked invalid, the field cleared and focused; a failed check counts under the login's username key (API-spec §1.8), so `throttled` can follow: P-06; `unauthenticated` (G-03): S-01 with the session-ended banner and `next` set to this screen; `forbidden_origin`, `internal`, `unavailable`: P-07; wake-up or offline before any answer: P-04, P-05. E08, E09, E12 and E13 follow the E03 to E07 rule: never resent without a user gesture. **Uncertain outcome:** if the request was sent and no response came, P-10 applies with the copy of each screen (O-45). The password is wiped from memory on success, on leaving and on reload; nothing is stored.
+
+### S-22 Settings — الإعدادات
+
+**1. Purpose, role, entry and exit, acceptance**
+- **Purpose and role.** The learner reads and changes the language, the daily-time default, the time zone and the in-app reminder; sees the account name and sync state; reaches the account pages S-23 to S-27; logs out; and reads the fixed transparency line about the plan assistant (D75). Learner and demo.
+- **Entry.** `/settings`, tab «الإعدادات» (tab bar below 1024, rail from 1024); S-04 «متابعة» after E08; S-23 success; S-04 left unconfirmed (guard 9). Guard 1 sends a visitor to `/login?next=/settings`.
+- **Exit.** Rows to S-23, S-24, S-25, S-26, S-27; «تسجيل الخروج» to S-01 (E10); the other tabs. Back: none, a tab root.
+- **Primary action.** «حفظ التغييرات» / "Save changes" (E12). **References.** R10, R11, R17; M1, M10; D51, D57, D75; NFR-09, 10, 14; UX.md row «الإعدادات والمصادر», § «الحساب والخصوصية في النصوص»; E10, E11, E12; G-01 to G-03, G-05, G-16, G-17, G-22, G-23, G-32; UA-03, UA-08.
+
+**2. Layout and hierarchy**
+- App shell (P-26), tab «الإعدادات» active. Phone order, 24 px between regions: Slot T (arrival banner, E11 failure); H2 «الحساب» with the two read-only rows and the rows to S-23, S-24, S-27; H2 «التفضيلات» with the form (language, daily time, time zone, reminder, Slot B, Save); H2 «الخصوصية والمصادر» with the rows to S-26, S-25 and the transparency Notice; the logout button. List rows are at least 56 px (§6.7), divider between rows. Tablet: the same column. From 1024: the rail and a 720 px column, the form controls staying within 480 px.
+
+**3. Components, content, validation, dialogs**
+
+| # | Element (component) | Arabic | English (proposed) | Src |
+|---|---|---|---|---|
+| c1 | H1 (bar title) | الإعدادات | Settings | F UX.md (tab name) |
+| c2 | H2 | الحساب | Account | P |
+| c3 | Read-only row, label and value (`<bdi dir="ltr">`) | اسم الحساب: {username} | Account name: {username} | F UX.md («اسم الحساب»); English P |
+| c4 | Read-only row with a status chip (§6.11, check-circle, success tokens) | حالة المزامنة: متزامن | Sync status: Synced | «متزامن» F UX.md, G-22; label P |
+| c5 | List row to S-23 | تغيير كلمة المرور | Change password | F UX.md |
+| c6 | List row to S-24 | إعادة توليد الرمز | Regenerate the recovery code | F UX.md; English P |
+| c7 | List row to S-27, label in `--q-color-error-text` | حذف الحساب | Delete account | F UX.md |
+| c8 | H2 | التفضيلات | Preferences | P |
+| c9 | Radio group, two segments (§6.4), group label | اللغة؛ العربية، English | Language; العربية, English | label F UX.md; segments P |
+| c10 | Radio group, three segments, group label, helper | الوقت اليومي للخطط الجديدة؛ ٥ دقائق، ١٠ دقائق، ١٥ دقيقة؛ يُقترح هذا الوقت عند إنشاء خطة جديدة. لتغيير وقت خطتك الحالية استخدم «تعديل الوقت والهدف». | Daily time for new plans; 5 minutes, 10 minutes, 15 minutes; This time is suggested when you create a new plan. To change the time of your current plan, use «Adjust time and goal». | P (O-44) |
+| c11 | Link to S-13, own 44 px line (only with a plan) | تعديل الوقت والهدف | Adjust time and goal | F UI-design §1.1 (S-11, S-13); English P |
+| c12 | Select (native `<select>`, §6.2, §6.5), label | المنطقة الزمنية | Time zone | F UX.md; options P (O-46) |
+| c13 | Pending line (clock icon, `--q-text-small`), under c10 or c12 | السارية الآن: {القيمة}. يبدأ هذا التغيير من يوم التعلم التالي ({التاريخ}). | In force now: {value}. This change starts on the next learning day ({date}). | G-32 settled here (sentence from G-32, UX.md D57) |
+| c14 | Checkbox (§6.3), label, helper | تذكير داخل التطبيق؛ عند فتح التطبيق يظهر إشعار إن كانت لديك مراجعة مستحقة. لا توجد إشعارات خارج التطبيق. | In-app reminder; When you open the app, a notice appears if a review is due. There are no notifications outside the app. | F UX.md («التذكير داخل التطبيق فقط»); wording P (O-47) |
+| c15 | Button primary; loading | حفظ التغييرات؛ جارٍ الحفظ… | Save changes; Saving… | P |
+| c16 | H2 | الخصوصية والمصادر | Privacy and sources | P |
+| c17 | List rows to S-26 and S-25 | الخصوصية والبيانات؛ المصادر | Privacy and data; Sources | F UX.md |
+| c18 | Notice (§6.8, no fill, never dismissible): the transparency line | تُبنى خطتك وتُعدَّل في محادثة مع مساعد ذكاء اصطناعي يستقبل وصف هدفك وخيارات الخطة، وعند التعديل ملخص تعلمك وإجاباتك، تحت معرّف مؤقت لا يكشف حسابك؛ وتُحسب الأرقام بمحرك القواعد داخل التطبيق. | Your plan is built and revised in a conversation with an AI assistant that receives the description of your goal and the plan options, and, when you revise it, a summary of your learning and answers, under a temporary identifier that does not reveal your account; the numbers are computed by the rules engine inside the app. | F D75, Plan-conversation §2.6; English P |
+| c19 | Button secondary; loading | تسجيل الخروج؛ جارٍ الخروج… | Log out; Logging out… | label P (UX.md «خروج»; as S-06) |
+| c20 | Toast (§6.8) | تم حفظ الإعدادات | Settings saved | P |
+
+- **Form.** One `<form novalidate>` with a single Save (O-47): language, daily time, time zone and reminder are sent together as `PATCH` of **only the changed fields** (`language`, `sessionMinutes`, `timeZone`, `reminderSettings: {inApp}`). Save with nothing changed sends nothing and says «لا توجد تغييرات للحفظ.» / "There are no changes to save." as a polite status. The controls show what the learner chose last (the pending value when one exists, else the value in force); c13 states the value in force and the start date, with the date written from `effectiveDate`'s parts. `language` and the reminder take effect at once; `sessionMinutes` and `timeZone` become `pendingSettings` for the next learning day (D57, G-32), with no retroactive credit.
+- **Time zone options.** `Intl.supportedValuesOf('timeZone')` names (`Asia/Dubai`) in `<bdi dir="ltr">` with the current offset («UTC+٤»), sorted by offset then name; the profile's zone is always present; the browser's detected zone is marked «من المتصفح» / "From the browser" when it differs (O-46).
+- **Language change.** On a successful save `lang`, `dir` and every label switch at once, without reload; focus stays on c15; a polite status says «تم تغيير اللغة إلى العربية» / "Language changed to English" (as P-02).
+- **Validation.** None is learner-fixable (every value comes from a fixed list); `validation_error` and `forbidden_field` are treated as `internal`. **E12 mapping.** `internal` or no response: Error banner Slot B «تعذّر حفظ الإعدادات. حاول مرة أخرى.» / "The settings could not be saved. Try again." (UX.md «فشل حفظ تعديل الإعدادات»; replaces G-16 here), `unavailable`: G-17 «الخدمة غير متاحة مؤقتًا. حاول بعد قليل.»; `forbidden_origin`: G-05 via P-07; chosen values are kept; Save is the retry. `401`: G-03.
+- **Logout (E10).** No dialog in option B (nothing is unsynced). `204` or `401` (the call is tolerant): to S-01, in-memory state cleared. `403`, `503` or no answer: Error banner Slot B above c19 «تعذّر تسجيل الخروج. حاول مرة أخرى.» / "Logging out failed. Try again." and the learner stays. **Deferred (option C, F13):** the Logout dialog of §6.9 when answers are unsynced: title «تسجيل الخروج؟», body «لديك {n} إجابات لم تُزامن بعد. إن خرجت الآن فستُحذف من هذا الجهاز.» / "{n} answers have not synced yet. If you log out now they will be deleted from this device.", buttons «تسجيل الخروج» (primary) and «إلغاء» (initial focus); and the chip «محفوظ على الجهاز، بانتظار المزامنة» (G-22).
+- **Never shown.** An assistant on/off switch or a «ربط حساب» backup row (D51), push or email reminder options, a dark-mode or translation toggle, a data export (D70), a certificate.
+
+**4. States**
+
+| State | Trigger | What changes and copy | Focus | Announcement |
+|---|---|---|---|---|
+| Loading | E11 in flight | skeleton rows and form after 300 ms, region `aria-busy`, «جارٍ التحميل» (G-23) | c1 | none |
+| Wake-up; offline | G-01; G-02 | P-04; P-05 with «إعادة المحاولة» (E11 is a read) | unchanged | status |
+| Populated | E11 `200` | c1 to c19 | unchanged | none |
+| Pending setting (G-32) | `pendingSettings` not null | c13 under the changed control | unchanged | none |
+| Nothing to save | Save, no change | polite line only | c15 | polite |
+| Saving; saved | E12 in flight; `200` | c15 Loading; Toast c20; the profile replaced; c13 appears for minutes or zone | stays on c15 | polite «جارٍ الحفظ»; toast |
+| Language switched | `language` changed | whole page re-renders in the new language | c15 | polite status |
+| Save failed | `500`, `503`, no answer, `403` origin | banners above; values kept | c15 | alert or status |
+| E11 failed | read error | Error banner Slot T with «إعادة المحاولة»; form hidden; rows and logout stay | the banner action | alert or status |
+| Arrival banners (one, in this order) | S-04 left unconfirmed; S-23 success; S-04 «متابعة» after E08 | Info «لا يمكن عرض الرمز مرة أخرى. يمكنك إنشاء رمز جديد من الإعدادات.» (S-04); Success «تم تغيير كلمة المرور. تنتهي جلسات هذا الحساب على الأجهزة الأخرى، وتبقى هذه الجلسة مفتوحة.» / "Your password was changed. Sessions of this account on other devices have ended, and this one stays open."; Success «تم إنشاء رمز استرجاع جديد، ولم يعد الرمز القديم صالحًا.» / "A new recovery code was created, and the old code no longer works." | the H1 | none on load |
+| Logging out; failed | c19 pressed | c19 Loading, the form inert; Error banner | stays; c19 | polite «جارٍ الخروج»; alert |
+| Session ended | `401` | S-01 with the session-ended banner, `next=/settings` (G-03) | H1 of S-01 | its title |
+| Deferred | unsynced answers (option C) | chip and Logout dialog above | — | — |
+| Not applicable | empty (a profile always has values); access denied (guard 1 only); throttled (E10 to E12 have no throttle); pending sync and the offline shell (option B, G-22, S-31); disabled (only c15 and c19 while loading) | — | — | — |
+
+**5. Responsive, RTL/LTR, accessibility**
+- 320 px: three minute segments of 88 px fill 264 of 272 px; longer English labels stack (§6.4); the select and rows take the full width; no horizontal scroll at 200 % zoom. Logical properties; row chevrons mirror; usernames and time-zone names sit in `<bdi dir="ltr">`.
+- **Focus order.** (1) skip link, (2) [banner dismiss], (3) c5, (4) c6, (5) c7, (6) c9, (7) c10, (8) c11, (9) c12, (10) c14, (11) c15, (12) the rows of c17 in order, (13) c19, (14) the tab-bar items (from 1024 the rail items come before `main` and the skip link bypasses them). **Keyboard.** Arrow keys inside a radio group move the selection in the logical direction (Left is next in RTL, §6.4); Space toggles c14; Enter in the select or checkbox does not submit; Enter on c15 saves.
+- Sync status is a polite `role="status"` region with the chip's text. Targets: rows 56 px, segments at least 44×88 px, checkbox row 44 px, buttons 48 px, the link line 44 px.
+- **Contrast pairs.** `--q-color-text` on `--q-color-surface` 11.76; `--q-color-text-secondary` on `--q-color-surface` 5.36 and on `--q-color-bg` 5.10 (helpers, Notice); `--q-color-error-text` on `--q-color-surface` 6.65 (row c7); `--q-color-success-text` on `--q-color-success-bg` 6.16 (chip); `--q-color-text-accent` on `--q-color-selection` 7.75 (selected segment); border 3.32 on surface; focus ring 8.69. Instant toast and banners under reduced motion.
+
+**6. Colour and typography**
+- Page `--q-color-bg`; rows and inputs `--q-color-surface`, dividers `--q-color-divider`; selected segment `--q-color-selection` with `--q-color-border-selected`; Save `--q-color-primary` (hover `--q-color-primary-deep`); logout the Secondary recipe; c13 `--q-color-info-text` with a clock icon. H1 `--q-text-title`; H2 `--q-text-section`; row labels `--q-text-body`, values and helpers `--q-text-small`; chip `--q-text-caption`; UI fonts only. No religious text appears on this screen.
+
+### S-23 Change password — تغيير كلمة المرور
+
+**1. Purpose, role, entry and exit, acceptance**
+- **Purpose and role.** A signed-in learner or demo account replaces the password after re-entering the current one (E09). This session stays signed in with a fresh cookie; the account's other sessions end.
+- **Entry.** Row c5 of S-22 (`/settings/password`). **Exit.** Success goes to S-22 by `replace` with a Success arrival banner, so back never returns to the filled form; back (c1) goes to S-22. **Primary action.** «تغيير كلمة المرور» / "Change password" (E09). **References.** R10; M1; NFR-06, 09, 14; UX.md § «الحساب والخصوصية في النصوص»; E09; G-01 to G-05, G-14 to G-17; UA-03.
+
+**2. Layout and hierarchy**
+- App shell (P-26), tab «الإعدادات» active, back control. Order: Slot T (error summary); Notice; current password; new password with helper; confirmation; Slot B; submit (full width on phone, 48 px). 480 px form column.
+
+**3. Components, content, validation, dialogs**
+
+| # | Element (component) | Arabic | English (proposed) | Src |
+|---|---|---|---|---|
+| c1 | Back control, name; H1 (bar title) | رجوع إلى الإعدادات؛ تغيير كلمة المرور | Back to Settings; Change password | P; F UX.md |
+| c2 | Notice | ستبقى مسجّلًا الدخول في هذا الجهاز، وتنتهي جلسات هذا الحساب على الأجهزة الأخرى. | You stay signed in on this device, and sessions of this account on other devices end. | P (E09, contract §7) |
+| c3 | Current password field and toggle (P-27, P-08) | كلمة المرور الحالية | Current password | P (P-27) |
+| c4 | New password field and toggle (P-08), helper | كلمة المرور الجديدة — ١٥ حرفًا على الأقل. يمكنك استخدام عبارة طويلة. | New password — At least 15 characters. A long phrase works well. | P |
+| c5 | Confirmation field and toggle (P-08) | تأكيد كلمة المرور الجديدة | Confirm new password | P |
+| c6 | Button primary; loading | تغيير كلمة المرور؛ جارٍ التغيير… | Change password; Changing… | P |
+
+- **Fields.** c3: P-27. c4 and c5: P-08 (`autocomplete="new-password"`, at least 15 code points and at most 72 UTF-8 bytes on the raw value, never trimmed or normalised; no `maxlength`); the hidden username field of P-27 lets a manager update the saved password. Checks run in the order c3, c4, c5 on submit and on blur (P-03); messages per P-08 and P-27. No strength meter and no composition rules (length only, NFR-06).
+- **E09 mapping.** `200` with the new cookie: fields wiped, the returned `profile` replaces the cached one, to S-22 with the banner of S-22 ("Your password was changed…"). `validation_error` (`password_min_chars`, `password_max_bytes`): P-08 message at c4. Everything else: P-27. **Uncertain outcome (P-10):** Warning banner Slot B «تعذّر تأكيد النتيجة. إن انتهت جلستك فسجّل الدخول بكلمة المرور الجديدة؛ وإلا أعد المحاولة.» / "We could not confirm the result. If your session ended, log in with the new password; otherwise try again." with a link «تسجيل الدخول» / "Log in" to S-01.
+- **Dialogs.** None. **Never shown.** A password in clear by default, a strength score, a hint of the old password, a forced logout of this device.
+
+**4. States**
+
+| State | Trigger | What changes and copy | Focus | Announcement |
+|---|---|---|---|---|
+| Initial | route load | empty fields | c1 (the H1) | title |
+| Field errors | blur or submit | P-03 messages; summary in Slot T from two errors | first invalid field | summary alert |
+| Submitting | E09 in flight | c6 Loading, fields kept | stays on c6 | polite «جارٍ التغيير» |
+| Wrong current password (G-04) | `401 invalid_credentials` | P-27 banner; c3 cleared | c3 | alert |
+| Throttled; wake-up; offline; service | `429`; G-01; G-02; 5xx | P-06; P-04; P-05; P-07 | c6 | per pattern |
+| Uncertain outcome | no response to E09 | banner above | stays on c6 | status |
+| Session ended | `401 unauthenticated` | S-01, `next=/settings/password` (G-03) | H1 of S-01 | its title |
+| Success | `200` | to S-22 with the banner | H1 of S-22 | its title |
+| Not applicable | loading and empty (a form lists no data); access denied (guard 1 only); pending sync (option B); disabled (throttle only) | — | — | — |
+
+**5. Responsive, RTL/LTR, accessibility**
+- One column from 320 px, form 480 px; logical properties; passwords `dir="auto"`; fields and button 48 px, toggles 44×44. **Focus order.** (1) skip link, (2) c1, (3) c3 and its toggle, (4) c4 and toggle, (5) c5 and toggle, (6) c6, (7) the tab bar (rail first from 1024). Enter submits; paste and password managers are never blocked (3.3.8). Contrast pairs as S-01 and S-02.
+
+**6. Colour and typography**
+- As S-02 (fields `--q-color-surface` with `--q-color-border`, primary button, errors with alert-circle); Notice `--q-text-small` in `--q-color-text-secondary`. No religious text appears on this screen.
+
+### S-24 Rotate recovery code — إعادة توليد الرمز
+
+**1. Purpose, role, entry and exit, acceptance**
+- **Purpose and role.** After re-entering the current password the learner replaces the recovery code (E08); the old code stops working at once and is never shown (UX.md); the new one is shown once through S-04. Sessions and the password do not change.
+- **Entry.** Row c6 of S-22 (`/settings/recovery-code`). **Exit.** `200` goes to S-04 by `replace` (host E08), whose «متابعة» returns to S-22; back (c1) to S-22. **Primary action.** «إعادة توليد الرمز» / "Regenerate the code" (E08). **References.** R10; M1; NFR-06, 09; UX.md § «الحساب والخصوصية في النصوص»; E08; G-01 to G-05, G-15 to G-17; UA-06.
+
+**2. Layout and hierarchy**
+- As S-23 with one field: Slot T; Notice; current password; Slot B; submit.
+
+**3. Components, content, validation, dialogs**
+
+| # | Element (component) | Arabic | English (proposed) | Src |
+|---|---|---|---|---|
+| c1 | Back control; H1 (bar title) | رجوع إلى الإعدادات؛ إعادة توليد الرمز | Back to Settings; Regenerate the recovery code | P; F UX.md |
+| c2 | Notice | سيتوقف رمز الاسترجاع الحالي عن العمل فور إنشاء الرمز الجديد، ولن نعرضه لك مرة أخرى. يظهر الرمز الجديد مرة واحدة فقط. | Your current recovery code stops working as soon as the new one is created, and we will not show it again. The new code is shown only once. | P (E08, UX.md) |
+| c3 | Current password field and toggle (P-27) | كلمة المرور الحالية | Current password | P |
+| c4 | Button primary; loading | إعادة توليد الرمز؛ جارٍ الإنشاء… | Regenerate the code; Creating… | P (S-24 name) |
+
+- **E08 mapping.** `200 {recoveryCode}`: the password is wiped, the code is handed to S-04 in memory only (never the URL, storage, history state or logs), `replace` navigation. Errors: P-27. **Uncertain outcome (P-10):** Warning banner Slot B «تعذّر تأكيد النتيجة. أعد المحاولة؛ كل محاولة ناجحة تستبدل الرمز السابق.» / "We could not confirm the result. Try again; each successful attempt replaces the previous code." (E08 is repeatable with the password).
+- **Dialogs.** None. **Never shown.** The old code, a masked copy of any code, a code outside S-04.
+
+**4. States**
+
+| State | Trigger | What changes and copy | Focus | Announcement |
+|---|---|---|---|---|
+| Initial; field error | route load; empty password | as S-23 | the H1; c3 | title; via description |
+| Submitting | E08 in flight | c4 Loading | stays on c4 | polite «جارٍ الإنشاء» |
+| Wrong password; throttled; wake-up; offline; service; session ended | G-04; `429`; G-01; G-02; 5xx; `401` | P-27, P-06, P-04, P-05, P-07; G-03 with `next=/settings/recovery-code` | c3 or c4 | per pattern |
+| Uncertain outcome | no response | banner above | stays on c4 | status |
+| Success | `200` | to S-04 | H1 of S-04 | its title |
+| Not applicable | loading and empty; access denied (guard 1); pending sync; disabled (throttle only) | — | — | — |
+
+**5. Responsive, RTL/LTR, accessibility; 6. Colour and typography**
+- As S-23 for layout, focus order ((1) skip link, (2) c1, (3) c3 and toggle, (4) c4, (5) tab bar), keyboard, contrast and typography. No code is on this screen, so no religious font and no monospace font is used here.
+
+### S-25 Sources — المصادر
+
+**1. Purpose, role, entry and exit, acceptance**
+- **Purpose and role.** The learner sees where the books come from: the fixed statement of what the app shows, and for each published edition its edition label, how references work, and (for the Forty) how takhrij and grade are labelled. Metadata only (E14); no text of a book, no commentary. Learner and demo.
+- **Entry.** Row c17 of S-22 (`/settings/sources`). **Exit.** Back to S-22; «ابدأ خطتك» to S-08 only in the unavailable state. **Primary action.** Reading. **References.** R03, R08, R11, R12; M2, M10; D68; NFR-09, 14; UX.md row «الإعدادات والمصادر», § «عرض الكتاب دون إضافات»; E14; G-01, G-02, G-15 to G-17, G-20, G-23, G-27, G-29; UG-05, UG-10.
+
+**2. Layout and hierarchy**
+- App shell (P-26), back control. Order: Slot T; the fixed Notice; one Card per edition (§6.7: `--q-color-surface`, 1 px `--q-color-divider`, `--q-radius-md`, 16 px padding, no shadow): H2, meta line, category line, reference line, and for a hadith edition the takhrij note. Order as returned by E14 (category display order, then `editionKey`). One column (640 px, 720 px from 1024).
+
+**3. Components, content, validation, dialogs**
+
+| # | Element (component) | Arabic | English (proposed) | Src |
+|---|---|---|---|---|
+| c1 | Back control; H1 (bar title) | رجوع إلى الإعدادات؛ المصادر | Back to Settings; Sources | P; F UX.md |
+| c2 | Notice (§6.12, fixed) | يعرض التطبيق الكتاب كما هو في نسخته الموثقة للحفظ، دون إضافة أو شرح. | The app shows the book as it is in its verified edition for memorization, without additions or explanation. | F UX.md, §6.12; English P |
+| c3 | H2 per edition; meta line | `titleAr`؛ {author} · {editionLabel} | `titleEn`; {author} · {editionLabel} | data (the S-07 language rule) |
+| c4 | Category line | الباب: {category.labelAr} | Category: {category.labelEn} | P |
+| c5 | Reference line, `contentFormat` `quran` | طريقة المرجع: السورة والآية، مع رابط مرجعي بجانب النص بدل رقم الصفحة. | Reference: surah and ayah, with a reference link beside the text instead of a page number. | P (D68; O-48) |
+| c6 | Reference line, `contentFormat` `hadith_collection` | طريقة المرجع: رقم الحديث، مع رابط مرجعي بجانب النص بدل رقم الصفحة. | Reference: hadith number, with a reference link beside the text instead of a page number. | P (D68; O-48) |
+| c7 | Takhrij note (hadith edition), `--q-text-small` | التخريج والدرجة منقولان كما وردا في سجل HadeethEnc، ويُعرضان موسومين بأنهما من سجله، دون تعديل أو إضافة. وحين لا تنسب الطبعة الحديث إلى الصحيحين ولا تذكر درجته يظهر بجانبه تنبيه ثابت. | The takhrij and the grade are taken as recorded in the HadeethEnc record and are shown labelled as coming from it, without change or addition. When the edition neither attributes a hadith to the Sahihayn nor gives its grade, a fixed notice appears beside it. | P (D68, G-29, UG-10; O-48) |
+| c8 | Chip «غير متاح» (warning tokens, alert-triangle) and line, shown on the card of the learner's plan edition if E14 no longer lists it (O-49) | غير متاح — هذه النسخة لم تعد متاحة. يمكنك بدء خطة على نسخة أخرى. | Unavailable — This edition is no longer available. You can start a plan on another edition. | label and sentence F G-20 |
+| c9 | Empty state (§6.14); banner action | لا توجد مصادر منشورة الآن.؛ إعادة المحاولة | No sources are published right now.; Try again | P |
+
+- **Rules.** The English UI shows `titleEn`, the Arabic UI `titleAr` (S-07). No canonical URL and no publisher appear here (E14 returns none, UG-05); links are only the unavailable-state button. HadeethEnc `[COMMENTARY]` and QuranEnc translations are never shown (D68). **Dialogs.** None. **Never shown.** A translation, a ruling, a hadith grade from outside the edition, rights or licence text, outbound links.
+
+**4. States**
+
+| State | Trigger | What changes and copy | Focus | Announcement |
+|---|---|---|---|---|
+| Loading | E14 in flight | two card skeletons after 300 ms, region `aria-busy`, «جارٍ التحميل» (G-23) | c1 | none |
+| Wake-up | G-01 | P-04; the read reruns when E01 answers | unchanged | status |
+| Populated | `200` | c2 to c7 | unchanged | none |
+| Empty | `editions` is `[]` | c9 (G-27 spirit); c2 stays | unchanged | status |
+| Plan edition unavailable (O-49) | E18 `plan.editionId` missing from E14 | c8 on a card for the plan's book; if E18 fails the flag is skipped silently | unchanged | none |
+| Throttled; offline; service error | `429`; G-02; 500, 503 | P-06; P-05; P-07, each with «إعادة المحاولة» (a read, safe); no stale list | the button | per pattern |
+| Not applicable | field errors and success (read-only); access denied (E14 is public); session ended (only through the shell's E11, G-03); language switched (changes only on S-22); pending sync and offline shell (option B, G-33); disabled (the retry only during a throttle) | — | — | — |
+
+**5. Responsive, RTL/LTR, accessibility**
+- One column from 320 px; cards grow with text; English titles and `Surah 78` labels in `<bdi>`. **Focus order.** (1) skip link, (2) c1, (3) [banner action or c9 button], (4) the c8 button (when present), (5) the tab bar (rail first from 1024); the cards have no focusable parts. Headings H1, H2 in order. **Contrast pairs.** `--q-color-text` on `--q-color-surface` 11.76; `--q-color-text-secondary` on `--q-color-surface` 5.36 and on `--q-color-bg` 5.10 (Notice); `--q-color-warning-text` on `--q-color-warning-bg` 5.79.
+
+**6. Colour and typography**
+- As S-07 (cards, H2 `--q-text-body` at weight 600, meta and notes `--q-text-small`); chip `--q-text-caption`. Titles are UI-font catalogue metadata; a title carrying an Uthmani mark must use `--q-font-quran` (O-20). No religious text appears on this screen.
+
+### S-26 Privacy & data — الخصوصية والبيانات
+
+**1. Purpose, role, entry and exit, acceptance**
+- **Purpose and role.** The signed-in entry to «شروط الاستخدام وبيان الخصوصية»: the S-03 text in the app shell, always reachable from Settings. The page title is the destination's name (UX.md: the row «الخصوصية والبيانات» opens «شروط الاستخدام وبيان الخصوصية», O-50). Presentation only; the wording is owned by [Authentication-and-privacy.md](Authentication-and-privacy.md) and includes the plan-conversation paragraph (D75) and the deletion and retention statement. Learner and demo.
+- **Entry.** Row c17 of S-22 (`/settings/privacy`); links from S-27 (`#privacy`). Guard 13: without a session the same route renders as S-03 in the public shell. **Exit.** Back (c1) to S-22 with its state kept. **Primary action.** Reading. **References.** R10, R17; M1; NFR-09, 14; D52, D53, D75; UX.md § «الحساب والخصوصية في النصوص»; no API operation; UA-03.
+
+**2. Layout and hierarchy**
+- App shell (P-26), back control. The S-03 body (version line, H2 «شروط الاستخدام» `id="terms"`, divider, H2 «بيان الخصوصية» `id="privacy"`, H3 topics) in a reading column (640 px below 1024, 720 px from 1024), then a closing secondary button. S-03's own H1, back control c1 and button c6 are replaced by this frame's.
+
+**3. Components, content, validation, dialogs**
+
+| # | Element (component) | Arabic | English (proposed) | Src |
+|---|---|---|---|---|
+| c1 | Back control; H1 (bar title) | رجوع إلى الإعدادات؛ شروط الاستخدام وبيان الخصوصية | Back to Settings; Terms of use and privacy statement | P; F UX.md |
+| c2 | Version line | إصدار الشروط: {TERMS_VERSION} | Terms version: {TERMS_VERSION} | P (as S-03 c3) |
+| c3 | H2, H3, paragraphs, lists, fixed sentences | as S-03 c4 and c5 | as S-03 | text owned by the source |
+| c4 | Button secondary | العودة إلى الإعدادات | Back to Settings | P |
+
+- **Validation, dialogs, links.** None; no outbound links. **Never shown.** An agree control (consent lives only in S-02 and S-06), a cookie banner, text from outside the source document.
+
+**4. States**
+
+| State | Trigger | What changes and copy | Focus | Announcement |
+|---|---|---|---|---|
+| Populated | route load | static text | c1 (H1) or the anchor's H2 (`tabindex="-1"`) | title |
+| Route loading; text unavailable | chunk loading; chunk fails | skeleton lines after 300 ms (§6.14); Error banner «تعذّر فتح شروط الاستخدام وبيان الخصوصية. تحقّق من الاتصال ثم أعد المحاولة.» with «إعادة المحاولة» (as S-03) | unchanged; the button | «جارٍ التحميل»; alert |
+| Not applicable | wake-up, offline and throttle (no API call); empty; field errors; success; access denied (guard 13); pending sync; disabled | — | — | — |
+
+**5. Responsive, RTL/LTR, accessibility; 6. Colour and typography**
+- As S-03: H1, H2, H3 in order; real lists; anchors focusable; text reflows at 320 px; version in `<bdi>`. **Focus order.** (1) skip link, (2) c1, (3) c4, (4) the tab bar (rail first from 1024); the text has nothing focusable. Colour and type as S-03 (`--q-text-title`, `--q-text-section`, `--q-text-body`, `--q-text-small`; UI fonts only; `--q-font-hadith` is not used even for the D53 sentence, which is interface copy). Contrast: `--q-color-text` on `--q-color-bg` 11.19; `--q-color-text-secondary` 5.10.
+
+### S-27 Delete account — حذف الحساب
+
+**1. Purpose, role, entry and exit, acceptance**
+- **Purpose and role.** The learner permanently deletes the account and all personal data in one request (E13), after reading what that means, re-entering the password and ticking an acknowledgment. Needs a connection. Learner and demo (D71).
+- **Entry.** Row c7 of S-22 (`/settings/delete-account`). **Exit.** `204` goes to S-01 by `replace` with the arrival banner «تم حذف حسابك.» (P-09; S-01 owns the wording); «إلغاء» and back (c1) go to S-22. **Primary action.** «حذف حسابي نهائيًا» / "Delete my account permanently" (Destructive recipe, §6.1). **References.** R10, R17; M1, M10; NFR-07, 09; D70, D75; UX.md § «الحساب والخصوصية في النصوص»; E13; G-01 to G-05, G-14 to G-17; A5 of UI-tokens.
+
+**2. Layout and hierarchy**
+- App shell (P-26), back control. Order: Slot T; Warning banner; «ما الذي سيُحذف؟» and its list; «ما يجب أن تعرفه» and its list; the form (current password, acknowledgment, Slot B, destructive button, Cancel). This is the page version of the §6.9 Delete-account content; no second dialog follows (the acknowledgment is the confirmation, O-51). Primary first in DOM and visually, Cancel below it, as §6.9.
+
+**3. Components, content, validation, dialogs**
+
+| # | Element (component) | Arabic | English (proposed) | Src |
+|---|---|---|---|---|
+| c1 | Back control; H1 (bar title) | رجوع إلى الإعدادات؛ حذف الحساب | Back to Settings; Delete account | P; F UX.md |
+| c2 | Banner Warning, not dismissible | حذف الحساب فوري ونهائي، ولا يمكن التراجع عنه. | Deleting the account is immediate and permanent, and it cannot be undone. | P (E13, NFR-07) |
+| c3 | H2; list of effects | ما الذي سيُحذف؟ — حسابك وإعداداتك وسجل موافقتك على الشروط. — خططك وجلساتك وإجاباتك وتقدمك. — رسائل محادثة الخطة مع المساعد. — رمز الاسترجاع وجلسات الدخول على كل الأجهزة. | What will be deleted? — Your account, your settings and the record of your consent to the terms. — Your plans, sessions, answers and progress. — Your plan conversation messages with the assistant. — Your recovery code and your sign-ins on every device. | P (E13 side effects; messages deleted with the account, Plan-conversation §2.1) |
+| c4 | H2; list of what to know | ما يجب أن تعرفه — لا تُحفظ إجاباتك على هذا الجهاز؛ كل ما سُجّل محفوظ في حسابك السحابي وسيُحذف معه. — لا نحتفظ بنسخة قابلة للتنزيل من بياناتك، ولا يمكن استرجاعها بعد الحذف. — قد تبقى نسخ احتياطية داخلية لدى مزود الخدمة مدة تحددها خطته؛ التفاصيل في «بيان الخصوصية». — يحتاج الحذف إلى اتصال بالشبكة. | What you should know — Your answers are not stored on this device; everything recorded is kept in your cloud account and will be deleted with it. — We do not keep a downloadable copy of your data, and it cannot be recovered after deletion. — The service provider may keep internal backups for a period set by its plan; see the «privacy statement». — Deleting needs a network connection. | P (UX.md: effect on unsynced events and cloud data; D70; Authentication-and-privacy); the link «بيان الخصوصية» goes to S-26 `#privacy`, own 44 px line |
+| c5 | Current password field and toggle (P-27) | كلمة المرور الحالية | Current password | P |
+| c6 | Checkbox (§6.3), unchecked, `aria-required` | أفهم أن حذف حسابي نهائي ولا يمكن التراجع عنه | I understand that deleting my account is permanent and cannot be undone | P (UI-tokens §6.9, A5) |
+| c7 | Button destructive; loading | حذف حسابي نهائيًا؛ جارٍ الحذف… | Delete my account permanently; Deleting… | P |
+| c8 | Button secondary | إلغاء | Cancel | P |
+
+- **Deferred (option C):** the second effect line «أي إجابات لم تُزامن بعد على هذا الجهاز ستُحذف دون أن تُحفظ.» / "Any answers on this device not yet synced will be deleted without being saved." replaces the first of c4's «what you should know» lines, and the client wipes its local copy after `204`.
+- **Validation (P-03).** Password empty: P-27. Box unchecked on submit: no request, Error recipe at c6, «أكّد أنك تفهم أن الحذف نهائي قبل المتابعة.» / "Confirm that you understand the deletion is permanent before you continue." When checked the client sends `confirm: "DELETE"` itself, so no Latin word is typed on an Arabic keyboard (A5); `confirm_literal` cannot arise and is treated as `internal`.
+- **E13 mapping.** `204`: all in-memory state wiped, cookie already cleared, `replace` to S-01 with the banner. `invalid_credentials`: P-27. `unavailable` (503): P-07 plus «لم يُحذف حسابك.» / "Your account was not deleted." (E13 leaves it intact). **Connectivity:** P-05 words it, plus the line in c4; success is never shown without `204`. **Uncertain outcome (P-10):** Warning banner Slot B «تعذّر تأكيد النتيجة. إن كان الحساب قد حُذف فستنتهي جلستك؛ وإلا أعد المحاولة.» / "We could not confirm the result. If the account was deleted your session will end; otherwise try again." A repeat after a real deletion answers `401`, so S-01 shows the session-ended banner (G-03).
+- **Dialogs.** None. **Never shown.** A typed Latin «DELETE» field, a countdown, an undo or recycle bin, a data export (D70), a promise of a retention period (none is claimed).
+
+**4. States**
+
+| State | Trigger | What changes and copy | Focus | Announcement |
+|---|---|---|---|---|
+| Initial | route load | box unchecked, empty password | c1 (H1) | title |
+| Field errors | submit | P-03 messages; summary in Slot T from two | first invalid field | summary alert |
+| Submitting | E13 in flight | c7 Loading; c8 and the fields inert | stays on c7 | polite «جارٍ الحذف» |
+| Wrong password (G-04); throttled; wake-up; offline; service | `401`; `429`; G-01; G-02; 5xx | P-27; P-06; P-04; P-05; P-07; c5 cleared on G-04 | c5 or c7 | per pattern |
+| Account intact | `503` | Warning banner with «لم يُحذف حسابك.» | c7 | status |
+| Uncertain outcome | no response | banner above | stays on c7 | status |
+| Session ended | `401 unauthenticated` | S-01 with the session-ended banner (G-03) | H1 of S-01 | its title |
+| Success | `204` | to S-01 with «تم حذف حسابك.» | H1 of S-01 | its title |
+| Not applicable | loading and empty (a form lists no data); access denied (guard 1 only); pending sync; disabled (throttle only) | — | — | — |
+
+**5. Responsive, RTL/LTR, accessibility**
+- One column from 320 px, form 480 px; the list items wrap; logical properties; the box row and link line at least 44 px, buttons 48 px, 8 px apart. **Focus order.** (1) skip link, (2) c1, (3) [banner dismiss], (4) the «بيان الخصوصية» link, (5) c5 and toggle, (6) c6, (7) c7, (8) c8, (9) the tab bar (rail first from 1024). **Keyboard.** Space toggles c6; Enter in c5 submits; Esc has no role. The box label is exactly its sentence; the error is tied by `aria-describedby`.
+- **Contrast pairs.** White `--q-color-on-primary` on `--q-color-error-text` 6.65 (destructive fill), hover `--q-color-error-pressed` 8.80; `--q-color-warning-text` on `--q-color-warning-bg` 5.79; `--q-color-error-text` on `--q-color-error-bg` 5.81; others as S-23. Static loader under reduced motion.
+
+**6. Colour and typography**
+- Destructive button fill `--q-color-error-text` with `--q-color-on-primary` label (the Destructive recipe is reserved for account deletion, §6.1); Cancel the Secondary recipe; banner `--q-color-warning-*`; lists `--q-text-body`; H2 `--q-text-section`; link `--q-color-link` underlined. No religious text appears on this screen.
 
 ## 5. Open points
 
@@ -987,3 +1528,24 @@ Questions for the coordinator, not the owner. Each has an interim choice in the 
 | O-35 | A hint fails a review round (contract §4.3), so S-19 says so; drills show «متتالية صحيحة: {c} من ٣» (D41). | Confirm both lines |
 | O-36 | E32 and E34 have no idempotency key; the retry runs E33 first (P-14). | Architect: confirm |
 | O-37 | S-19 reuses prompts, pieces and hints of S-15 to S-18 (part C owns them). | Keep consistent at merge |
+### Part C open points (continue the table of §5)
+
+| ID | Point and interim choice | Needs |
+|---|---|---|
+| O-38 | Part C numbers its shared patterns P-18 to P-27 and its points O-38 to O-54, continuing after part B's draft (P-17, O-37). P-18, P-20 and P-23 overlap part B's focus-flow chrome, source-line and sheet patterns, and P-21 is also the answer flow of S-19; P-26 puts the H1 in the top app bar (UI-tokens §6.6), unlike the public screens, and renders the tab bar and rail as two instances. | Coordinator: keep one copy of each pattern at merge; renumber if part B grows |
+| O-39 | `QuestionBase` carries no content format (the font must be Amiri Quran or Amiri, never Cairo), no `path` (S-16 c4, the fixed grade prompt) and no `showD50Notice` (G-29 lists hadith questions). Interim: the format comes from E14 by `plan.editionId`; the grade prompt and the notice appear only if the DTO supplies them. | Architect: add the fields to `QuestionBase` or confirm the derivation |
+| O-40 | UI-design §2.5 labels the sheet button «إيقاف مؤقت والخروج», which promises a resume that a round lacks (UG-02); P-23 uses «إنهاء الجولة والخروج». The bottom-docked Dialog is not in UI-tokens (part B uses it too). | Confirm label; U3: add the sheet presentation |
+| O-41 | Feedback is shown at once from the snapshot's `answerKey` and policy and reconciled with E21 `results[]`, the server winning, because G-02 lets a round go on with unsent answers; `word_recall` then needs `arabic-norm-v1` on the client. | Architect: confirm (contract §11 accepted risk) |
+| O-42 | No field gives per-game availability and a `201` with no question step is not specified (G-26, UG-02). S-14 never pre-disables a row; the empty round shows its G-26 state (P-24); the empty open session is not completed. | Architect: define (an `available` list or a `422`) |
+| O-43 | The brief asks for roving tabindex on chips; UI-tokens §7 says word-order chips are ordinary buttons. S-15 makes the answer line and the pool one tab stop each (16 chips would be 16 stops). | U3: align §7 |
+| O-44 | E12 `sessionMinutes` is the default for new plans (API-spec E12, A-07); the current plan's goal changes through S-13. S-22 labels the group «الوقت اليومي للخطط الجديدة» and links S-13; UX.md says only «الوقت». | Owner or architect: confirm the D57 intent, or let E12 also set `Plan.pendingSessionMinutes` |
+| O-45 | P-10 (uncertain outcome) is extended to E09, E08 and E13 with copy per screen; E10 and E12 have none (E10 is tolerant; E12 is repeatable). | Confirm |
+| O-46 | Time zone: a native select over IANA names with offsets; a friendlier named-zone list needs a source and U3 (`Intl.DisplayNames` has no city names). | U3 |
+| O-47 | UI-tokens has no switch component, so the reminder is a Checkbox; S-22 saves with one button, not on each change (one failure state, one pending line). | Confirm |
+| O-48 | E14 has no publisher, no printed-edition flag and no reference-method field (UG-05): S-25 derives the reference line from `contentFormat` and names HadeethEnc statically for hadith editions, which would be wrong for a second hadith source. | Architect: add fields when a second edition arrives |
+| O-49 | UX.md's settings state «مصدر غير متاح» needs the plan's edition: S-25 compares E18 `plan.editionId` with E14; a paused or completed plan gives no `plan` in E18, so the flag cannot show then. | Confirm |
+| O-50 | S-26's H1 is «شروط الاستخدام وبيان الخصوصية» (UX.md: the row «الخصوصية والبيانات» opens it); the title could instead be the row's name. | Decide |
+| O-51 | S-27 is a page with the §6.9 Delete-account content inline and no second dialog (UI-tokens lists it among dialogs); it keeps S-01's banner «تم حذف حسابك.». | Confirm |
+| O-52 | E18 `plan` is null for a paused or completed plan as for none, so S-14 shows G-24 «ابدأ خطتك» although the learner could resume (S-12) or run maintenance (UG-04). | Confirm, or expose the status |
+| O-53 | S-17: the hint on a two-option question reveals the answer (UG-09); it is allowed with a helper line before the press and stays *with help*. The mistake label «خطأ في الحفظ» is proposed wording for D31's «يوسم خطأً». | Confirm wording and helper |
+| O-54 | The round result is a state of S-15 to S-18, not a screen of the inventory (UI-design §3.7 says "Round result"); the same route shows it in place. | Confirm no S-nn is wanted |

@@ -472,4 +472,37 @@ begin
 end;
 $$;
 
+-- Added for checks_0006 (work package B2b).
+-- A valid PlanProposal object for the fixture edition (id 5), as stored by the plan conversation.
+create function qa.proposal_json(p_version integer default 1, p_minutes integer default 10)
+returns jsonb
+language sql
+stable
+as $$
+  select jsonb_build_object(
+    'proposalVersion', p_version, 'editionId', qa.id(5),
+    'targetScope', jsonb_build_object('sectionOrdinals', jsonb_build_array(1)),
+    'paths', jsonb_build_array('quran'), 'order', 'book', 'sessionMinutes', p_minutes,
+    'preferredDate', null, 'estimate', jsonb_build_object('days', 5, 'sessionMinutes', p_minutes))
+$$;
+
+-- One phase array as app_create_plan, app_revise_plan and app_plan_chat_confirm expect it.
+create function qa.phases_json()
+returns jsonb
+language sql
+immutable
+as $$
+  select '[{"ordinal":1,"section_refs":[1],"unit_range":{},"goal_size":10,"estimated_window":"[2026-10-05,2026-10-12)"}]'::jsonb
+$$;
+
+-- The plan arguments of app_plan_chat_confirm.
+create function qa.plan_args_json(p_extra jsonb default '{}')
+returns jsonb
+language sql
+stable
+as $$
+  select jsonb_build_object('reason_code', 'plan_chat', 'policy_json', '{"planner": "rules"}'::jsonb,
+                            'effective_learning_date', '2026-10-05', 'phases', qa.phases_json()) || p_extra
+$$;
+
 grant execute on all functions in schema qa to public;

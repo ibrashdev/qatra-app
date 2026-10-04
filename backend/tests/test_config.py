@@ -46,6 +46,15 @@ def test_settings_names_are_the_contract_names_plus_the_documented_additions() -
         "APP_VERSION",
         "QATRA_READY_RATE_PER_MIN",
         "QATRA_BODY_LIMIT_BYTES",
+        # plan conversation (D75, Plan-conversation.md §2.5)
+        "QATRA_OPENROUTER_FREE_REQUESTS_PER_DAY",
+        "QATRA_OPENROUTER_FREE_REQUESTS_PER_MINUTE",
+        "QATRA_CHAT_MODEL_CALLS_PER_ACCOUNT_PER_DAY",
+        "QATRA_CHAT_MODEL_TURNS_PER_CHAT",
+        "QATRA_CHAT_MODEL_TIMEOUT_SEC",
+        "QATRA_CHAT_MAX_TOKENS",
+        "QATRA_CHAT_GUARD_VERSION",
+        "QATRA_CHAT_MODEL_FOR_LEARNERS",
     }
 
 

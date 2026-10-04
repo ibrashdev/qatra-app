@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Literal
 from urllib.parse import urlsplit
 
-from pydantic import SecretStr, ValidationError
+from pydantic import Field, SecretStr, ValidationError
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 AppEnv = Literal["production", "development", "test"]
@@ -80,6 +80,18 @@ class Settings(BaseSettings):
     # Configuration defaults (A-12), not approved numbers.
     QATRA_READY_RATE_PER_MIN: int = 6
     QATRA_BODY_LIMIT_BYTES: int = 65536
+
+    # Plan conversation (Plan-conversation.md §2.5; D75). Configuration defaults, not approved
+    # numbers: caps follow OpenRouter's published free-tier limits, verified at provisioning.
+    QATRA_OPENROUTER_FREE_REQUESTS_PER_DAY: int = Field(default=50, ge=0)
+    QATRA_OPENROUTER_FREE_REQUESTS_PER_MINUTE: int = Field(default=20, ge=0)
+    QATRA_CHAT_MODEL_CALLS_PER_ACCOUNT_PER_DAY: int = Field(default=10, ge=0)
+    QATRA_CHAT_MODEL_TURNS_PER_CHAT: int = Field(default=6, ge=0)
+    QATRA_CHAT_MODEL_TIMEOUT_SEC: float = Field(default=8, gt=0)
+    QATRA_CHAT_MAX_TOKENS: int = Field(default=400, ge=1)
+    QATRA_CHAT_GUARD_VERSION: str = "guard-v1"
+    # When false, every conversation of a non-demo account is rules-only (no provider call).
+    QATRA_CHAT_MODEL_FOR_LEARNERS: bool = True
 
     def is_missing(self, name: str) -> bool:
         value = getattr(self, name)

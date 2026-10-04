@@ -6,12 +6,13 @@ Run from ``backend/``::
     uv run python scripts/content_tools.py <command> ...        # equivalent
 
 Commands: ``acquire``, ``verify``, ``segment``, ``build-bank``, ``validate``, ``approve``,
-``publish``, ``withdraw``, ``archive``, ``delete-unused-draft``. B7 implements ``acquire`` and
-``verify``; the other eight are registered, check their preconditions through
-``app.domain.content_policy`` and then exit with code 6 and the message
-"not implemented in B7 (B8/C6)". ``approve`` additionally refuses every non-interactive run
-(silence, a timeout or a non-interactive run is never an approval) and never records approval
-in B7.
+``publish``, ``withdraw``, ``archive``, ``delete-unused-draft``. B7 implemented ``acquire`` and
+``verify``; B8 adds ``segment``, ``build-bank`` and ``validate``. The other four
+(``approve``, ``publish``, ``withdraw``, ``archive``) and ``delete-unused-draft`` are
+registered, check their preconditions through ``app.domain.content_policy`` and then exit with
+code 6 and the message "not implemented in B7 (B8/C6)" (C6 implements them). ``approve``
+additionally refuses every non-interactive run (silence, a timeout or a non-interactive run is
+never an approval) and never records approval before C6.
 
 Common options: ``--edition {quran-hafs-quranenc,nawawi40-hadeethenc}``, ``--bank-version N``,
 ``--build-dir DIR`` (default ``backend/.content-build``, gitignored) and
@@ -26,7 +27,8 @@ Exit codes (API-spec §5.4 leaves the values open, [O-26]):
 1     unexpected internal error (only the exception type is printed)
 2     usage error or an invalid input file (nothing was stored)
 3     precondition, step order or refused overwrite (policy refusal, hash conflict, scope)
-4     verification failed (units blocked), or a stored object fails its integrity check
+4     verification or validation failed (units blocked, issues found), or a stored object
+      fails its integrity check
 5     not configured: Supabase variables missing, or a Supabase repository not in B7
 6     not implemented in B7 (B8/C6)
 7     source host unreachable or MCP protocol/layout error
@@ -64,6 +66,11 @@ from app.workflow.content_management import (  # noqa: E402
     load_records_file,
     make_acquire_handler,
     make_verify_handler,
+)
+from app.workflow.edition_build import (  # noqa: E402
+    make_build_bank_handler,
+    make_segment_handler,
+    make_validate_handler,
 )
 from app.workflow.editions import (  # noqa: E402
     EDITION_KEYS,
@@ -116,9 +123,6 @@ COMMANDS = (
     "delete-unused-draft",
 )
 STEP_OF_COMMAND = {
-    "segment": "segmented",
-    "build-bank": "bank_built",
-    "validate": "validated",
     "approve": "approved",
     "publish": "published",
     "withdraw": "withdrawn",
@@ -210,10 +214,16 @@ def build_parser() -> argparse.ArgumentParser:
         "--http-recheck", action="store_true", help="re-fetch over HTTP, diff bytes"
     )
 
+    segment = sub.add_parser(
+        "segment", parents=[common], help="units, passages and parts (step segmented)"
+    )
+    segment.add_argument("--labels", type=Path, help="edition labels file (default: packaged)")
+    segment.add_argument(
+        "--boundaries", type=Path, help="hadith matn/sanad boundaries file (default: packaged)"
+    )
+    sub.add_parser("build-bank", parents=[common], help="lessons and questions (step bank_built)")
+    sub.add_parser("validate", parents=[common], help="fail-closed validation (step validated)")
     for name, text in (
-        ("segment", "segmentation into units, passages and parts (B8)"),
-        ("build-bank", "lessons and question bank (B8)"),
-        ("validate", "edition and bank validation (B8)"),
         ("publish", "publish the approved edition (C6)"),
         ("archive", "hide a published edition from new selection (C6)"),
         ("delete-unused-draft", "delete an unused draft (C6)"),
@@ -400,6 +410,91 @@ def _cmd_verify(ctx: _Context) -> int:
     return int(ExitCode.OK)
 
 
+def _raw_storage(ctx: _Context) -> RawStorage:
+    if ctx.backend == "supabase":
+        return SupabaseRawStorage(ctx.config)
+    return LocalStagingStorage(ctx.paths.raw_root)
+
+
+def _cmd_segment(ctx: _Context) -> int:
+    args = ctx.args
+    spec = edition_spec(ctx.edition)
+    if spec.kind == "quran" and args.boundaries is not None:
+        raise InputError("--boundaries applies to the hadith edition only")
+    storage = _raw_storage(ctx)
+    jobs = ctx.jobs()
+    handler = make_segment_handler(
+        edition_key=ctx.edition,
+        bank_version=ctx.bank_version,
+        jobs=jobs,
+        storage=storage,
+        paths=ctx.paths,
+        labels_path=args.labels,
+        boundaries_path=args.boundaries,
+        clock=ctx.rt.now,
+    )
+    result = run_content_job(
+        ctx.edition,
+        ctx.bank_version,
+        "segmented",
+        jobs=jobs,
+        handlers={"segmented": handler},
+        clock=ctx.rt.now,
+    )
+    doubts = [
+        s["unit"]
+        for s in (result.job.validation_summary or {}).get("suspectedErrors", [])
+        if s["kind"] == "matn_boundary_doubt"
+    ]
+    extra = f"boundary_doubts=[{','.join(doubts)}]" if doubts else ""
+    print(_format("segment", ctx, result, extra))
+    return int(ExitCode.OK)
+
+
+def _cmd_build_bank(ctx: _Context) -> int:
+    jobs = ctx.jobs()
+    handler = make_build_bank_handler(
+        edition_key=ctx.edition,
+        bank_version=ctx.bank_version,
+        jobs=jobs,
+        paths=ctx.paths,
+        clock=ctx.rt.now,
+    )
+    result = run_content_job(
+        ctx.edition,
+        ctx.bank_version,
+        "bank_built",
+        jobs=jobs,
+        handlers={"bank_built": handler},
+        clock=ctx.rt.now,
+    )
+    print(_format("build-bank", ctx, result))
+    return int(ExitCode.OK)
+
+
+def _cmd_validate(ctx: _Context) -> int:
+    storage = _raw_storage(ctx)
+    jobs = ctx.jobs()
+    handler = make_validate_handler(
+        edition_key=ctx.edition,
+        bank_version=ctx.bank_version,
+        jobs=jobs,
+        storage=storage,
+        paths=ctx.paths,
+        clock=ctx.rt.now,
+    )
+    result = run_content_job(
+        ctx.edition,
+        ctx.bank_version,
+        "validated",
+        jobs=jobs,
+        handlers={"validated": handler},
+        clock=ctx.rt.now,
+    )
+    print(_format("validate", ctx, result))
+    return int(ExitCode.OK)
+
+
 def _cmd_not_implemented(ctx: _Context) -> int:
     """Registered commands: validate the preconditions through ``content_policy`` first, then
     refuse with exit code 6. Nothing is written."""
@@ -446,6 +541,12 @@ def _dispatch(args: argparse.Namespace, rt: CliRuntime) -> int:
         return _cmd_acquire(ctx)
     if args.command == "verify":
         return _cmd_verify(ctx)
+    if args.command == "segment":
+        return _cmd_segment(ctx)
+    if args.command == "build-bank":
+        return _cmd_build_bank(ctx)
+    if args.command == "validate":
+        return _cmd_validate(ctx)
     return _cmd_not_implemented(ctx)
 
 

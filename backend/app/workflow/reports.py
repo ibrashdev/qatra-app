@@ -11,6 +11,7 @@ import json
 import os
 import tempfile
 from collections import Counter
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -186,3 +187,94 @@ def write_verification_files(paths: BuildPaths, outcome: VerificationOutcome) ->
         written.append(paths.gap_report(key))
         _write_atomic(written[2], render_gap_report(outcome))
     return written
+
+
+def render_edition_report(
+    bundle: Mapping[str, Any],
+    *,
+    validation: Mapping[str, Any] | None,
+    skipped: Sequence[Mapping[str, str]],
+    generated_at: datetime | None,
+) -> str:
+    """``report.md`` of a built edition: counts, validation, provenance, discrepancies. Counts,
+    ids and codes only; never source text."""
+    units = bundle["units"]
+    tokens = sum(len(u["tokens"]) for u in units)
+    words = sum(1 for u in units for t in u["tokens"] if t["k"] == "word")
+    by_path = Counter(p["path"] for p in bundle["passages"])
+    parts = sum(len(p["parts"]) for p in bundle["passages"])
+    types = Counter(
+        q["type"] + (f"/{q['variant']}" if q["variant"] else "") for q in bundle["questions"]
+    )
+    source, edition = bundle["source"], bundle["edition"]
+    verification = source["verification"]
+    path_text = ", ".join(f"{k} {v}" for k, v in sorted(by_path.items())) or "-"
+    lines = [
+        f"# Edition report: {bundle['editionKey']} (bank version {bundle['bankVersion']})",
+        "",
+        f"Generated {_iso(generated_at)}. Counts, ids and codes only; no source text.",
+        "",
+        "## Counts",
+        "",
+        "| Item | Value |",
+        "|---|---|",
+        f"| Sections | {len(bundle['sections'])} |",
+        f"| Units | {len(units)} |",
+        f"| Tokens (words) | {tokens} ({words}) |",
+        f"| Passages | {len(bundle['passages'])} ({path_text}) |",
+        f"| Parts | {parts} |",
+        f"| Lessons | {len(bundle['lessons'])} |",
+        f"| Questions | {len(bundle['questions'])} |",
+    ]
+    lines += [f"| Questions {name} | {count} |" for name, count in sorted(types.items())]
+    lines += [
+        "",
+        "## Provenance",
+        "",
+        "| Item | Value |",
+        "|---|---|",
+        f"| Source | {source['title']} via {source['provider']} |",
+        f"| Tool / acquisition | {source['toolName']} / {source['acquisition']} |",
+        f"| rawSha256 | `{source['rawSha256']}` |",
+        f"| retrievedAt | {source['retrievedAt']} |",
+        f"| Verification | {verification['result']} ({verification['method']}) |",
+        f"| contentHash | `{edition['contentHash']}` |",
+        f"| Rights status | {source['rightsStatus']} |",
+        "",
+        "## Validation",
+        "",
+    ]
+    if validation is None:
+        lines.append("Not run yet.")
+    else:
+        lines.append(f"Result: **{validation['result']}**. Issues: {len(validation['issues'])}.")
+        if validation["issues"]:
+            lines += ["", "| Code | Ref |", "|---|---|"]
+            lines += [f"| {i['code']} | {i['ref']} |" for i in validation["issues"][:200]]
+        lines += ["", "| Check | Value |", "|---|---|"]
+        lines += [f"| {k} | {v} |" for k, v in sorted(validation["info"].items())]
+    record = edition["reviewRecord"]
+    lines += [
+        "",
+        "## Discrepancies",
+        "",
+        f"Known gaps: {len(record['knownGaps'])}. Suspected errors flagged for review: "
+        f"{len(record['suspectedErrors'])}. Items the bank could not build: {len(skipped)}.",
+    ]
+    if record["knownGaps"]:
+        lines += ["", "| Forty number | Reason |", "|---|---|"]
+        lines += [f"| {g['fortyNumber']} | {g['reason']} |" for g in record["knownGaps"]]
+    if record["suspectedErrors"]:
+        lines += ["", "| Unit | Kind | Details |", "|---|---|---|"]
+        lines += [
+            f"| {s['unit']} | {s['kind']} | {s['details']} |" for s in record["suspectedErrors"]
+        ]
+    if skipped:
+        lines += ["", "| Kind | Ref |", "|---|---|"]
+        lines += [f"| {s['kind']} | {s['ref']} |" for s in skipped]
+    return "\n".join(lines) + "\n"
+
+
+def write_text(path: Path, text: str) -> None:
+    """Atomic write used for ``bundle.json``, ``publish.sql`` and ``report.md``."""
+    _write_atomic(path, text)

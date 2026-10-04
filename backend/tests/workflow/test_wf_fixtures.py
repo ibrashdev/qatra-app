@@ -38,20 +38,67 @@ ALLOWED_WORDS = {
     "هذا",
     "وكلمه",
     "يحفظ",
+    # neutral structural labels used by the synthetic bundle (titles, kinds, prompts):
+    # generic words, no source text
+    "اختبار",
+    "اختيار",
+    "باب",
+    "بناء",
+    "بيان",
+    "ترتيب",
+    "تمرين",
+    "جزء",
+    "جواب",
+    "حرف",
+    "حفظ",
+    "درس",
+    "رقم",
+    "سطر",
+    "سوال",
+    "سوره",
+    "طبعه",
+    "عباره",
+    "عنوان",
+    "فصل",
+    "فقره",
+    "فيه",
+    "قسم",
+    "كتاب",
+    "لفظ",
+    "مراجعه",
+    "معني",
+    "مقطع",
+    "موضع",
+    "مولف",
+    "نموذج",
+    "هاذا",
+    "ثم",
+    "رابع",
+    "وصف",
 }
 TEXT_FIELDS = ("text", "title", "narration", "narrator", "grade")
+
+
+def _string_values(node: object) -> list[str]:
+    if isinstance(node, str):
+        return [node]
+    if isinstance(node, dict):
+        return [text for value in node.values() for text in _string_values(value)]
+    if isinstance(node, list):
+        return [text for value in node for text in _string_values(value)]
+    return []
 
 
 def fixture_words(name: str) -> set[str]:
     raw = (DATA / name).read_text(encoding="utf-8")
     if name.endswith(".json"):
-        records = json.loads(raw)["records"]
-        raw = " ".join(str(r[key]) for r in records for key in TEXT_FIELDS if key in r)
+        # every string value of the file (records files and the B8 bundles alike), never the keys
+        raw = " ".join(_string_values(json.loads(raw)))
     arabic_only = re.sub(r"[A-Za-z0-9:\[\]/_\-.|#,]+", " ", raw)
     return set(normalize(arabic_only).split())
 
 
-def test_fixture_files_exist_and_the_bundle_is_not_created_here() -> None:
+def test_fixture_files_exist_and_the_synthetic_bundle_is_committed() -> None:
     names = {p.name for p in DATA.iterdir()}
     assert {
         "README.md",
@@ -62,7 +109,7 @@ def test_fixture_files_exist_and_the_bundle_is_not_created_here() -> None:
         "synthetic_hadith_records_pass2.json",
         "synthetic_oracle.txt",
     } <= names
-    assert "synthetic_bundle.json" not in names  # produced by B8
+    assert "synthetic_bundle.json" in names  # produced by the B8 pipeline (contract §2.6)
 
 
 def test_fixtures_contain_only_placeholder_words() -> None:

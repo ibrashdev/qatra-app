@@ -46,3 +46,12 @@ class BuildPaths:
 
     def gap_report(self, edition_key: str) -> Path:
         return self.edition_dir(edition_key) / "gap_report.md"
+
+    def bundle_json(self, edition_key: str) -> Path:
+        return self.edition_dir(edition_key) / "bundle.json"
+
+    def publish_sql(self, edition_key: str) -> Path:
+        return self.edition_dir(edition_key) / "publish.sql"
+
+    def report_md(self, edition_key: str) -> Path:
+        return self.edition_dir(edition_key) / "report.md"

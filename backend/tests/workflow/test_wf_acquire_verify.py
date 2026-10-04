@@ -738,9 +738,7 @@ def test_changing_the_acquisition_resets_the_verification(tmp_path: Path) -> Non
     assert rows(build, HADITH_ED)["verified"].status == "pending"
     assert run_cli(hadith_args("segment"), build) == 3
     assert run_cli(hadith_args("verify"), build) == 0
-    assert (
-        run_cli(hadith_args("segment"), build) == 6
-    )  # verified again: only 'not implemented' remains
+    assert run_cli(hadith_args("segment"), build) == 0  # verified again: segmentation may start
 
 
 def test_hadith_http_acquire_with_an_id_map(
