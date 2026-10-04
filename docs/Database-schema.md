@@ -1,8 +1,8 @@
 # Qatra — Database Schema (physical design)
 
-Version 1 · 2026-10-04 · Status: Needs Review — awaiting owner approval (architecture phase)
+Version 1.1 · 2026-10-04 · Status: Needs Review — awaiting explicit owner approval (gate G0)
 
-Prepared by the Solutions Architect role (Role 3) for the root coordinator's review. Approval evidence: none yet (the owner approved the analysis deliverables and the architecture decisions D66–D72; this schema is a new architecture deliverable that the owner has not yet reviewed). Nothing in this file has been built or tested: no SQL file, migration, role, bucket, policy or function exists anywhere.
+Prepared by the Solutions Architect role (Role 3) for the root coordinator's review. Approval evidence: none yet (the owner approved the analysis deliverables and the architecture decisions D66–D72; this schema is a new architecture deliverable that the owner has not yet reviewed). Nothing in this file has been built or tested: no SQL file, migration, role, bucket, policy or function exists anywhere. The coordinator consistency pass of 4 October 2026 resolved OPEN-01, OPEN-02, OPEN-03, OPEN-05, OPEN-07, OPEN-09 and OPEN-16 as architect decisions recorded in §15 (A-01 to A-05, A-13); they remain Needs Review and no owner approval is implied.
 
 ## 1. Scope, authority and status
 
@@ -13,16 +13,16 @@ It is documentation only (AGENTS.md: schema design may be documented, but no run
 Inputs, read on 2026-10-04:
 
 - [Decision-register.md](Decision-register.md) D01–D71 (register v14). **D72** (plan order option, answer keys accepted for the MVP, GitHub scheduled keep-awake) and the seven architect directives come from the coordinator's decision record of 2026-10-04; D72 is not yet in register v14 (see §16).
-- [Implementation-contract.md](Implementation-contract.md) v1.2, §2–§4, §6, §8 (physical additions, mastery state, authentication, configuration).
+- [Implementation-contract.md](Implementation-contract.md) v1.3 (approved, D69), §2–§4, §6, §8 (physical additions, mastery state, authentication, configuration).
 - [Architecture-and-data.md](Architecture-and-data.md) v12 (logical schema, RLS and role text), [Authentication-and-privacy.md](Authentication-and-privacy.md) v11, [PWA-design.md](PWA-design.md) v11 (offline snapshot fields), [AI-agent.md](AI-agent.md) (AI usage record), [Additional-features.md](Additional-features.md) (conditional feedback, D45), [PRD.md](PRD.md) v14 (modules M1–M12, R and NFR identifiers).
 
 Reading guide:
 
 - **OPEN-nn** marks anything that could not be derived from approved documents. Each is listed in §15 and none was invented as a business rule.
-- **proposed** marks a design choice made here for integrity or security that no approved document states. It becomes part of the architecture only if the owner approves this document.
+- **proposed** marks a design choice made here for integrity or security that no approved document states. It becomes part of the architecture only if the owner approves this document. Items marked *decided* (A-nn) are the architect decisions of 4 October 2026; they are still Needs Review until the owner approves the architecture package at gate G0.
 - Every column, FK, unique key, check, index, policy and trigger below is a design proposal (status Needs Review).
 
-At a glance: **36 application tables** (35 unconditional plus the conditional `content_feedback`) created by five migrations (`0001_content` to `0005_rls_functions`) and one conditional migration (`0006_feedback`); the external `auth.users`; one logical table dropped (`reviews`); 2 catalog views; 18 `srv_*` functions; 5 trigger functions; the 4 database roles of directive 7 plus the migration owner; 1 private storage bucket; 17 open points (§15).
+At a glance: **36 application tables** (35 unconditional plus the conditional `content_feedback`) created by five migrations (`0001_content` to `0005_rls_functions`) and one conditional migration (`0006_feedback`); the external `auth.users`; one logical table dropped (`reviews`); 2 catalog views; 19 `srv_*` functions; 5 trigger functions; the 4 database roles of directive 7 plus the migration owner; 1 private storage bucket; 17 points in §15, of which 7 are resolved by architect decision (Needs Review at G0) and 10 remain open.
 
 ## 2. Access paths and ownership boundaries
 
@@ -109,7 +109,7 @@ erDiagram
         text license_url
         jsonb license_record
         timestamptz checked_at
-        text rights_status "values: OPEN-01"
+        text rights_status "values: section 4.4"
     }
     books {
         uuid id PK
@@ -650,7 +650,7 @@ Nullable composite keys use the default `MATCH SIMPLE`: when the nullable member
 | `passages.path` and elements of `master_plans.paths` | quran, matn, sanad, grade | contract §2.3 |
 | `question_items.type` | word_order, word_choice, word_recall, similar_distinction | D04, contract §2.4 |
 | `question_items.variant` | word, segment (choice); keyword, continuation (recall); null | contract §2.6 |
-| `content_jobs.step` | acquired, verified (the step identifier fixed by directive 5, not a document status), segmented, bank_built, validated, approved, published (web editions, directive 5); uploaded, extracted, page_mapped, embedded reserved for later editions and skipped in the MVP (D68, D69) | directive 5, Architecture |
+| `content_jobs.step` | acquired, verified (the step identifier fixed by directive 5, not a document status), segmented, bank_built, validated, approved, published (web editions, directive 5); withdrawn, archived (audit steps for withdrawing and archiving an edition, A-12, A-04); uploaded, extracted, page_mapped, embedded reserved for later editions and skipped in the MVP (D68, D69) | directive 5, Architecture, A-12 |
 | `learning_sessions.kind` | daily, game, placement | Architecture, contract §7 |
 | `learning_sessions.status` | prepared, open, completed | contract §3.2 |
 | `learning_sessions.self_rating` | none, some, most (placement only) | contract §5 |
@@ -660,12 +660,16 @@ Nullable composite keys use the default `MATCH SIMPLE`: when the nullable member
 | `profiles.language` | ar, en | PRD R11 |
 | `profiles.session_minutes` | 5, 10, 15 | R01, D34 |
 | `content_feedback.status` | submitted, in_review, resolved, closed | D45 |
-| `password_reset_grants.status` | active, executing, consumed, cancelled | **proposed**, from the flow in Authentication-and-privacy (steps 2–5: no parallel execution, cancellation on expiry) |
-| `content_jobs.status` | pending, running, succeeded, failed, skipped | **proposed**, from the Architecture rules (resume, failure keeps the edition draft, skipped steps) |
-| `lessons.status`, `question_items.status` | draft, validated, published, revoked | **proposed**, mirrors the edition vocabulary (OPEN-01) |
-| `generic_plan_templates.status` | draft, published, retired | **proposed** (OPEN-01) |
+| `password_reset_grants.status` | active, executing, consumed, cancelled | from the flow in Authentication-and-privacy (steps 2–5: no parallel execution, cancellation on expiry); fixed with a `CHECK` (A-05) |
+| `content_jobs.status` | pending, running, succeeded, failed, skipped | from the Architecture rules (resume, failure keeps the edition draft, skipped steps); fixed with a `CHECK` (A-05) |
+| `lessons.status`, `question_items.status` | draft, validated, published, revoked | mirrors the edition vocabulary; fixed with a `CHECK` (A-05) |
+| `generic_plan_templates.status` | draft, published, retired | fixed with a `CHECK` (A-05) |
+| `sources.rights_status` | owner_accepted_pending_verification, verified, rejected | contract §2.1 names the first value; the set is fixed with a `CHECK` (A-05) |
+| `attempts.error_kind` | none, wrong_choice, wrong_order, wrong_recall, similar_confusion, timeout, skipped | one outcome class per game plus two generic ones; used to focus extra practice (D64); fixed with a `CHECK` (A-05); the column stays nullable |
+| `ai_usage.status` | succeeded, failed, timed_out, rules_fallback | fixed with a `CHECK` (A-05) |
+| `content_feedback.category_code` | open | D45: no `CHECK`; the list is set when the feedback feature is activated (OPEN-13) |
 
-No `CHECK` is written for `sources.rights_status` (the contract names only `owner_accepted_pending_verification`), `attempts.error_kind`, `ai_usage.status` and `content_feedback.category_code`, because no approved document lists their values (OPEN-01).
+Architect decision A-05 (4 October 2026; Needs Review at G0) fixes every set above that was formerly proposed, and adds the sets for `sources.rights_status`, `attempts.error_kind` and `ai_usage.status`; each is enforced by a `CHECK` constraint in the table definitions of §6. Only `content_feedback.category_code` stays open, with no `CHECK`, until the conditional table is activated (D45, OPEN-13). OPEN-01 is resolved on that basis.
 
 ### 4.5 RLS predicate catalogue
 
@@ -674,17 +678,17 @@ Policies use `(select auth.uid())` so that the planner evaluates it once per sta
 | Name | Predicate | Used by |
 |---|---|---|
 | `P-OWN` | `user_id = (select auth.uid())`, as both `USING` and `WITH CHECK` | every personal table |
-| `P-ED` | `book_editions.status = 'published'` (catalog hiding and archiving do not apply here: a hidden or archived edition stays readable for pinned plans, D44) | `book_editions` |
-| `P-PUB-CHILD` | an edition row with `id = <table>.edition_id` and `status = 'published'` exists | `edition_pages`, `book_sections`, `units`, `unit_page_spans` |
-| `P-PUB-BANK` | `P-PUB-CHILD` and `<table>.bank_version = book_editions.bank_version` | `passages` |
+| `P-ED` | `book_editions.status IN ('published','superseded')` (= contract §3.1 "published and not revoked", A-02; catalog hiding and archiving do not apply here: a hidden or archived edition stays readable for pinned plans, D44) | `book_editions` |
+| `P-PUB-CHILD` | an edition row with `id = <table>.edition_id` and `status IN ('published','superseded')` exists | `edition_pages`, `book_sections`, `units`, `unit_page_spans` |
+| `P-PUB-BANK` | `P-PUB-CHILD` and `<table>.bank_version = book_editions.bank_version` (learners read the `bank_version` pinned by their plan version; the MVP ships one bank version and no supersession, so it equals the edition's `bank_version` and no further rule is added, A-02) | `passages` |
 | `P-PUB-ITEM` | `P-PUB-BANK` and `<table>.status = 'published'` | `lessons`, `question_items` |
 | `P-VIA-PARENT` | a visible parent row exists (`passages` for `passage_parts`; `lessons` for `lesson_units`); the parent's own policy applies inside the check | `passage_parts`, `lesson_units` |
-| `P-BOOK` | a `published` edition of the book exists | `books` |
-| `P-CAT` | a book of the category has a `published` edition | `categories` |
-| `P-SRC` | a `published` edition uses the source | `sources` |
+| `P-BOOK` | a `published` or `superseded` edition of the book exists (A-02) | `books` |
+| `P-CAT` | a book of the category has a `published` or `superseded` edition (A-02) | `categories` |
+| `P-SRC` | a `published` or `superseded` edition uses the source (A-02) | `sources` |
 | `P-TPL` | `generic_plan_templates.status = 'published'` | `generic_plan_templates` |
 
-`P-ED` reads `status = 'published'` only; whether `superseded` editions and older bank versions remain readable for pinned plans is OPEN-03. Learner reads of content are limited by publication state only: the plan-scope and edition checks of D42 (every question, passage and event must lie inside the active plan's `target_scope` and edition) are validated by the service on each session, question and event (contract §7), not by RLS.
+Architect decision A-02 (4 October 2026; Needs Review at G0, resolves OPEN-03): learner reads of editions use `status IN ('published','superseded')`, so a `superseded` edition stays readable for the plans pinned to it; a `revoked` edition is never readable (the withdrawal handling is in §12.3). Learners read the `bank_version` pinned by their plan version. Learner reads of content are limited by publication state only: the plan-scope and edition checks of D42 (every question, passage and event must lie inside the active plan's `target_scope` and edition) are validated by the service on each session, question and event (contract §7), not by RLS.
 
 ## 5. Roles, grants and access matrix
 
@@ -693,9 +697,9 @@ Policies use `(select auth.uid())` so that the planner evaluates it once per sta
 | Role | Kind | How it is reached | Privileges (target posture) |
 |---|---|---|---|
 | `anon` | Supabase built-in | publishable key, used by the backend for `GET /api/catalog` only | `SELECT` on `public.catalog_editions` and `public.catalog_sections` only (directive 2, D71). No table, function or storage access. |
-| `authenticated` | Supabase built-in | the learner's access token, held and used only by the backend (the browser never receives it) | own rows through RLS (`P-OWN`); `SELECT` on published content through the predicates of §4.5; the `INSERT` and `UPDATE` grants listed in §5.2; `EXECUTE` on learner commit functions only if OPEN-02 is approved |
-| `qatra_server` | **new** login role, created in `0002_identity` | direct database connection whose credential is the Render secret `QATRA_SERVER_DB` | `USAGE` on schema `public`, `EXECUTE` on the `srv_*` functions of §8 and nothing else: no table, view, sequence or storage privilege, not a member of any other role, `NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS` |
-| `service_role` | Supabase built-in (bypasses RLS) | secret key used only for (1) the Auth Admin API (create user, reset password, delete account) and (2) content publishing: content tables and bucket `sources` (directive 7, D69) | full access to boundary A and B tables and the `sources` bucket; **no** privilege on private or personal tables (revoked, §5.2). It never runs `srv_*` functions and never serves learner requests. |
+| `authenticated` | Supabase built-in | the learner's access token, held and used only by the backend (the browser never receives it) | own rows through RLS (`P-OWN`); `SELECT` on published content through the predicates of §4.5; the `INSERT` and `UPDATE` grants listed in §5.2; `EXECUTE` on the six learner commit functions `app_*` of §8.3 (A-01) |
+| `qatra_server` | **new** login role, created in `0002_identity` | direct database connection whose credential is the Render secret `QATRA_SERVER_DB` | `USAGE` on schema `public`, `EXECUTE` on the `srv_*` functions of §8 (items 1–18; not item 19) and nothing else: no table, view, sequence or storage privilege, not a member of any other role, `NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS` |
+| `service_role` | Supabase built-in (bypasses RLS) | secret key used only for (1) the Auth Admin API (create user, reset password, delete account) and (2) content publishing: content tables and bucket `sources` (directive 7, D69) | full access to boundary A and B tables and the `sources` bucket; **no** privilege on private or personal tables (revoked, §5.2). Its only function privilege is `EXECUTE` on `srv_redact_revoked_content` (§8.2 item 19, A-04), used by the CLI `withdraw` command; it runs no other `srv_*` function and never serves learner requests. |
 | migration owner (`postgres`) | platform owner | migrations and the Supabase dashboard only, never the running application | owns every object including the `srv_*` functions (which run with the owner's rights, `SECURITY DEFINER`) |
 
 The password of `qatra_server` is set by the owner out of band (Supabase SQL editor or dashboard), stored only as the Render secret `QATRA_SERVER_DB`, and never appears in migrations, git, logs, the frontend or delivery files (directive 7, D69). The credential format (connection string or password) is a backend configuration detail. Role-level settings proposed for `qatra_server`: `search_path` empty, a small `CONNECTION LIMIT` and a `statement_timeout`, with values chosen at provisioning (OPEN-15; the owner expects at most 10 users, D72).
@@ -712,7 +716,7 @@ The password of `qatra_server` is set by the owner out of band (Supabase SQL edi
    - Column-limited `UPDATE` only, no `INSERT`: `profiles` (only `language`, `time_zone`, `session_minutes`, `reminder_settings`, `pending_settings`; the row is created by `srv_register_account`, and `terms_version`, `terms_accepted_at` and `is_demo` are never writable by the learner).
    - No `DELETE` on any table: personal rows are removed only by account deletion (§12.1).
    - No grant at all on `ai_usage`, `unit_embeddings`, `content_jobs`, `approved_source_rules` and every `private.*` table.
-6. **Functions.** The default `EXECUTE` for `PUBLIC`, `anon`, `authenticated` and `service_role` is revoked for the owner's `public` schema (so new functions are closed by default); `srv_*` functions are granted to `qatra_server` only (contract §3.2).
+6. **Functions.** The default `EXECUTE` for `PUBLIC`, `anon`, `authenticated` and `service_role` is revoked for the owner's `public` schema (so new functions are closed by default); `srv_*` functions 1–18 are granted to `qatra_server` only (contract §3.2); `srv_redact_revoked_content` (item 19, A-04) is granted to `service_role` only, because the CLI uses that role for publishing (§5.1), and is not granted to `qatra_server`. The `app_*` functions of §8.3 are granted to `authenticated` only (A-01).
 7. **Views.** `SELECT` on the two `catalog_*` views to `anon` and `authenticated`, nothing else (§7).
 8. **Sequences**: none exist (all ids are UUIDs).
 9. **`FORCE ROW LEVEL SECURITY` is not used**, because `srv_*` functions rely on the owner bypassing RLS; direct access by every other role stays subject to RLS and grants.
@@ -720,7 +724,7 @@ The password of `qatra_server` is set by the owner out of band (Supabase SQL edi
 
 ### 5.3 Access matrix
 
-`S` select, `I` insert, `U` update, `D` delete; `—` none. `qatra_server` has no table privilege anywhere; its only path to data is `EXECUTE` on `srv_*` (§8). `service_role` on content tables bypasses RLS (publishing scope only).
+`S` select, `I` insert, `U` update, `D` delete; `—` none. `qatra_server` has no table privilege anywhere; its only path to data is `EXECUTE` on `srv_*` (§8). `service_role` on content tables bypasses RLS (publishing scope only); it has no privilege on personal tables, and its single function path to them is `EXECUTE` on `srv_redact_revoked_content` (§8.2 item 19).
 
 | Table | anon | authenticated | qatra_server | service_role |
 |---|---|---|---|---|
@@ -820,7 +824,7 @@ Documented eligibility and rights of a source, independent of any edition (D19, 
 | `license_url` | text | yes | — | `NULL` or starts with `https://` |
 | `license_record` | jsonb | no | `'{}'` | object; shape OPEN-04 |
 | `checked_at` | timestamptz | yes | — | last rights or eligibility check, or retrieval time |
-| `rights_status` | text | no | — | contract §2.1 names `owner_accepted_pending_verification`; the full value set is OPEN-01 (no `CHECK`) |
+| `rights_status` | text | no | — | contract §2.1 names `owner_accepted_pending_verification`; `CHECK` in (`owner_accepted_pending_verification`, `verified`, `rejected`) (A-05, §4.4) |
 | `created_at` | timestamptz | no | `now()` | |
 | `updated_at` | timestamptz | no | `now()` | maintained by trigger |
 
@@ -863,7 +867,7 @@ One immutable-text edition of a book with its own fingerprint, status and review
 | `content_hash` | text | yes | — | `NULL` or 64 lower-case hexadecimal characters (SHA-256) |
 | `pagination_record` | jsonb | no | `'{}'` | object; contract §2.6 uses `{"kind": "web_edition"}` for web editions |
 | `status` | text | no | `'draft'` | `draft`, `validated`, `published`, `superseded` or `revoked` |
-| `review_record` | jsonb | no | `'{}'` | object; reviewer evidence (directive 4, D71); contract §2.6 fixes `knownGaps` and `suspectedErrors`, the keys `acquisition`, `verification` and `approval` are proposed (OPEN-04) |
+| `review_record` | jsonb | no | `'{}'` | object; reviewer evidence (directive 4, D71); contract §2.6 fixes `knownGaps` and `suspectedErrors`, the keys are fixed by A-12: `acquisition` {who, at, sourceUrl, recordIds}, `verification` {who, at, method, result, differences} and `approval` {who, at, note}; the other JSON shapes stay with OPEN-04 |
 | `catalog_hidden` | boolean | no | `false` | administrative hiding from new selection (D44); never overrides `status` |
 | `archived_at` | timestamptz | yes | — | administrative archive time (D44) |
 | `created_at` | timestamptz | no | `now()` | |
@@ -871,7 +875,7 @@ One immutable-text edition of a book with its own fingerprint, status and review
 
 - **Checks (beyond the value rules above):** `status = 'draft'` or `content_hash` is not null (a fingerprint exists before validation); `status` in (`draft`, `validated`) or `review_record` has the top-level key `approval` (**proposed**, directive 4: nothing is published without the owner's recorded approval step); `jsonb_typeof(review_record) = 'object'`.
 - **PK:** `id`. **FKs:** `book_id` to `books (id)` (class E, `ON DELETE RESTRICT`); `source_id` to `sources (id)` (class E, `ON DELETE RESTRICT`). **Unique:** `edition_key`; `(book_id, version)`.
-- **Indexes:** `(book_id)` where `status = 'published'` — catalog views and `P-BOOK`; `(source_id)` — foreign-key support and `P-SRC`.
+- **Indexes:** `(book_id)` where `status IN ('published','superseded')` — `P-BOOK` (the catalog views add their own `published` filter, §7); `(source_id)` — foreign-key support and `P-SRC`.
 - **RLS:** enabled · anon: none · authenticated: select (`P-ED`; all columns except `raw_storage_path` and `review_record`) · qatra_server: none · service_role: select, insert, update, delete (publishing scope).
 - **Triggers:** `set_updated_at`; `guard_edition_delete` (before delete: only a never-published `draft` edition may be deleted, D44).
 
@@ -1011,7 +1015,7 @@ A fixed lesson for one passage, reusable by every learner; no `user_id` (Archite
 | `passage_id` | uuid | no | — | |
 | `ordinal` | integer | no | — | `>= 1` |
 | `duration_estimate_sec` | integer | no | — | `> 0` (contract §2.6 `durationEstimateSec`) |
-| `status` | text | no | `'draft'` | `draft`, `validated`, `published` or `revoked` (**proposed**, OPEN-01) |
+| `status` | text | no | `'draft'` | `draft`, `validated`, `published` or `revoked`; `CHECK` (A-05) |
 
 - **PK:** `id`. **FKs:** `(passage_id, edition_id, bank_version)` to `passages (id, edition_id, bank_version)` (class D, `ON DELETE CASCADE`). **Unique:** `(edition_id, bank_version, ordinal)`; `(id, edition_id)`.
 - **Indexes:** `(passage_id)` — lesson lookup by passage.
@@ -1056,7 +1060,7 @@ The deterministic question bank: four templates, every reference taken from the 
 | `correct_ref` | jsonb | no | — | array of token references |
 | `context_refs` | jsonb | no | `'[]'` | array; context shown around the blank is never coverage (D64, D66) |
 | `reference` | text | no | — | non-empty (`78:1`) |
-| `status` | text | no | `'draft'` | `draft`, `validated`, `published` or `revoked` (**proposed**, OPEN-01) |
+| `status` | text | no | `'draft'` | `draft`, `validated`, `published` or `revoked`; `CHECK` (A-05) |
 | `validation_record` | jsonb | no | `'{}'` | object |
 
 - **Checks:** `option_refs` is not null exactly when `type` is `word_choice` or `similar_distinction`; `variant` consistent with `type` as above; `cardinality(covered_part_ids) >= 1`; `jsonb_typeof` of `token_refs`, `option_refs`, `correct_ref`, `context_refs` is `array`.
@@ -1093,9 +1097,9 @@ Drives the Background Workflow (D37, D65): one row per `(edition, bank version, 
 | `edition_id` | uuid | no | — | |
 | `bank_version` | integer | no | — | `>= 1` |
 | `pipeline_version` | text | no | — | non-empty |
-| `step` | text | no | — | `acquired`, `verified`, `segmented`, `bank_built`, `validated`, `approved`, `published` for web editions (directive 5); `uploaded`, `extracted`, `page_mapped`, `embedded` are reserved for later editions and skipped in the MVP (D68, D69) |
+| `step` | text | no | — | `acquired`, `verified`, `segmented`, `bank_built`, `validated`, `approved`, `published` for web editions (directive 5); `withdrawn` and `archived` record withdrawing and archiving an edition (A-12; `withdrawn` also audits `srv_redact_revoked_content`, A-04); `uploaded`, `extracted`, `page_mapped`, `embedded` are reserved for later editions and skipped in the MVP (D68, D69) |
 | `cursor` | jsonb | yes | — | resume position; `NULL` or object |
-| `status` | text | no | `'pending'` | `pending`, `running`, `succeeded`, `failed` or `skipped` (**proposed**, OPEN-01); a failed step keeps the edition `draft` |
+| `status` | text | no | `'pending'` | `pending`, `running`, `succeeded`, `failed` or `skipped`; `CHECK` (A-05); a failed step keeps the edition `draft` |
 | `validation_summary` | jsonb | yes | — | `NULL` or object: verbatim-verification results (contract §2.7) and, for the `approved` step, who and when (reviewer evidence, directive 4, D71) |
 | `published_at` | timestamptz | yes | — | only on the `published` step |
 | `created_at` | timestamptz | no | `now()` | |
@@ -1119,7 +1123,7 @@ Planning templates built from synthetic cases only; no account identifier or per
 | `scenario_key` | text | no | — | non-empty; key of a synthetic scenario |
 | `policy_json` | jsonb | no | — | object |
 | `generator_version` | text | no | — | non-empty |
-| `status` | text | no | `'draft'` | `draft`, `published` or `retired` (**proposed**, OPEN-01) |
+| `status` | text | no | `'draft'` | `draft`, `published` or `retired`; `CHECK` (A-05) |
 | `created_at` | timestamptz | no | `now()` | |
 
 - **PK:** `id`. **FKs:** `edition_id` to `book_editions (id)` (class D, `ON DELETE CASCADE`). **Unique:** `(edition_id, catalog_version, scenario_key, generator_version)`. **Indexes:** the unique key serves lookups.
@@ -1156,7 +1160,7 @@ A short-lived permission that allows one password change and nothing else (Authe
 | `user_id` | uuid | no | — | |
 | `grant_hash` | bytea | no | — | unique; exactly 32 bytes: HMAC-SHA-256 under `QATRA_RECOVERY_HMAC_KEY`; the raw grant is never stored (contract §6) |
 | `expires_at` | timestamptz | no | — | ten minutes after creation (contract §6); `expires_at > created_at` |
-| `status` | text | no | `'active'` | `active`, `executing`, `consumed` or `cancelled` (**proposed**, OPEN-01) |
+| `status` | text | no | `'active'` | `active`, `executing`, `consumed` or `cancelled`; `CHECK` (A-05) |
 | `created_at` | timestamptz | no | `now()` | |
 
 - **PK:** `id`. **FKs:** `user_id` to `auth.users (id)` (class A, `ON DELETE CASCADE`). **Unique:** `grant_hash`; partial unique `(user_id)` where `status` in (`active`, `executing`) — at most one live grant per account, so two simultaneous requests cannot hold two active grants (Authentication step 2).
@@ -1206,11 +1210,11 @@ Attempt counters for login and recovery. No user link by design: keys are finger
 | Column | Type | Null | Default | Rules |
 |---|---|---|---|---|
 | `key_hash` | bytea | no | — | part of primary key; exactly 32 bytes: HMAC-SHA-256 under `QATRA_THROTTLE_HMAC_KEY` of the normalized username, or of the client IP prefix (IPv4 /24, IPv6 /48) taken from the trusted proxy header |
-| `window_start` | timestamptz | no | — | part of primary key; start of the counting bucket (granularity OPEN-05) |
+| `window_start` | timestamptz | no | — | part of primary key; start of the one-minute counting bucket, truncated to the minute, so "5 failures in 15 minutes" is a sliding sum over buckets (A-03) |
 | `attempts` | integer | no | `0` | `>= 0` |
 
 - **PK:** `(key_hash, window_start)`. **FKs:** none (no user link). **Unique:** none beyond the key.
-- **Indexes:** `(window_start)` — the 24-hour purge (§12.2).
+- **Indexes:** `(window_start)` — the bounded 24-hour purge inside `srv_throttle_record` (§12.2).
 - **RLS:** enabled · anon: none · authenticated: none · qatra_server: none (functions only) · service_role: none (revoked).
 - **Triggers:** none. Thresholds (progressive delay after 5 failures in 15 minutes, HTTP 429 at 20) are policy applied by the service (contract §6), not stored here.
 
@@ -1329,7 +1333,7 @@ A fixed record of a downloaded plan slice; the server prepares the sessions onli
 - **PK:** `id`. **FKs:** `(plan_id, user_id, edition_id)` to `master_plans (id, user_id, edition_id)` (class B, `ON DELETE CASCADE`); `(plan_id, plan_version)` to `plan_versions (plan_id, version_no)` (class B, `ON DELETE CASCADE`). **Unique:** `(user_id, client_operation_id)` (the same request returns the same snapshot, a changed input is a conflict); `(id, user_id)`.
 - **Indexes:** `(user_id, plan_id, created_at)` — list and resume a plan's snapshots; the unique keys serve idempotency.
 - **RLS:** enabled · anon: none · authenticated: select, insert own rows (`P-OWN`; no update, no delete) · qatra_server: none · service_role: none (revoked).
-- **Triggers:** none. No retention period is added (D58, §12.3); the stored text copy after a revocation is OPEN-07.
+- **Triggers:** none. No retention period is added (D58, §12.3); the stored text copy after a revocation is redacted by `srv_redact_revoked_content` (A-04, §12.3).
 
 #### `learning_sessions`
 
@@ -1347,7 +1351,7 @@ A server-prepared session (daily, game or placement) with an immutable snapshot 
 | `learning_date` | date | no | — | in the account's time zone effective that day (D57) |
 | `lesson_refs` | uuid[] | no | `'{}'` | lessons shown |
 | `question_refs` | uuid[] | no | `'{}'` | questions in the snapshot; the server validates every submitted answer against it (contract §7) |
-| `steps` | jsonb | no | — | array; the immutable snapshot of learn and question steps, including answer keys that travel to the device (accepted MVP risk D72); excluded from the update grant |
+| `steps` | jsonb | no | — | array; the immutable snapshot of learn and question steps, including answer keys that travel to the device (accepted MVP risk D72); excluded from the update grant (the only later change is the text redaction of a revoked edition by `srv_redact_revoked_content`, A-04, which keeps structure and ids) |
 | `bank_version` | integer | no | — | `>= 1`; the bank version used |
 | `self_rating` | text | yes | — | `none`, `some` or `most`; only for `placement` |
 | `status` | text | no | — (set explicitly) | `prepared`, `open` or `completed` |
@@ -1358,7 +1362,7 @@ A server-prepared session (daily, game or placement) with an immutable snapshot 
 
 - **Checks:** `kind` and `status` value sets; `(plan_id is null) = (plan_version_id is null)`; `kind = 'placement'` or `plan_id` is not null; `phase_id` is null or `plan_version_id` is not null; `self_rating` is null or `kind = 'placement'`; `jsonb_typeof(steps) = 'array'`.
 - **PK:** `id`. **FKs:** `edition_id` to `book_editions (id)` (class C, `RESTRICT`); `(plan_id, user_id, edition_id)` to `master_plans (id, user_id, edition_id)` (class B, `CASCADE`); `(plan_version_id, plan_id, user_id)` to `plan_versions (id, plan_id, user_id)` (class B, `CASCADE`); `(phase_id, plan_version_id, user_id)` to `plan_phases (id, plan_version_id, user_id)` (class B, `CASCADE`); `(offline_snapshot_id, user_id)` to `offline_snapshots (id, user_id)` (class F, `ON DELETE SET NULL` on `offline_snapshot_id` only). **Unique:** `(id, user_id)`; `(id, user_id, edition_id)`.
-- **Indexes:** `(user_id, learning_date)` — today's and nearby sessions; `(user_id, plan_id, learning_date)` — plan sessions by date; `(user_id)` where `status <> 'completed'` — open and prepared sessions; `(offline_snapshot_id)` where not null, `(plan_version_id)`, `(phase_id)` — foreign-key support. A uniqueness rule for the open daily session of a date is deliberately not added (OPEN-08).
+- **Indexes:** `(user_id, learning_date)` — today's and nearby sessions; `(user_id, plan_id, learning_date)` — plan sessions by date; `(user_id)` where `status <> 'completed'` — open and prepared sessions; `(offline_snapshot_id)` where not null, `(plan_version_id)`, `(phase_id)` — foreign-key support; **partial unique `(user_id, learning_date)` where `kind = 'daily'` and `status` in (`prepared`, `open`) and `offline_snapshot_id` is null** — at most one server-side daily session per account and learning date, which makes the get-or-create of `app_open_session` atomic (A-01, §8.3). Offline-prepared sessions (`offline_snapshot_id` set), completed sessions and game and placement sessions are outside the index and may coexist (OPEN-08).
 - **RLS:** enabled · anon: none · authenticated: select, insert, update own rows (`P-OWN`; update only `status` and `elapsed_ms`) · qatra_server: none · service_role: none (revoked).
 - **Triggers:** `set_updated_at`.
 
@@ -1377,7 +1381,7 @@ Immutable, server-graded answer events (D31, D41, D59, D64, D66). The free-text 
 | `passage_id` | uuid | no | — | the memorization target; equals the question's passage (composite key) |
 | `correct` | boolean | no | — | graded by the server (never accepted from the client, contract §7) |
 | `assisted` | boolean | no | `false` | hint used; client-reported, accepted MVP risk D72 |
-| `error_kind` | text | yes | — | value set OPEN-01 |
+| `error_kind` | text | yes | — | `NULL` or `CHECK` in (`none`, `wrong_choice`, `wrong_order`, `wrong_recall`, `similar_confusion`, `timeout`, `skipped`) (A-05, §4.4) |
 | `wrong_token_ref` | text | yes | — | reference of an edition word that matched the learner's wrong answer (D31); `NULL` or the format `<unitOrdinal>:<tokenIndex>`; the word text itself is never stored |
 | `review_round_id` | uuid | yes | — | groups the questions of one review round (contract §3.2); no table, no foreign key |
 | `duration_ms` | integer | no | — | `>= 0`; client-reported, never a trusted clock |
@@ -1500,7 +1504,7 @@ One record per model call (D39, D60, R09, NFR-05); **no learner, account, plan o
 | `input_tokens` | integer | yes | — | `NULL` means unknown, never zero unless measured; `>= 0` |
 | `output_tokens` | integer | yes | — | same rule |
 | `cost_usd` | numeric | yes | — | `NULL` means unknown; zero only if the usage data prove it; `>= 0` |
-| `status` | text | no | — | value set OPEN-01 (no `CHECK`) |
+| `status` | text | no | — | `CHECK` in (`succeeded`, `failed`, `timed_out`, `rules_fallback`) (A-05, §4.4) |
 | `quota_record` | jsonb | yes | — | the checked free-tier quota evidence at call time (AI-agent: recorded with every call); shape OPEN-04 |
 | `created_at` | timestamptz | no | `now()` | |
 
@@ -1525,7 +1529,7 @@ Created only if the owner activates learner feedback after the first-day gate (A
 | `session_id` | uuid | yes | — | optional context; owned by the sender and of the same edition |
 | `question_event_ref` | uuid | yes | — | optional reference to the reported question event; storage shape is Needs Review (OPEN-13) |
 | `reported_context_refs` | jsonb | yes | — | bounded server-made projection of the reported question snapshot (bank version, option references, target position); never the free-text answer or the full history |
-| `category_code` | text | no | — | fixed list proposed, values Needs Review (no `CHECK`, OPEN-01) |
+| `category_code` | text | no | — | open until the feature is activated: no `CHECK` and no fixed list (D45, A-05, OPEN-13) |
 | `message` | text | no | — | non-empty; upper limit Needs Review (OPEN-13) |
 | `status` | text | no | `'submitted'` | `submitted`, `in_review`, `resolved` or `closed` |
 | `acknowledged_at` | timestamptz | yes | — | independent of `status`; acknowledgement does not mean resolution |
@@ -1562,7 +1566,7 @@ How the views behave (created in `0005_rls_functions`, because they depend on th
 
 ### 8.1 Common rules
 
-- **Where and who.** All live in schema `public` as the contract states (§3.2), are owned by the migration owner, and run with the owner's rights (`SECURITY DEFINER`). They are the only way any application role touches `private.*`. `EXECUTE` is revoked from `PUBLIC`, `anon`, `authenticated` and `service_role` and granted to `qatra_server` only (§5.2). The Data API would otherwise expose public functions as RPC endpoints; the revocation is what closes that door (OPEN-16 notes the stricter option of a non-exposed schema).
+- **Where and who.** All live in schema `public` as the contract states (§3.2), are owned by the migration owner, and run with the owner's rights (`SECURITY DEFINER`). They are the only way any application role touches `private.*`. `EXECUTE` is revoked from `PUBLIC`, `anon`, `authenticated` and `service_role` and granted to `qatra_server` only (§5.2), with one exception: `srv_redact_revoked_content` (item 19) is granted to `service_role` only, the role the CLI uses for publishing, and not to `qatra_server`. The Data API would otherwise expose public functions as RPC endpoints; the revocation is what closes that door (OPEN-16 notes the stricter option of a non-exposed schema).
 - **Fixed search path.** Every function declares `search_path = ''` in its own definition and schema-qualifies every object it uses, so a caller cannot redirect it.
 - **No secrets in the database.** The backend computes every HMAC fingerprint and ciphertext (keys live only in Render's environment). The database never receives a key, a raw recovery code, a raw reset grant, a raw cookie token or a password.
 - **Identity.** A `p_user_id` argument is always derived by the backend from a live app session or from an Auth Admin result, never from client input. The functions do not call `auth.uid()`; `qatra_server` has no user token.
@@ -1590,26 +1594,27 @@ How the views behave (created in `0005_rls_functions`, because they depend on th
 | 13 | `srv_revoke_app_session(p_session_hash bytea)` | nothing | Sets `revoked_at` (logout). | `POST /auth/logout` |
 | 14 | `srv_bump_auth_epoch(p_user_id uuid)` | the new epoch | Increments `auth_epoch` and revokes all of the account's app sessions; the backend then creates a fresh session. | `POST /auth/password` |
 | 15 | `srv_throttle_check(p_key_hashes bytea[])` | rows of (`key_hash`, `attempts`) | Attempts per key summed over the trailing 15 minutes. The thresholds (delay after 5, HTTP 429 at 20) stay in the service (contract §6). | login, recovery |
-| 16 | `srv_throttle_record(p_key_hashes bytea[])` | nothing | Increments the current bucket of each key and deletes rows older than 24 hours in the same call (bounded; mechanism OPEN-05). | login, recovery |
+| 16 | `srv_throttle_record(p_key_hashes bytea[], p_outcome text)` | nothing | With `p_outcome = 'failure'` increments the current one-minute bucket of each key; with `p_outcome = 'success'` deletes every bucket of the given keys (a successful login clears the username key, A-03). In the same call it deletes at most 100 rows with `window_start < now() - interval '24 hours'` (`DELETE … WHERE ctid IN (SELECT ctid … LIMIT 100)`; A-03, §12.2). | login, recovery |
 | 17 | `srv_delete_personal_rows(p_user_id uuid, p_username_throttle_key_hash bytea)` | nothing | In one transaction deletes the account's rows from every private and personal table (list in §12.1) and the throttle rows of that username key. Content and `ai_usage` are untouched. The Auth user is deleted afterwards through the Admin API; every personal table also cascades from `auth.users` as a safety net. | `DELETE /account` |
 | 18 | `srv_record_ai_usage(p_provider text, p_model text, p_prompt_version text, p_input_tokens integer, p_output_tokens integer, p_cost_usd numeric, p_status text, p_quota_record jsonb)` | nothing | Inserts one usage row; null token and cost arguments stay null (unknown, never zero); the row holds no learner data. **Proposed** write path: `ai_usage` has no other writer. | Teaching Agent calls |
+| 19 | `srv_redact_revoked_content(p_edition_id uuid)` | nothing | Added by A-04. For the rows of `offline_snapshots` and `learning_sessions` that reference the edition (`edition_id`), redacts the text fields (source text and answer keys) inside `offline_snapshots.payload` and `learning_sessions.steps`, keeping structure and ids; one transaction, repeatable without further effect. It is the only function that changes `learning_sessions.steps` after creation. It raises an error unless `book_editions.status = 'revoked'` for the edition (guard decided by the coordinator, 4 Oct 2026). **Caller: `service_role` only**, the role the CLI uses for publishing (§5.1); `qatra_server` has no `EXECUTE`. The CLI records each call as a `content_jobs` row of step `withdrawn` (§4.4). | CLI `withdraw` command (not an API endpoint) |
 
-Items 1–17 cover the groups the architecture needs: handle lookup (1); registration helpers (2, 3); verify, reserve and consume recovery (4–9); create, read and revoke sessions (10–14); throttle check and record (15, 16); personal-row deletion (17). Item 18 only gives `ai_usage` a closed write path.
+Items 1–17 cover the groups the architecture needs: handle lookup (1); registration helpers (2, 3); verify, reserve and consume recovery (4–9); create, read and revoke sessions (10–14); throttle check and record (15, 16); personal-row deletion (17). Item 18 only gives `ai_usage` a closed write path. Item 19 gives the publishing role one closed path to redact the stored text copies of a withdrawn edition (A-04, §12.3); it is the only `srv_*` function not run by `qatra_server`.
 
-### 8.3 Learner commit boundaries (proposed, OPEN-02)
+### 8.3 Learner commit boundaries (decided, A-01)
 
-The Data API cannot open a multi-statement transaction, yet six learner operations must commit several rows together. Proposed mechanism: `SECURITY INVOKER` functions in `public`, executed by `authenticated` with the learner's token, so RLS and the grants of §5.2 stay in force and neither `qatra_server` nor `srv_*` is involved. They persist results already computed by the Python domain policies (mastery, time, answer) and contain integrity checks only, no business rules. Names and signatures belong with the API contract; none is fixed here.
+The Data API cannot open a multi-statement transaction, yet six learner operations must commit several rows together. Architect decision A-01 (4 October 2026; Needs Review at G0; resolves OPEN-02): the six operations are `SECURITY INVOKER` functions in schema `public` with the prefix `app_` and `set search_path = ''`. `EXECUTE` is revoked from `PUBLIC`, `anon`, `service_role` and `qatra_server` and granted to `authenticated` only. They run with the learner's token, so RLS and the grants of §5.2 stay in force and neither `qatra_server` nor the `srv_*` functions are involved. They persist results already computed by the Python domain policies (mastery, time, answer) and contain integrity checks only, no business rules. Exact signatures are fixed at implementation (B2), together with the API contract; none is fixed here.
 
-| Boundary | Rows committed together | Endpoint |
-|---|---|---|
-| create plan | pause the account's active plan; insert `master_plans`, `plan_versions` (version 1) and `plan_phases`; prepared sessions if any | `POST /plans`, `POST /demo/plans` |
-| revise plan | check `expectedVersion`; insert `plan_versions` (next number) and `plan_phases`; update `master_plans` | `POST /plans/:id/revise` |
-| open session | insert `learning_sessions` with its `steps` snapshot | `POST /sessions` |
-| apply events | insert `attempts` and `session_activity_intervals` once per `client_event_id`; upsert `target_mastery`; insert `target_part_evidence`; update `daily_progress`; insert `daily_completions` once | `POST /sessions/:id/events` |
-| complete session | set `status` and `elapsed_ms` | `POST /sessions/:id/complete` |
-| create offline snapshot | insert `offline_snapshots` and the prepared `learning_sessions` | `POST /plans/:id/offline-snapshots` |
+| Boundary | Function | Rows committed together | Endpoint |
+|---|---|---|---|
+| create plan | `app_create_plan` | pause the account's active plan; insert `master_plans`, `plan_versions` (version 1) and `plan_phases`; prepared sessions if any | `POST /plans`, `POST /demo/plans` |
+| revise plan | `app_revise_plan` | check `expectedVersion`; insert `plan_versions` (next number) and `plan_phases`; update `master_plans` | `POST /plans/:id/revise` |
+| open session | `app_open_session` | insert `learning_sessions` with its `steps` snapshot; for `kind = 'daily'`, get-or-create (below) | `POST /sessions` |
+| apply events | `app_apply_events` | insert `attempts` and `session_activity_intervals` once per `client_event_id`; upsert `target_mastery`; insert `target_part_evidence`; update `daily_progress`; insert `daily_completions` once | `POST /sessions/:id/events` |
+| complete session | `app_complete_session` | set `status` and `elapsed_ms` | `POST /sessions/:id/complete` |
+| create offline snapshot | `app_create_offline_snapshot` | insert `offline_snapshots` and the prepared `learning_sessions` | `POST /plans/:id/offline-snapshots` |
 
-The alternative is a backend-side sequence of single-table writes made safe by idempotent retry on `client_event_id`; it is not atomic. The choice is OPEN-02.
+**Daily session get-or-create.** `app_open_session` makes the daily get-or-create atomic with a conditional insert guarded by the partial unique index of §6.3 on `learning_sessions (user_id, learning_date)` where `kind = 'daily'` and `status` in (`prepared`, `open`) and `offline_snapshot_id` is null. If the insert finds the row already present, the function returns the existing daily session. The endpoint answers `201` when a new session was created and `200` when an existing daily session is returned. Offline-prepared sessions (`offline_snapshot_id` set) are outside the index and keep coexisting. The rejected alternative, a backend-side sequence of single-table writes made safe only by idempotent retry on `client_event_id`, is not atomic.
 
 ## 9. Storage
 
@@ -1659,7 +1664,7 @@ No migration file is created now; the SQL names and order below are the proposal
 ### `0003_plans_sessions`
 
 1. Tables, in dependency order: `master_plans`, `plan_versions`, the deferred key from `master_plans (id, current_version)` to `plan_versions`, `plan_phases`, `offline_snapshots`, `learning_sessions` (after `offline_snapshots`, which it references), `attempts`, `session_activity_intervals`.
-2. The partial unique index for one active plan, all composite keys of §4.3, trigger `private.guard_plan_order`, `set_updated_at` where listed.
+2. The partial unique index for one active plan, the partial unique index for the daily session of §6.3 (A-01), all composite keys of §4.3, the `CHECK` value sets of §4.4 (A-05), trigger `private.guard_plan_order`, `set_updated_at` where listed.
 3. RLS enabled; privileges revoked.
 
 ### `0004_progress`
@@ -1672,8 +1677,8 @@ No migration file is created now; the SQL names and order below are the proposal
 1. Policies of §5.3 and §4.5 for every table of `0001`–`0004` (content `select` policies; own-row policies for learner tables).
 2. Table and column grants for `authenticated` (§5.2); revocation of the default privileges; `service_role` revocations on private and personal tables; `USAGE` on `public` for `qatra_server`.
 3. Views `public.catalog_editions` and `public.catalog_sections` and their grants (§7).
-4. The 18 `srv_*` functions (§8.2) with `EXECUTE` for `qatra_server` only; default function privileges closed.
-5. Learner commit functions only if OPEN-02 is approved (§8.3).
+4. The 19 `srv_*` functions (§8.2): items 1–18 with `EXECUTE` for `qatra_server` only, item 19 (`srv_redact_revoked_content`) for `service_role` only; default function privileges closed.
+5. The six `app_*` learner commit functions (§8.3, A-01), `EXECUTE` for `authenticated` only.
 6. A check that no `storage.objects` policy exists for `sources`.
 7. The schema checks of §14 are run before any production use (Programming-guide: not before security review).
 
@@ -1697,11 +1702,15 @@ Not removed: `ai_usage` (it holds no account link), all content tables, objects 
 
 ### 12.2 `auth_throttle` purge
 
-Rows are deleted 24 hours after `window_start` (Authentication-and-privacy). Render's free plan has no scheduler, so the proposed mechanism is an opportunistic, bounded purge inside `srv_throttle_record`; the residue after an idle period is fingerprints only. A scheduled database job is the alternative (OPEN-05).
+Architect decision A-03 (4 October 2026; Needs Review at G0; resolves OPEN-05). Counting uses one-minute buckets (`window_start` truncated to the minute), so "5 failures in 15 minutes" is a sliding sum of the trailing 15 buckets. A successful login calls the same function with `p_outcome = 'success'`, which deletes the buckets of the username key. Rows are otherwise deleted 24 hours after `window_start` (Authentication-and-privacy). Render's free plan has no scheduler and no scheduled database job is added: the purge is opportunistic and bounded, inside `srv_throttle_record` — each call deletes at most 100 rows with `window_start < now() - interval '24 hours'`, using `DELETE … WHERE ctid IN (SELECT ctid … LIMIT 100)`. The residue after an idle period is fingerprints only.
+
+The delay and counting rules stay in the service (contract §6): a progressive delay after the 5th failure of 1, 2, 4 and 8 seconds, then 10 seconds per failure up to 60 seconds; a successful login clears the username key; failed password checks on E08, E09 and E13 (API specification) count under the same username key; registrations do not count. No function among the 19 of §8.2 clears the buckets of one key (only `srv_delete_personal_rows` deletes them, at account deletion), so how the clearing after a successful login is carried out is left to implementation design (B2) and is noted in §16.
 
 ### 12.3 Offline snapshots
 
-No retention period, lease, lock or expiry is added (D58): a snapshot row lives until the account is deleted, and local copies are cleared on the device by the client (PWA-design). What happens to the stored text copy after an edition is revoked is OPEN-07.
+No retention period, lease, lock or expiry is added (D58): a snapshot row lives until the account is deleted, and local copies are cleared on the device by the client (PWA-design).
+
+Revoked text (architect decision A-04, 4 October 2026; Needs Review at G0; resolves OPEN-07). `offline_snapshots.payload` and `learning_sessions.steps` hold source text and answer keys, while D44 and D58 say revoked text must not be shown. Two layers apply. (a) The API never serves or grades content of a revoked edition: E24 answers `404 not_found`, E25 answers with `reasonCode = content_revoked` (API specification), and events for such a session are `rejected` with `edition_mismatch`. (b) `srv_redact_revoked_content(p_edition_id uuid)` (§8.2 item 19) redacts the text fields in the stored copies for rows that reference the edition, keeping structure and ids. The CLI `withdraw` command invokes it; only `service_role`, the role the CLI uses for publishing, can execute it; the call is audited as a `content_jobs` step `withdrawn`.
 
 ### 12.4 Backups
 
@@ -1768,9 +1777,9 @@ Nothing exists to test yet; these are the checks the later security review and t
 
 1. **Account isolation.** For every personal table, account A cannot select, insert or update rows of account B, including forged parent identifiers (an `attempts` row of A naming B's `session_id`; an `offline_snapshots` row of A naming B's `plan_id`).
 2. **Anonymous surface.** `anon` can select only the two catalog views; every base table, function and storage object is denied; draft, validated, revoked, hidden and archived editions never appear in the views; the views expose no text, lesson or question column.
-3. **Learner reads.** `authenticated` reads published rows only; cannot select `book_editions.raw_storage_path`, `book_editions.review_record` or the eligibility and licence columns of `sources`; cannot select any `private.*` table, `ai_usage`, `content_jobs`, `unit_embeddings` or `approved_source_rules`.
-4. **`qatra_server`.** Holds no privilege on any table or view and can execute only the `srv_*` functions.
-5. **Closed functions.** `anon`, `authenticated` and `service_role` cannot execute any `srv_*` function.
+3. **Learner reads.** `authenticated` reads rows of `published` and `superseded` editions (and the `bank_version` pinned by the plan version) and never those of `draft`, `validated` or `revoked` editions; cannot select `book_editions.raw_storage_path`, `book_editions.review_record` or the eligibility and licence columns of `sources`; cannot select any `private.*` table, `ai_usage`, `content_jobs`, `unit_embeddings` or `approved_source_rules`.
+4. **`qatra_server`.** Holds no privilege on any table or view and can execute only `srv_*` functions 1–18, not `srv_redact_revoked_content`.
+5. **Closed functions.** `anon` and `authenticated` cannot execute any `srv_*` function; `service_role` can execute `srv_redact_revoked_content` and no other; the `app_*` functions are executable by `authenticated` only.
 6. **`service_role` limits.** Cannot read or write personal or private tables; can publish content and use bucket `sources`.
 7. **Idempotency.** A repeated `(user_id, client_event_id)` is rejected or ignored without changing totals; the same offline `client_operation_id` returns the same snapshot.
 8. **One active plan.** A second `active` plan fails; pausing and inserting in one transaction succeeds; `current_version` must name an existing version at commit.
@@ -1779,31 +1788,33 @@ Nothing exists to test yet; these are the checks the later security review and t
 11. **Storage.** No policy exists for bucket `sources`; anonymous and learner requests to it are denied.
 12. **Deletion.** After `srv_delete_personal_rows` no row referencing the account remains in any table of §12.1 and `ai_usage` is unchanged; a cascade from `auth.users` alone removes the same rows.
 13. **Plan order.** `reverse` is rejected for a hadith edition and accepted for the Quran edition.
-14. **`srv_*` behaviour.** A stale epoch, an expired session and a revoked session return zero rows; parallel recovery reservations produce exactly one winner; a second consume fails.
-15. **Throttle purge.** Rows older than 24 hours are gone once the chosen purge mechanism has run.
+14. **`srv_*` behaviour.** A stale epoch, an expired session and a revoked session return zero rows; parallel recovery reservations produce exactly one winner; a second consume fails; `srv_redact_revoked_content` removes the text and answer keys from the `payload` and `steps` of the referencing rows and leaves their structure and ids.
+15. **Throttle purge.** Rows older than 24 hours are gone once `srv_throttle_record` has run enough times, each call deleting at most 100 rows.
+16. **Daily session uniqueness (A-01).** A second server-side daily session (`prepared` or `open`, no offline snapshot) for the same `user_id` and `learning_date` is rejected by the partial unique index, and `app_open_session` returns the existing one (`200`, a new one `201`); an offline-prepared daily session, a completed daily session and game and placement sessions on the same date are accepted. Not run.
+17. **Value-set `CHECK` constraints (A-05).** Each value outside the sets of §4.4 is rejected for `sources.rights_status`, `attempts.error_kind` (a null stays accepted), `ai_usage.status`, `content_jobs.status`, `lessons.status`, `question_items.status`, `generic_plan_templates.status` and `password_reset_grants.status`; `content_feedback.category_code` accepts any non-empty value. Not run.
 
 ## 15. Open points
 
-Everything here is listed instead of being decided. Each item names what is open, how this document currently handles it, and who must decide.
+Everything here is listed instead of being decided by guesswork. Each item names what is open, how this document currently handles it, and who must decide. Rows marked **Resolved 4 Oct 2026** carry an architect decision of the coordinator consistency pass; it stays Needs Review until the owner approves the architecture package at gate G0 and is not an owner approval. Ten points are still open or partly open: OPEN-04, 06, 08, 10, 11, 12, 13, 14, 15 and 17.
 
 | ID | Open point | Handling in this document | Decider |
 |---|---|---|---|
-| OPEN-01 | **Value sets not fixed by approved documents:** `sources.rights_status` (only `owner_accepted_pending_verification` is named, contract §2.1), `lessons.status`, `question_items.status`, `generic_plan_templates.status`, `content_jobs.status`, `password_reset_grants.status`, `ai_usage.status`, `attempts.error_kind`, `content_feedback.category_code` | Proposed sets are shown where a flow implies them (§4.4); no `CHECK` for `rights_status`, `error_kind`, `ai_usage.status`, `category_code` | owner (architecture approval) |
-| OPEN-02 | **Atomic learner commits:** mechanism and signatures for the six multi-table operations (§8.3) | Proposed: `SECURITY INVOKER` functions run with the learner's token; alternative: non-atomic backend sequences with idempotent retry | owner, with the API contract |
-| OPEN-03 | **Visibility of `superseded` editions and non-current bank versions** for pinned plans (D44: a used edition is not rewritten; contract §3.1 says "published and not revoked") | Learner policies read `status = 'published'` and the current `bank_version` only; a one-line predicate change if superseded editions must stay readable. Irrelevant while the MVP has one bank version and no supersession | owner |
-| OPEN-04 | **JSON shapes** not fixed by approved documents: `book_editions.review_record` keys `acquisition`, `verification`, `approval` (directive 4 gives intent: who, when, verification results); `sources.eligibility_record` for the D68 sources; `sources.license_record`; `plan_versions.policy_json`; `plan_phases.section_refs` and `unit_range`; `ai_usage.quota_record`; `content_feedback.reported_context_refs` | Described by intent only; columns are `jsonb` with a container check | coordinator and backend design |
-| OPEN-05 | **`auth_throttle` window granularity and 24-hour purge mechanism** (contract §6 fixes thresholds only; Render's free plan has no scheduler) | Proposed: one-minute buckets so "5 in 15 minutes" is a sliding sum, and an opportunistic bounded purge inside `srv_throttle_record`; a scheduled database job is the alternative and would be an extension decision | owner |
+| OPEN-01 | **Value sets not fixed by approved documents:** `sources.rights_status` (only `owner_accepted_pending_verification` is named, contract §2.1), `lessons.status`, `question_items.status`, `generic_plan_templates.status`, `content_jobs.status`, `password_reset_grants.status`, `ai_usage.status`, `attempts.error_kind`, `content_feedback.category_code` | **Resolved 4 Oct 2026 (architect decision A-05; Needs Review at G0).** The §4.4 sets are fixed with `CHECK` constraints, with new sets for `rights_status` (owner_accepted_pending_verification, verified, rejected), `error_kind` and `ai_usage.status`; `category_code` stays open until D45 activation | owner (architecture approval, G0) |
+| OPEN-02 | **Atomic learner commits:** mechanism and signatures for the six multi-table operations (§8.3) | **Resolved 4 Oct 2026 (architect decision A-01; Needs Review at G0).** Six `SECURITY INVOKER` `app_*` functions run with the learner's token, `EXECUTE` for `authenticated` only, with a partial unique index for the daily session (`200` existing, `201` new); signatures fixed at implementation (B2) | owner (architecture approval, G0), with the API contract |
+| OPEN-03 | **Visibility of `superseded` editions and non-current bank versions** for pinned plans (D44: a used edition is not rewritten; contract §3.1 says "published and not revoked") | **Resolved 4 Oct 2026 (architect decision A-02; Needs Review at G0).** Learner policies read `status IN ('published','superseded')` (`revoked` excluded) and the `bank_version` pinned by the plan version; the MVP has one bank version and no supersession, so no further rule | owner (architecture approval, G0) |
+| OPEN-04 | **JSON shapes** not fixed by approved documents: `book_editions.review_record` keys `acquisition`, `verification`, `approval` (directive 4 gives intent: who, when, verification results); `sources.eligibility_record` for the D68 sources; `sources.license_record`; `plan_versions.policy_json`; `plan_phases.section_refs` and `unit_range`; `ai_usage.quota_record`; `content_feedback.reported_context_refs` | `review_record` keys are now fixed (A-12: `acquisition`, `verification`, `approval` with the fields of §6.1); the other shapes stay described by intent only until implementation design (B-packages), acceptable at architecture level; columns are `jsonb` with a container check | coordinator and backend design |
+| OPEN-05 | **`auth_throttle` window granularity and 24-hour purge mechanism** (contract §6 fixes thresholds only; Render's free plan has no scheduler) | **Resolved 4 Oct 2026 (architect decision A-03; Needs Review at G0).** One-minute buckets ("5 in 15 minutes" is a sliding sum); bounded opportunistic purge inside `srv_throttle_record` (`DELETE … LIMIT 100` via a `ctid` subselect, 24-hour retention); no scheduled job | owner (architecture approval, G0) |
 | OPEN-06 | **Retention of terminal private rows** (consumed or cancelled grants, revoked and expired sessions) | Kept until account deletion; no purge defined | owner |
-| OPEN-07 | **Stored text copies after revocation:** `offline_snapshots.payload` and `learning_sessions.steps` contain source text and answer keys, while D44 and D58 say revoked text must not be shown | Assumed blocked at the API; a physical purge at withdrawal is not designed, and `service_role` has no privilege on those tables (a function or the dashboard would be needed) | owner |
-| OPEN-08 | **Unopened (prepared) sessions at plan revision** (Architecture: revised, not how) and uniqueness of the open daily session per date | No `DELETE` grant and no uniqueness rule, because offline prepared sessions may legitimately coexist (PWA-design, Needs Review); the narrowest delete policy would be `status = 'prepared'` with no snapshot | owner, with the PWA design |
-| OPEN-09 | **Logical-to-physical decisions to confirm:** `question_items.lesson_id` (derivable, nullable) and `unit_id` (anchor unit); `attempts.target_refs` replaced by `passage_id`; `lessons.duration_estimate` renamed `duration_estimate_sec`; `plan_phases.goal_size` unit (words) and `estimated_window` type (`daterange`); `profiles.session_minutes` default 10 and `reminder_settings` default; mirrored plan columns versus the version in force; `generic_plan_templates.edition_id` added and its runtime read path | Stated in §3.5 and §6 as proposals | coordinator |
+| OPEN-07 | **Stored text copies after revocation:** `offline_snapshots.payload` and `learning_sessions.steps` contain source text and answer keys, while D44 and D58 say revoked text must not be shown | **Resolved 4 Oct 2026 (architect decision A-04; Needs Review at G0).** The API never serves or grades revoked content, and the 19th function `srv_redact_revoked_content` (CLI `withdraw`, `service_role` only) redacts the stored text copies, audited as `content_jobs` step `withdrawn` | owner (architecture approval, G0) |
+| OPEN-08 | **Unopened (prepared) sessions at plan revision** (Architecture: revised, not how) and uniqueness of the open daily session per date | No `DELETE` grant, because offline prepared sessions may legitimately coexist (PWA-design, Needs Review); the narrowest delete policy would be `status = 'prepared'` with no snapshot. The uniqueness of the server-side daily session is decided by A-01 (partial unique index, §6.3); offline-prepared sessions stay outside it. The unopened-session part remains open | owner, with the PWA design |
+| OPEN-09 | **Logical-to-physical decisions to confirm:** `question_items.lesson_id` (derivable, nullable) and `unit_id` (anchor unit); `attempts.target_refs` replaced by `passage_id`; `lessons.duration_estimate` renamed `duration_estimate_sec`; `plan_phases.goal_size` unit (words) and `estimated_window` type (`daterange`); `profiles.session_minutes` default 10 and `reminder_settings` default; mirrored plan columns versus the version in force; `generic_plan_templates.edition_id` added and its runtime read path | **Resolved 4 Oct 2026 (architect decision A-13; Needs Review at G0).** The logical-to-physical proposals of §3.5 and §6 are confirmed as designed | coordinator (architecture approval, G0) |
 | OPEN-10 | **English label gaps (D28):** `categories.label_en`, `books.title_en` are nullable until sourced from the Jamhara dictionary; sections carry numeric English labels (`Surah 78`, `Hadith 1`) | As stated | owner (content package) |
 | OPEN-11 | **Scope of the reverse order:** D72 says "Juz' Amma (Quran) edition only"; the trigger uses `books.content_format = 'quran'` as the proxy. A later full-Mushaf edition would need an explicit decision | As stated | owner |
 | OPEN-12 | **Embeddings (postponed, D69):** dimension 384 (contract), operator class (cosine proposed), the model, and how the backend would read `unit_embeddings` at run time (`service_role` is limited to publishing and `qatra_server` to `srv_*`, so a reviewed function would be needed) | Table created, empty, no policy for learners | owner (when embeddings are reactivated) |
 | OPEN-13 | **Feedback feature (D45):** manager role and how it is granted, text limits, category list, `question_event_ref` shape, retention period | No manager policy; table defined only as a conditional design | owner (at activation) |
 | OPEN-14 | **Partial failure between the Auth service and the database:** an Auth user created by the Admin API but never registered (process stopped between the two steps) has no app rows; an account deletion that removed the app rows but failed to delete the Auth user leaves an unreachable Auth record (alias address only); no cleanup process is specified for either | `srv_register_account` is atomic and the backend deletes the Auth user on failure; the Admin deletion is idempotent and retried (§12.1) | backend design |
 | OPEN-15 | **Facts to confirm on the real project, not checked now:** Supabase Free allows a custom login role through the pooler (D69 assumes it); the platform default grants to `anon`, `authenticated`, `service_role`; the PostgreSQL major version (the column-list form of `ON DELETE SET NULL` and `security_invoker` views need version 15 or later); Data API exposes `public` only; the GraphQL extension's schema introspection for `anon`; no table in the Realtime publication; the values for `qatra_server` connection limit and statement timeout | Stated as targets | owner, at provisioning |
-| OPEN-16 | **`srv_*` functions live in the exposed `public` schema** (contract §3.2); a non-exposed schema would add a second barrier against a wrongly granted `EXECUTE` | Contract kept; `EXECUTE` revocation and check 5 of §14 are the controls | coordinator |
+| OPEN-16 | **`srv_*` functions live in the exposed `public` schema** (contract §3.2); a non-exposed schema would add a second barrier against a wrongly granted `EXECUTE` | **Resolved 4 Oct 2026 (architect decision A-13; Needs Review at G0).** `srv_*` stays in `public` (contract); the controls are unchanged: `EXECUTE` revocation and check 5 of §14 | coordinator (architecture approval, G0) |
 | OPEN-17 | **Storage details:** bucket file-size and MIME limit values, and the file naming inside `raw/` | Not set | content workflow design |
 
 Open risk carried from D69 and D72 (accepted for the MVP, not a schema defect): answer keys travel to the device (`question_items.correct_ref`, `learning_sessions.steps`) and `attempts.assisted` is client-reported; the server grades every submitted answer and never accepts correctness or mastery from the client.
@@ -1816,8 +1827,10 @@ Found while preparing this document; none is resolved by guessing.
 2. **Plan order.** Implementation-contract §2.3, §5, §7 (`PlanOrder = 'book'`) and §11 still treat the reverse order as an open question; D72 now offers both, book order by default.
 3. **Decision register.** Register v14 ends at D71; D72 and the seven architect directives are not yet recorded there.
 4. **Workflow steps.** PRD M11 lists `uploaded → extracted → segmented → page_mapped → verified → bank_built → validated → published`; directive 5 fixes `acquired → verified → segmented → bank_built → validated → approved → published` for web editions (`page_mapped` and `embedded` skipped).
-5. **Edition visibility.** Contract §3.1 says learners read editions that are "published and not revoked"; this document reads `status = 'published'` only (OPEN-03).
+5. **Edition visibility.** Contract §3.1 says learners read editions that are "published and not revoked"; this document reads `status IN ('published','superseded')`, the same meaning, by architect decision A-02 (OPEN-03 resolved, Needs Review at G0).
 6. **Source eligibility.** The logical `sources.approved_rule_id` implied an approved rule for every source; the D68 sources have none, so the column is nullable and the owner's decision is recorded in `eligibility_record`.
 7. **Operations text.** Architecture-and-data, section on operations (item ج), still describes optional light monitoring of `/api/health`, while D72 fixes a GitHub scheduled workflow about every 14 minutes during the judging period only, plus a weekly `GET /api/health/ready`; its planned-contracts table does not list `/api/health/ready`. Not edited here (outside this task's alignment list).
 8. **Publishing path.** Contract §2.6 has the workflow emit `publish.sql` (idempotent upserts), while contract §3.2 and directive 7 limit `service_role` to publishing calls. SQL files cannot run through the Data API, so either the owner applies them with the SQL tooling or the workflow upserts with the service key; the constraints and triggers of this schema apply identically to both, and the grants do not depend on the choice.
 9. **Authentication.** Consistent with the approved design: Supabase Auth with the user's JWT held only by the backend, application-session cookies, no custom token service and no browser token storage (AGENTS.md reconciliation item).
+10. **Redaction function and grants.** Contract §3.2 and directive 7 state that `srv_*` functions are executed by `qatra_server` only. Architect decision A-04 adds `srv_redact_revoked_content`, which must be executable by the role the CLI uses for publishing (`service_role`, §5.1); this document therefore grants it to `service_role` only. The contract text needs the same one-function exception at its next version.
+11. **Clearing the throttle key at login.** Settled by the coordinator on 4 October 2026: `srv_throttle_record` takes a `p_outcome` argument (`failure` increments, `success` deletes the buckets of the given keys), so no further function is needed (§8.2 item 16, §12.2).

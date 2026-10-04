@@ -339,3 +339,17 @@ Items marked ACCEPTED or RESOLVED record owner decisions of 2026-10-04 (D72); th
 - **ACCEPTED for the MVP (D72, owner answer "Accept for MVP"): client-held answer keys and client-reported hint use.** Session snapshots (including offline snapshots) carry each question's `answerKey` to the client (needed for the approved offline feedback), and `hintUsed` is reported by the client, so a modified client can inflate its own progress. The accepted controls are the ones in §7: the server grades every submitted answer, validates events, and never accepts `correct`, mastery or daily totals from the client. This remains a self-study app without certificates; no further mitigation is decided, and any later hardening is a new owner decision.
 - **RESOLVED (D72, owner answer "Offer both, book order default"): reverse Juz' Amma order (surah 114 → 78).** `PlanOrder = 'book' | 'reverse'` (§7): book order is the default for every edition; `'reverse'` ("from An-Nas backwards") is available for the Juz' Amma (Quran) edition only, chosen at plan creation, and a change is a plan revision effective the next learning day (§2.3, §5). Within the chosen order no unit is dropped and the Teaching Agent never reorders new material. Design reading to confirm at architecture approval: passages inside a surah keep mushaf order under `'reverse'`.
 - **Open item: English religious labels (D28).** Category, book, edition and demo-scenario English labels (e.g. `labelEn`, `titleEn`) must come from the Jamhara dictionary; until sourced, the English UI shows numeric section labels only (§2.2) and the remaining labels are listed as gaps.
+
+## 13. Proposed v1.4 amendments (Needs Review — not approved; v1.3 body unchanged)
+
+Dated 4 October 2026. This section only lists proposals from the architecture consistency pass; the approved v1.3 text above is unchanged, and the items take effect only after explicit owner approval at G0.
+
+1. `POST /api/plans/{id}/resume` (A-08).
+2. `POST /api/account/delete` replaces `DELETE /api/account` (A-10).
+3. `Plan.pendingSessionMinutes` optional (A-07).
+4. Optional `order` in E15 and optional `confirmedEstimate` in E17.
+5. Error codes `forbidden` 403 and `payload_too_large` 413; `details` shape; 409 for stale offline-snapshot plan version (C-11).
+6. `Idempotency-Key` optional on E22 only.
+7. Enumerations of O-21.
+8. `SessionEvent` and `EventsResponse` confirmed as the only names (C-05/C-06).
+9. §3.2 grant rule: one exception — `srv_redact_revoked_content` (Database-schema §8.2 item 19, A-04) is executable by `service_role` only (the CLI's publishing role), not by `qatra_server`; and `srv_throttle_record` takes a `p_outcome` argument (`failure` or `success`, A-03).
