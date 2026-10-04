@@ -1,8 +1,8 @@
-# Qatra — Implementation Contract v1.2
+# Qatra — Implementation Contract v1.3
 
-Version 1.2 · 2026-10-04 · Asia/Dubai · Status: **Approved decisions (D66–D69); remaining architecture deliverables are the next task; implementation not yet authorized.** Owner: root coordinator.
+Version 1.3 · 2026-10-04 · Asia/Dubai · Status: **Approved decisions (D66–D72); remaining architecture deliverables Needs Review; implementation not yet authorized.** Owner: root coordinator.
 
-This file is the single source of truth for **cross-package interfaces**: content bundle, database tables, API DTOs, mastery/session/planning rules, auth flow and configuration. It fills the remaining Needs Review/Needs Input details of the approved package (D01–D69) with concrete, implementable choices. Where it is silent, follow [Architecture-and-data.md](Architecture-and-data.md), [Programming-guide.md](Programming-guide.md) and the owning policy document. A worker that finds a contradiction or gap returns it to the coordinator instead of inventing a rule. Changes to this file are made by the coordinator only.
+This file is the single source of truth for **cross-package interfaces**: content bundle, database tables, API DTOs, mastery/session/planning rules, auth flow and configuration. It fills the remaining Needs Review/Needs Input details of the approved package (D01–D72) with concrete, implementable choices. Where it is silent, follow [Architecture-and-data.md](Architecture-and-data.md), [Programming-guide.md](Programming-guide.md) and the owning policy document. The physical database schema (ERD, tables, keys, roles, grants, migration order) is drafted in [Database-schema.md](Database-schema.md) and the full REST API (per-endpoint authentication, authorization, schemas, limits, errors) in [API-spec.md](API-spec.md); both are v1, Needs Review — awaiting owner approval. They refine the interfaces fixed here, and a contradiction between them and this file is returned to the coordinator. A worker that finds a contradiction or gap returns it to the coordinator instead of inventing a rule. Changes to this file are made by the coordinator only.
 
 Non-negotiables that still apply: original religious text is stored and shown verbatim and complete (D03/D20/D25); no generated religious content, explanations or LLM-written questions/answers/distractors (D20/D22/D31); free plans and free AI only, rules engine always available (D48/D54/D60); no secrets, real personal data or source texts committed to git; Arabic RTL first with English LTR UI (UX.md, Design-system.md; English religious terms per D28).
 
@@ -53,7 +53,7 @@ These are web editions: there are no printed page numbers; the canonical URL is 
   - Narrations whose `«…»` boundaries are absent or ambiguous are listed in `backend/app/workflow/data/nawawi40_boundaries.json` (token ranges only, no text) with `reviewed_by` and the doubt; such a hadith gets a single `matn` passage over the whole narration until reviewed.
 - **Part**: the coverage unit inside a passage. Quran: an ayah of ≤ 8 words is one part; a longer ayah is split into balanced chunks of 4–8 words, preferring a cut after a token carrying a pause mark. Hadith: clauses split at `، ؛ : . ؟ !`; clauses < 3 words merge with the next; clauses > 8 words split into balanced chunks ≤ 8 words.
 - **Word count** = number of `word` tokens.
-- Default plan order is **book order** for every edition (AI-agent.md: proposal validation checks book order and that no unit of the scope is dropped): Juz' Amma surah 78 → 114 (ascending section ordinal) with passages inside a surah in mushaf order; Forty hadith 1 → 42. Reverse Juz' Amma order (surah 114 → 78) is not part of this version: it is an open question for the next task (§11), so no second order value exists yet.
+- Plan order is the plan's `order` (D72): `'book'` (the default for every edition) or `'reverse'` ("from An-Nas backwards", available for the Juz' Amma (Quran) edition only), chosen at plan creation; a change is a plan revision effective the next learning day (§5, §7). Book order: Juz' Amma surah 78 → 114 (ascending section ordinal) with passages inside a surah in mushaf order; Forty hadith 1 → 42. Reverse order: surah 114 → 78 (descending section ordinal); passages inside a surah stay in mushaf order (a design reading of D72, to be confirmed by the owner at architecture approval). Within the chosen order no unit of the scope is dropped, and the Teaching Agent never reorders new material (AI-agent.md: proposal validation checks the plan's chosen order and that no unit is dropped).
 
 ### 2.4 Question bank (four templates, deterministic, D20/D31/D64)
 
@@ -96,23 +96,23 @@ One JSON file per edition (`backend/.content-build/<editionKey>/bundle.json`, gi
 
 ### 2.7 Acquisition and verbatim verification
 
-- Acquisition runs through the Islamic Content MCP tools. Each raw record is saved unmodified under `backend/.content-build/raw/` (gitignored) with the tool name, arguments, retrieval time and canonical URL: Quran `{surah, ayah, text, url}`; hadith `{hadeethencId, fortyNumber, title, narration, narrator, grade, url, languages}`.
+- Acquisition runs through the Islamic Content MCP tools. Each raw record is saved unmodified by the CLI in the private Supabase Storage bucket `sources`, under `sources/<editionKey>/raw/` (`service_role`, content-publishing scope only; architecture directive 5) and never in git, with the tool name, arguments, retrieval time and canonical URL: Quran `{surah, ayah, text, url}`; hadith `{hadeethencId, fortyNumber, title, narration, narrator, grade, url, languages}`.
 - Because records pass through an assistant transcription step, every text is verified programmatically before it is published: (1) Quran: NFC-normalized text must equal NFC of the independent KFGQPC Hafs v18 oracle with its trailing ayah number removed, for all 564 ayat (a verification oracle only, never a content source); (2) hadith: two independent acquisitions must be identical after NFC, and the letter skeleton is compared with the OpenITI Shamela text of the Forty only to flag omissions/additions for review; (3) when `mcp.islamiccontent.org` becomes reachable from the build environment, the workflow re-acquires over HTTP (MCP JSON-RPC) and diffs byte-for-byte. Any mismatch blocks the affected unit until resolved.
 - Text is stored NFC-normalized (canonically equivalent to the publisher's text). Zero-width characters present in the publisher text (e.g. U+200C) are preserved in `canonical_text` and removed only in normalized forms.
 
 ## 3. Database (Supabase Postgres)
 
-Migrations live in `supabase/migrations/` and are applied in order. Every table enables RLS in the migration that creates it. Personal rows cascade on account deletion; published content is never deleted because a learner was deleted.
+Migrations live in `supabase/migrations/` and are applied in order. Every table enables RLS in the migration that creates it. Personal rows cascade on account deletion; published content is never deleted because a learner was deleted. The complete physical schema (ERD, columns, keys, roles, grants, migration order) is drafted in [Database-schema.md](Database-schema.md) (v1, Needs Review); this section lists the interface-level facts.
 
 ### 3.1 `0001_content.sql` (content worker)
 
-Tables per Architecture "المخطط المنطقي: المحتوى المشترك" with these concrete additions: `book_editions.edition_key text unique`, `book_editions.bank_version int`; `book_sections.kind text`, `title_ar`, `title_en`, `source_url`; `units.kind`, `units.source_url`, `units.token_spans jsonb` (the token array), `units.hadith_meta jsonb`; `edition_pages`/`unit_page_spans` exist but stay empty for web editions; new `passages(id, edition_id, bank_version, ordinal, section_id, path, start_ref, end_ref, word_count, reference, unique(edition_id,bank_version,path,ordinal))`; new `passage_parts(id, passage_id, edition_id, ordinal, start_ref, end_ref, word_count, unique(passage_id,ordinal))`; `lessons.passage_id`; `question_items(… type, variant, passage_id, covered_part_ids uuid[], token_refs jsonb, option_refs jsonb, correct_ref jsonb, context_refs jsonb …)`; `unit_embeddings(embedding vector(384))` created but not populated (D69: embeddings are postponed for the MVP, amending D37/D65 for the MVP only; the workflow's `embedded` step is skipped and D31 candidates come from normalized text matching inside one edition, §2.4); `content_jobs` as documented. RLS: `authenticated` may `select` content rows whose edition is `published` and not revoked; writes only via `service_role`. Anonymous read access is limited to published catalog metadata (books, edition metadata, sections); the exact grants will be designed in the architecture step (D71). `create extension if not exists vector`.
+Tables per Architecture "المخطط المنطقي: المحتوى المشترك" with these concrete additions: `book_editions.edition_key text unique`, `book_editions.bank_version int`; `book_sections.kind text`, `title_ar`, `title_en`, `source_url`; `units.kind`, `units.source_url`, `units.token_spans jsonb` (the token array), `units.hadith_meta jsonb`; `edition_pages`/`unit_page_spans` exist but stay empty for web editions; new `passages(id, edition_id, bank_version, ordinal, section_id, path, start_ref, end_ref, word_count, reference, unique(edition_id,bank_version,path,ordinal))`; new `passage_parts(id, passage_id, edition_id, ordinal, start_ref, end_ref, word_count, unique(passage_id,ordinal))`; `lessons.passage_id`; `question_items(… type, variant, passage_id, covered_part_ids uuid[], token_refs jsonb, option_refs jsonb, correct_ref jsonb, context_refs jsonb …)`; `unit_embeddings(embedding vector(384))` created but not populated (D69: embeddings are postponed for the MVP, amending D37/D65 for the MVP only; the workflow's `embedded` step is skipped and D31 candidates come from normalized text matching inside one edition, §2.4); `content_jobs` as documented. RLS: `authenticated` may `select` content rows whose edition is `published` and not revoked; writes only via `service_role`. Anonymous read access is limited to published catalog metadata (books, edition metadata, sections) through a `public.catalog_*` view or column-level grants for the `anon` role only, never units, passages, parts, lessons or questions (D71); the exact grants are specified in [Database-schema.md](Database-schema.md). `create extension if not exists vector`.
 
 ### 3.2 `0002_identity.sql` … `0005_rls_functions.sql` (backend worker)
 
 - `private` schema (not exposed through the Data API): `account_handles`, `recovery_codes`, `password_reset_grants`, `app_sessions`, `auth_throttle` exactly as Architecture §"الحساب والتقدم الخاص".
 - `public.profiles` with `terms_version`, `terms_accepted_at`, `language`, `time_zone`, `session_minutes (5|10|15)`, `reminder_settings jsonb`, `pending_settings jsonb` (next-learning-day changes, D57), `is_demo` mirror (read-only to the user).
-- `master_plans` (+ `paths text[]`, `plan_order text`), `plan_versions`, `plan_phases`, `learning_sessions` (+ `steps jsonb` immutable snapshot, `status prepared|open|completed`), `attempts` (+ `assisted bool`, `review_round_id uuid null`), `reviews` (unused rows allowed; mastery ladder lives in `target_mastery`), `session_activity_intervals`, `daily_progress`, `daily_completions`, `target_mastery` (see §4), `target_part_evidence(user_id, plan_id, passage_id, part_id, attempt_id, learning_date, unique(user_id,plan_id,part_id))`, `offline_snapshots` (+ `payload jsonb`), `ai_usage(provider, model, prompt_version, input_tokens, output_tokens, cost_usd numeric null, status, created_at)` with no learner text.
+- `master_plans` (+ `paths text[]`, `plan_order text` constrained to `book`/`reverse`, with `reverse` only for the Quran edition, D72), `plan_versions`, `plan_phases`, `learning_sessions` (+ `steps jsonb` immutable snapshot, `status prepared|open|completed`), `attempts` (+ `assisted bool`, `review_round_id uuid null`), no `reviews` table (dropped from the physical schema by architecture directive 3: the review ladder lives in `target_mastery` and due reviews are derived from `next_review_due`; see [Database-schema.md](Database-schema.md)), `session_activity_intervals`, `daily_progress`, `daily_completions`, `target_mastery` (see §4), `target_part_evidence(user_id, plan_id, passage_id, part_id, attempt_id, learning_date, unique(user_id,plan_id,part_id))`, `offline_snapshots` (+ `payload jsonb`), `ai_usage(provider, model, prompt_version, input_tokens, output_tokens, cost_usd numeric null, status, created_at)` with no learner text.
 - One active plan per account: partial unique index on `master_plans(user_id) where status='active'`.
 - Private access functions live in `public` as `srv_*` `SECURITY DEFINER` functions with `set search_path = ''`; `revoke execute … from public, anon, authenticated, service_role; grant execute …` only to the separate limited database role whose credential is the `QATRA_SERVER_DB` secret on Render (D34, D69; the functions' uses are listed in Architecture-and-data.md, «RLS والحدود»). `service_role` never runs these functions and is not used for learner requests: it is limited to the Supabase Auth Admin API (create user at registration, reset password by recovery, delete account) and content publishing, including content-workflow writes (D34, D37).
 - Learner tables: RLS `user_id = (select auth.uid())` with parent-ownership checks via composite foreign keys `(id, user_id)`.
@@ -133,14 +133,14 @@ State per `(user, plan, passage)` in `target_mastery`: `status new|learning|revi
 ## 5. Planning rules v1 (rules engine; Teaching Agent only for demo accounts, D17)
 
 - **Scope**: `targetScope = {sectionOrdinals: number[]}` within one edition (default: all sections). Paths: Quran `['quran']`; Forty default `['matn']`, optional `sanad`, `grade`.
-- **Order**: plan order is book order (§2.3): sections by ascending ordinal and passages in book order inside a section; new passages are introduced in that order. Any Teaching Agent proposal is also validated for book order and for dropping no passage of the scope (AI-agent.md). Reverse Juz' Amma order is an open question (§11).
+- **Order** (D72): plan order is the plan's `order` (§2.3). `'book'` (default) = sections by ascending ordinal and passages in book order inside a section; `'reverse'` (Juz' Amma only) = sections by descending ordinal with passages in mushaf order inside a surah. New passages are introduced in the chosen order and no passage of the scope is dropped. Any Teaching Agent proposal is also validated for the chosen order and for dropping no passage of the scope (AI-agent.md). Changing `order` is a plan revision effective the next learning day; recorded mastery state and history are kept as for any revision (D57, D66).
 - **Placement** (optional, `kind=placement`): up to 8 passages sampled evenly across the scope, one `word_choice` (continuation) or `word_recall` question each, plus optional self-rating `none|some|most`. Placement time never counts toward daily progress. A correctly answered placement passage is marked `known` for the estimate and is scheduled as an early quick review instead of new learning (no mastery credit).
 - **Capacity** (new words per learning day): 5 min → 12, 10 min → 25, 15 min → 40. A passage larger than capacity is introduced over consecutive days (one passage at a time).
 - **Estimate**: `days = ceil((totalWords − knownWords) / capacity × 1.15)` (15% review buffer); `endDate = today + days`. Alternatives: (a) next larger minutes option, (b) scope halved (first half in plan order). `reasonCode`: `fits_preferred_date | exceeds_preferred_date | no_preferred_date`.
 - **Daily session** (`kind=daily`), in order: (1) due review rounds (overdue first), capped at 6/10/14 questions for 5/10/15 min; (2) continue the current `learning` passage or introduce the next passage(s) in plan order up to capacity: a `learn` step showing the full passage with reference, edition, page(s), takhrij and D50 notice, then training questions (one per part, rotating templates) and extra questions until the passage reaches the ≥ 3 streak; (3) end-of-session test of 3/5/7 questions mixing today's passage parts, error parts and uncovered parts. The learner may continue with more practice; nothing force-closes the session.
 - **Absence (PRD R07)**: after 3 or more days of absence the session starts with a light review (the due reviews of step 1) and introduces no new material by default; missed days are not stacked, and due reviews that do not fit the session stay due for the following days (AI-agent.md, QA-and-evaluation.md).
 - **Game session** (`kind=game`): up to 10 questions of an optional `gameType` over optional `passageIds` inside the active plan scope (future-day passages allowed).
-- **Teaching Agent** (`services/planner.py`): for `is_demo` accounts with a fixture scenario only. Input = scenario id, passage ids/word counts, placement correct/incorrect counts (no account id or free text). Output JSON `{newWordsPerDay, reviewOffsetsDays, priorityReviewPassageIds}` validated against allowed ids and bounds; new material always follows book order with no unit dropped (AI-agent.md), so the agent sets pace and review timing/priority only, never the order of new passages; any failure, timeout (8 s) or ineligible model → rules engine. Every call records `ai_usage`.
+- **Teaching Agent** (`services/planner.py`): for `is_demo` accounts with a fixture scenario only. Input = scenario id, passage ids/word counts, placement correct/incorrect counts (no account id or free text). Output JSON `{newWordsPerDay, reviewOffsetsDays, priorityReviewPassageIds}` validated against allowed ids and bounds; new material always follows the plan's chosen order (`'book'` or `'reverse'`, D72) with no unit dropped (AI-agent.md), so the agent sets pace and review timing/priority only, never the order of new passages; any failure, timeout (8 s) or ineligible model → rules engine. Every call records `ai_usage`.
 
 ## 6. Authentication and sessions
 
@@ -156,6 +156,8 @@ State per `(user, plan, passage)` in `target_mastery`: `status new|learning|revi
 
 ## 7. API contract (all paths under `/api`, JSON, camelCase)
 
+The complete per-endpoint specification (authentication, authorization, request/response schemas, validation, status codes, errors, limits, examples) is [API-spec.md](API-spec.md) (v1, Needs Review — awaiting owner approval); this section fixes the shared DTOs and the endpoint list it must honor.
+
 Errors: HTTP status + `{"error": {"code": "snake_case", "message": "safe text", "details": {}}}`. Codes: `validation_error` 422, `invalid_credentials` 401, `unauthenticated` 401, `forbidden_origin` 403, `not_found` 404, `username_taken` 409, `version_conflict` 409, `terms_required` 400, `throttled` 429, `unavailable` 503, `internal` 500. Mutations accept an `Idempotency-Key` header where noted.
 
 ```ts
@@ -164,7 +166,7 @@ type ISODateTime = string;    // RFC 3339 UTC
 type TokenRef = string;       // "<unitOrdinal>:<tokenIndex>"
 type Path = 'quran' | 'matn' | 'sanad' | 'grade';
 type GameKind = 'word_order' | 'word_choice' | 'word_recall' | 'similar_distinction';
-type PlanOrder = 'book';      // book order only; reverse Juz' Amma order is an open question (§2.3, §11), so no second value yet
+type PlanOrder = 'book' | 'reverse'; // 'book' is the default for every edition; 'reverse' is valid for the Juz' Amma (Quran) edition only (D72)
 
 interface Profile { username: string; language: 'ar' | 'en'; timeZone: string; sessionMinutes: 5 | 10 | 15;
   reminderSettings: { inApp: boolean }; isDemo: boolean; termsVersion: string; termsAcceptedAt: ISODateTime;
@@ -175,7 +177,8 @@ interface CatalogSection { sectionId: string; ordinal: number; kind: 'surah' | '
 interface CatalogEdition { editionId: string; editionKey: string; titleAr: string; titleEn: string; author: string;
   editionLabel: string; category: { slug: string; labelAr: string; labelEn: string }; catalogVersion: number;
   contentFormat: 'quran' | 'hadith_collection'; availablePaths: Path[]; defaultPaths: Path[];
-  defaultOrder: PlanOrder; totalWords: number; sections: CatalogSection[]; }
+  defaultOrder: PlanOrder;                 // always 'book'; 'reverse' is offered only when contentFormat is 'quran' (D72)
+  totalWords: number; sections: CatalogSection[]; }
 
 interface TargetScope { sectionOrdinals: number[]; }
 interface Estimate { days: number; endDate: ISODate; newWordsPerDay: number; totalWords: number; knownWords: number;
@@ -268,7 +271,8 @@ interface RevalidationResult { status: OfflineStatus; currentPlanVersion: number
 
 | Method/path | Request | Response |
 |---|---|---|
-| GET `/health` | — | `{status:'ok', version, time}` (no auth, no secrets) |
+| GET `/health` | — | `{status:'ok', version, time}` (liveness: no database access, no auth, no secrets) |
+| GET `/health/ready` | — | `{status:'ok'}`, or the `unavailable` error (503) when the trivial database query fails (readiness; no auth; minimal body; rate-limited; D72); exact body and limits in [API-spec.md](API-spec.md) |
 | POST `/auth/register` | `{username, password, timeZone, language, termsAccepted:true, termsVersion}` | 201 `{profile: Profile, recoveryCode}` + cookie |
 | POST `/auth/login` | `{username, password}` | `{profile, reconsentRequired}` + cookie |
 | POST `/auth/consent` | `{termsVersion}` (session) | `{profile}` |
@@ -282,7 +286,7 @@ interface RevalidationResult { status: OfflineStatus; currentPlanVersion: number
 | GET `/catalog` | — | `{editions: CatalogEdition[]}` — public, no session; metadata only (D71) |
 | POST `/plans/estimate` | `{editionId, targetScope, paths, sessionMinutes, preferredDate?, placementSessionId?}` | `{estimate, alternatives: Estimate[], reasonCode}` (no writes) |
 | POST `/plans` | `{editionId, targetScope, paths, order, sessionMinutes, preferredDate?, placementSessionId?, confirmedEstimate}` | 201 `Plan` (previous active plan → paused) |
-| POST `/plans/:id/revise` | `{expectedVersion, sessionMinutes?, preferredDate?, paths?}` | `Plan` or 409 |
+| POST `/plans/:id/revise` | `{expectedVersion, sessionMinutes?, preferredDate?, paths?, order?}` | `Plan` or 409 (`order` is validated as in `POST /plans` and takes effect the next learning day, D72) |
 | GET `/today` | — | `Today` |
 | GET `/progress` | — | `ProgressResponse` |
 | POST `/sessions` | `{kind:'daily', planId, expectedPlanVersion}` · `{kind:'game', planId, expectedPlanVersion, gameType?, passageIds?}` · `{kind:'placement', editionId, targetScope, selfRating?}` | 201 `SessionSnapshot` (daily returns the open session for today if one exists) |
@@ -296,7 +300,7 @@ interface RevalidationResult { status: OfflineStatus; currentPlanVersion: number
 | POST `/demo/plans` | `{scenarioId, placementSessionId?}` (demo session only) | 201 `Plan` with `planner` |
 | GET `/demo/simulations` | — | `{simulations: …}` from `fixtures/demo_simulations.json`, labeled synthetic |
 
-Server-side rules: never accept `userId`, `correct`, mastery, daily totals or demo/mode flags from the client; validate every question/passage against the session's edition, bank version and plan scope; reject events for sessions owned by another account (404).
+Server-side rules: never accept `userId`, `correct`, mastery, daily totals or demo/mode flags from the client; validate every question/passage against the session's edition, bank version and plan scope; reject events for sessions owned by another account (404); reject `order: 'reverse'` with `validation_error` unless the plan's edition has `contentFormat = 'quran'` (D72).
 
 **Activity events**: `endedAt ≤ serverNow + 60 s`; `startedAt ≥ session.createdAt − 60 s`; `activeMs ≤ endedAt − startedAt + 1000`; ≤ 30 min per event; placement sessions excluded; learning date from `startedAt` in the account time zone effective that day; overlapping intervals of the same account and date are merged (union) before totals; `daily_completions` written once when `activeMs ≥ goalMs`.
 
@@ -320,7 +324,7 @@ Supported target (basic version): phones 360–430 px wide in portrait first, ta
 
 | Package | Owns |
 |---|---|
-| Acquisition | `backend/.content-build/raw/**`, `backend/.content-build/acquisition_report.md` (gitignored; raw publisher records only) |
+| Acquisition | `sources/<editionKey>/raw/**` in the private Storage bucket (raw publisher records only, written by the CLI `acquire` step), `backend/.content-build/acquisition_report.md` (gitignored) |
 | Content | `supabase/migrations/0001_content.sql`, `backend/app/workflow/**`, `backend/app/domain/content_policy.py`, `backend/app/domain/normalization.py`, `backend/scripts/content_tools.py`, `backend/tests/workflow/**`, `backend/tests/data/**` (committed synthetic bundle), `backend/.content-build/<editionKey>/**` |
 | Backend | `backend/` except the content-owned paths, `supabase/migrations/0002…0005`, `fixtures/demo_*.json` |
 | Frontend | `frontend/**` |
@@ -328,10 +332,10 @@ Supported target (basic version): phones 360–430 px wide in portrait first, ta
 
 Shared file `backend/app/domain/normalization.py` (`arabic-norm-v1`) is owned by the content package; the backend imports it. The committed synthetic bundle `backend/tests/data/synthetic_bundle.json` (§2.6) is also owned by the content package; backend tests, memory mode (`QATRA_CONTENT_BUNDLES`) and the Playwright e2e only read it.
 
-## 11. Open risks and open questions (next task)
+## 11. Open risks and open questions
 
-Recorded here, not decided; do not resolve them by assumption.
+Items marked ACCEPTED or RESOLVED record owner decisions of 2026-10-04 (D72); the remaining item is still open and must not be resolved by assumption.
 
-- **Open risk: client-held answer keys and client-reported hint use.** Session snapshots (including offline snapshots) carry each question's `answerKey` to the client, and `hintUsed` is reported by the client, so a modified client can inflate its own progress. This version has only the server-side controls above (server grading of submitted answers, event validation, never accepting `correct` or mastery from the client); no further mitigation is decided (self-study app without certificates, D69).
-- **Open question: reverse Juz' Amma order (surah 114 → 78).** Version 1 offered it as the default; this version uses book order (§2.3, §5). Whether a reverse-order option is offered at all, and how, is undecided.
+- **ACCEPTED for the MVP (D72, owner answer "Accept for MVP"): client-held answer keys and client-reported hint use.** Session snapshots (including offline snapshots) carry each question's `answerKey` to the client (needed for the approved offline feedback), and `hintUsed` is reported by the client, so a modified client can inflate its own progress. The accepted controls are the ones in §7: the server grades every submitted answer, validates events, and never accepts `correct`, mastery or daily totals from the client. This remains a self-study app without certificates; no further mitigation is decided, and any later hardening is a new owner decision.
+- **RESOLVED (D72, owner answer "Offer both, book order default"): reverse Juz' Amma order (surah 114 → 78).** `PlanOrder = 'book' | 'reverse'` (§7): book order is the default for every edition; `'reverse'` ("from An-Nas backwards") is available for the Juz' Amma (Quran) edition only, chosen at plan creation, and a change is a plan revision effective the next learning day (§2.3, §5). Within the chosen order no unit is dropped and the Teaching Agent never reorders new material. Design reading to confirm at architecture approval: passages inside a surah keep mushaf order under `'reverse'`.
 - **Open item: English religious labels (D28).** Category, book, edition and demo-scenario English labels (e.g. `labelEn`, `titleEn`) must come from the Jamhara dictionary; until sourced, the English UI shows numeric section labels only (§2.2) and the remaining labels are listed as gaps.
