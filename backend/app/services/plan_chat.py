@@ -1056,6 +1056,12 @@ def build_plan_chat_service(
     """Wire the service. ``provider`` defaults to OpenRouter when a key and candidates are
     configured (otherwise ``None``: every turn is a rules turn); pass ``None`` to force that.
     B3/B4 call this once at startup and store the result on ``app.state.plan_chat_service``."""
+    if settings.APP_ENV == "production" and (repository is None or ledger is None):
+        # Never fall back to process memory in production: conversations and quota counters
+        # would silently disappear on restart (pre-merge audit, 4 October 2026).
+        raise RuntimeError(
+            "the plan-chat repository and usage ledger must be provided in production"
+        )
     return PlanChatService(
         settings,
         repository=repository or InMemoryPlanChatRepository(),

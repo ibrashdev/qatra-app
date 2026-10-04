@@ -1,7 +1,8 @@
--- STATUS (4 Oct 2026, merge snapshot): this migration applies cleanly after 0001–0005 on the local
--- harness (checks 0001–0005 stay green), but its own checks (checks_0006.sql: two-account isolation
--- of the chat tables, the open→append→confirm flow, app_resume_plan, privilege matrix) are NOT
--- written yet. Treat it as UNTESTED until checks_0006 exists and passes; no production use.
+-- STATUS (4 Oct 2026, merge snapshot): applies cleanly after 0001–0005 and has a compact local check set
+-- (checks_0006.sql, 6 chunks: privileges, function grants, two-account isolation, one open chat, the
+-- tamper guard, app_resume_plan; harness total 97 passed). NOT yet covered: the full open/append/confirm
+-- matrix of the three app_plan_chat_* functions (confirm with a real plan commit, stale version, closed
+-- chat, replaced chat, message ordinals). No production use before that and the security review.
 --
 -- 0006_plan_chats
 --
@@ -70,6 +71,31 @@ create index plan_chats_plan_id_idx on public.plan_chats (plan_id) where plan_id
 create trigger plan_chats_set_updated_at
   before update on public.plan_chats
   for each row execute function private.set_updated_at();
+
+-- Tamper guard (pre-merge audit, 4 Oct 2026): the learner's own token holds UPDATE on the
+-- counters and the status, so the database refuses what the app functions never do: changing
+-- a closed chat, lowering the model-turn counter or the proposal version (which would reopen
+-- the per-chat model cap), or reopening a chat. Same SQLSTATE as the other state refusals.
+create function private.guard_plan_chat_update()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if old.status <> 'open' then
+    raise exception 'plan chat is closed' using errcode = 'QT003';
+  end if;
+  if new.model_turns < old.model_turns or new.proposal_version < old.proposal_version then
+    raise exception 'plan chat counters never decrease' using errcode = 'QT003';
+  end if;
+  return new;
+end;
+$$;
+revoke all on function private.guard_plan_chat_update() from public, anon, authenticated, service_role;
+
+create trigger plan_chats_guard_update
+  before update on public.plan_chats
+  for each row execute function private.guard_plan_chat_update();
 
 alter table public.plan_chats enable row level security;
 revoke all on table public.plan_chats from anon, authenticated, service_role;

@@ -7,8 +7,7 @@ validators and parsers can be exercised; the wording is invented. Real source te
 the gitignored `backend/.content-build/` directory and never in git
 (Implementation-contract §1, §2.7).
 
-The committed synthetic **bundle** (`synthetic_bundle.json`, contract §2.6) is not here yet: it
-is produced by the segmentation package (B8).
+The committed synthetic **bundles** (`synthetic_bundle*.json`, contract §2.6) are produced by the segmentation package (B8) from these records with `backend/scripts/make_synthetic_bundle.py`; `synthetic_boundaries.json` and `synthetic_labels.json` are their synthetic boundary and label inputs. Like everything here they use placeholder vocabulary only (guarded by `tests/workflow/test_wf_fixtures.py`).
 
 | File | Used for |
 |---|---|

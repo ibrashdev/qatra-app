@@ -1,6 +1,6 @@
 # Qatra — UI screen specifications (six dimensions)
 
-> Version 1 · 4 October 2026 (Asia/Dubai) · Status: Draft — Needs Review (gate G1); all 34 inventory screens except the deferred S-28…S-33 are specified (parts A, B, C). Prepared by the Senior Product Designer role (Role 4); companion of UI-design.md (inventory) and UI-tokens.md (tokens); nothing here is approved or implemented.
+> Version 1 · 4 October 2026 (Asia/Dubai) · Status: Draft — Needs Review (gate G1); 27 of the 34 inventory screens are specified (parts A, B, C); S-10 is superseded by S-34 and S-28…S-33 are deferred to option C. Prepared by the Senior Product Designer role (Role 4); companion of UI-design.md (inventory) and UI-tokens.md (tokens); nothing here is approved or implemented.
 
 **Contents:** [0 How to read](#0-how-to-read) · [1 Batch 1 — Account](#1-batch-1--account) · [2 Batch 2 — Catalog and plan](#2-batch-2--catalog-and-plan) · [3 Batch 3 — Games](#3-batch-3--games) · [4 Batch 4 — Session, progress, settings](#4-batch-4--session-progress-settings) · [5 Open points](#5-open-points)
 
