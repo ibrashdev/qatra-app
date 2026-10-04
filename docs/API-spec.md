@@ -1,20 +1,22 @@
 # Qatra — API Specification (`/api`)
 
-Version 1.1 · 2026-10-04 · Status: Approved — D74, 4 October 2026 (owner: «approve best practice», «q7 approved»)
+Version 1.2 · 2026-10-04 · Status: Approved — D74, 4 October 2026 (owner: «approve best practice», «q7 approved») for the v1.1 content; Approved — D75, A1 (owner, 4 October 2026: «A1 approved , best practice») for the D75 additions of version 1.2 (E31–E34, §4.10)
 
 Owner of this draft: Solutions Architect (Role 3), for the root coordinator. This is design documentation only: no endpoint exists, every application path is Planned (D61), and implementation is not authorized until the architecture deliverables are presented and explicitly approved (D69).
 
+**Version 1.2 (4 October 2026).** Adds the plan conversation (D75; [Plan-conversation.md](Plan-conversation.md) v1.1): operations E31–E34 (§2.2, new §4.10), the rate class "Chat write" and the shared free-model budget note (§1.8), the conversation limits (§1.7), the conversation entries of the logging rules (§1.12), the `details` reasons `proposal_stale` and `chat_closed` (§1.5), `PlanProgress.currentVersion` on E19 and `Today.openPlanChatId` on E18, the difference C-16 (§8.1) and the open points O-31 and O-32 (§8.2). One configuration change is a coordinator decision outside D75: the `targetScope.sectionOrdinals` default is raised from 40 to 60 entries (§1.7, §4.5; the Forty has 41–42 sections; A-12 configuration, not an approved number). Every D75 addition is marked **Approved — D75, A1 (owner, 4 October 2026)**; the v1.1 content remains Approved — D74. Owner decision A2 stays declined: takhrij is not a memorization path (`Path` keeps its four values). Nothing is built or tested.
+
 **Version 1.1 (4 October 2026).** The coordinator consistency pass resolved differences C-02..C-15 and the open points per §8, and the items formerly marked "owner confirms" (Q1–Q7) are confirmed by D74 (4 October 2026; owner: «approve best practice», «q7 approved»). Approval covers this document as a design only; nothing is built or tested.
 
-**Contents:** [0 Scope and authority](#0-scope-authority-and-how-to-read-this-file) · [1 Conventions](#1-conventions) · [2 Access matrix](#2-access-matrix) · [3 Common session validation](#3-server-side-validation-rules-common-to-sessions) · [4 Endpoints E01–E30](#4-endpoint-specifications) · [5 Operator CLI](#5-operator-cli-interface-no-http) · [6 Keep-awake job](#6-keep-awake-job-interface-d72) · [7 Traceability](#7-traceability) · [8 Differences and open points](#8-differences-between-sources-and-open-points)
+**Contents:** [0 Scope and authority](#0-scope-authority-and-how-to-read-this-file) · [1 Conventions](#1-conventions) · [2 Access matrix](#2-access-matrix) · [3 Common session validation](#3-server-side-validation-rules-common-to-sessions) · [4 Endpoints E01–E34](#4-endpoint-specifications) · [5 Operator CLI](#5-operator-cli-interface-no-http) · [6 Keep-awake job](#6-keep-awake-job-interface-d72) · [7 Traceability](#7-traceability) · [8 Differences and open points](#8-differences-between-sources-and-open-points)
 
 ## 0. Scope, authority and how to read this file
 
-**Purpose.** This file specifies every HTTP operation of the Qatra backend (FastAPI on Render, reached same-origin through Next.js rewrites), the operator CLI (no HTTP) and the keep-awake job. It refines [Implementation-contract.md](Implementation-contract.md) §7 (v1.3); it does not replace it.
+**Purpose.** This file specifies every HTTP operation of the Qatra backend (FastAPI on Render, reached same-origin through Next.js rewrites), the operator CLI (no HTTP) and the keep-awake job. It refines [Implementation-contract.md](Implementation-contract.md) §7 (v1.4; the D75 additions are in v1.5, §14); it does not replace it.
 
 **Authority order** (a later explicit owner decision wins over an earlier document):
 
-1. Owner decisions D66–D72 and the architect directives 1–7.
+1. Owner decisions D66–D72 and the architect directives 1–7; D75 with its approval A1 (plan conversation) for E31–E34.
 2. Implementation-contract v1.3: §6 authentication, §7 DTOs and endpoint table, §8 configuration.
 3. [Architecture-and-data.md](Architecture-and-data.md) («عقود API المخططة»), [Authentication-and-privacy.md](Authentication-and-privacy.md), [PWA-design.md](PWA-design.md), [AI-agent.md](AI-agent.md).
 4. [PRD.md](PRD.md) v14 (modules M1–M12, NFR-01..14, roles matrix; Approved by D71).
@@ -28,7 +30,7 @@ Where sources differ, the contract plus the D-decisions are followed and the dif
 
 **Notation.** `E01`–`E30` identify operations. DTO type names (`Profile`, `Plan`, `SessionSnapshot`, …) are the contract §7 names. A response shape that has no contract type name is written inline. Paths are always written in full, with the `/api` prefix.
 
-**Inventory.** 30 HTTP operations: the 28 operations of contract §7 (GET and PATCH `/me` counted separately), plus `GET /api/health/ready` (directive 1), plus E30 `POST /api/plans/:id/resume` (contract v1.4 amendment, D74). Under the same proposed amendment E13 is `POST /api/account/delete` (§8.3).
+**Inventory.** 30 HTTP operations: the 28 operations of contract §7 (GET and PATCH `/me` counted separately), plus `GET /api/health/ready` (directive 1), plus E30 `POST /api/plans/:id/resume` (contract v1.4 amendment, D74). Version 1.2 adds E31–E34 (D75, plan conversation): 34 HTTP operations in total. Under the same proposed amendment E13 is `POST /api/account/delete` (§8.3).
 
 **Not specified here.**
 
@@ -111,7 +113,7 @@ Every error from the application uses one envelope (contract §7):
 | Code | `details` |
 |---|---|
 | `validation_error` | `{"fields":[{"field":"events[3].correct","rule":"forbidden_field"}]}`; values are never echoed |
-| `version_conflict` | `{"reason":"plan_version","currentVersion":3}`; reasons used in this file: `plan_version`, `idempotency_input`, `plan_not_active`, `estimate_changed`, `active_plan_conflict` |
+| `version_conflict` | `{"reason":"plan_version","currentVersion":3}`; reasons used in this file: `plan_version`, `idempotency_input`, `plan_not_active`, `estimate_changed`, `active_plan_conflict`; and, from v1.2 (D75), `proposal_stale` and `chat_closed` (E32, E34; §4.10) |
 | `throttled` | `{"retryAfterSec":900}` and a `Retry-After` header on every `429` (A-12) |
 | `terms_required` | `{"requiredVersion":"2026-10-04"}` |
 
@@ -165,7 +167,7 @@ Database constraints are the final arbiter (partial unique index on `master_plan
 | Request body size | 64 KiB globally; larger → `413 payload_too_large` | A-12 [O-01] |
 | `downloadTargetRefs` (E23) | ≤ 60 entries | A-12 [O-25] |
 | `passageIds` (E20 `game`) | ≤ 60 entries | A-12 [O-01] |
-| `targetScope.sectionOrdinals` | ≤ 40 entries | A-12 [O-01] |
+| `targetScope.sectionOrdinals` | ≤ 60 entries (raised from 40 in v1.2: the Forty has 41–42 sections; coordinator decision, 4 October 2026) | A-12 [O-01] |
 | `durationMs` of an answer event | ≤ 30 minutes; the 30-minute bound applies to `endedAt − startedAt` of an activity event | A-12 [O-22], [O-23] |
 | Prepared sessions per snapshot (E23) | at most 7 | A-12 [O-25] |
 | `ProgressResponse.history` (E19) | the last 30 learning days | A-12 [O-09] |
@@ -173,6 +175,25 @@ Database constraints are the final arbiter (partial unique index on `master_plan
 | Throttle row purge | opportunistic and bounded (`DELETE … LIMIT 100` via a ctid subselect) inside `srv_throttle_record`, for rows with `window_start < now() - interval '24 hours'`; no scheduled job | A-03 [O-04] |
 | Keep-awake retry | 1, 2, 4, 8 s, then 10 s steps, up to 90 s | A-06 [O-29] |
 | Per-IP rate limits | see §1.8 | A-12 [O-03] |
+
+**Plan conversation limits (D75; Approved — D75, A1 (owner, 4 October 2026)).** Configuration defaults taken from Plan-conversation §1.2 (NFR-15 to NFR-18), §2.1, §2.3, §2.4 and §2.5; they are tunable settings, not promises (A4: «use best practice as mentioned in open router»). The OpenRouter figures are the coordinator's reading of OpenRouter's published limits for free models without purchased credits and are verified at provisioning [O-31].
+
+| Item | Default | Source |
+|---|---|---|
+| `goalText` (E31), `text` (E32) | ≤ 500 characters (`goalText` after trimming) | Plan-conversation §2.3 |
+| Stored message text | ≤ 2 000 characters | Plan-conversation §2.1 |
+| Model reply shown to the learner | ≤ 600 characters, after the output guard | Plan-conversation §2.4 |
+| Messages sent to the model | the last 10 | Plan-conversation §2.4 |
+| Model timeout | 8 s (`QATRA_CHAT_MODEL_TIMEOUT_SEC`) | Plan-conversation §2.5; contract §5 |
+| Model output size | 400 tokens (`QATRA_CHAT_MAX_TOKENS`) | Plan-conversation §2.5 |
+| Model turns per conversation | 6 (`QATRA_CHAT_MODEL_TURNS_PER_CHAT`) | Plan-conversation §2.5 |
+| Model calls per account per day | 10 (`QATRA_CHAT_MODEL_CALLS_PER_ACCOUNT_PER_DAY`) | Plan-conversation §2.5 |
+| Model requests, whole deployment (shared with E28) | 50 per day (`QATRA_OPENROUTER_FREE_REQUESTS_PER_DAY`) and 20 per minute (`QATRA_OPENROUTER_FREE_REQUESTS_PER_MINUTE`) | Plan-conversation §2.5 |
+| Guard version | `guard-v1` (`QATRA_CHAT_GUARD_VERSION`) | Plan-conversation §2.5 |
+| Open conversations per account | 1 | Plan-conversation §2.1 |
+| Abandoned conversation | superseded by a newer conversation, or older than 7 days (configuration) | Plan-conversation §2.1 |
+| Learning record sent for a revision | the daily-time history of the last 30 learning days and the last 50 attempts | Plan-conversation §2.4 |
+| Assistant latency (targets, not SLAs) | p95 ≤ 10 s with the model; p95 ≤ 1 s for rules replies | NFR-15 |
 
 **Still open:** request timeouts [O-02], deferred to B0 (verify during the build).
 
@@ -187,17 +208,20 @@ Only the auth throttle has approved numbers. The per-IP values below are configu
 | Readiness | E02 | 6 per client IP per minute (configuration default, A-12) |
 | Public read | E14 | 60 per client IP per minute (configuration default, A-12) |
 | Anonymous entry | E03, E26 | 10 per client IP per minute (configuration default, A-12) |
-| Session read | E11, E15, E18, E19, E24 | 120 per client IP per minute (configuration default, A-12) |
+| Session read | E11, E15, E18, E19, E24, E33 | 120 per client IP per minute (configuration default, A-12) |
 | Session write | E05, E08, E09, E10, E12, E13, E16, E17, E20, E21, E22, E23, E25, E30 | 60 per client IP per minute (configuration default, A-12) |
+| Chat write | E31, E32, E34 | 20 per client IP per minute (configuration default; D75, Approved — D75, A1 (owner, 4 October 2026)) |
 | Demo | E27, E28, E29, plus the usage and budget limit of D29 | A-09 (confirmed by D74, Q6): at most 5 demo accounts per client IP per day (E26); at most 10 `POST /demo/plans` per demo account per day (E28); demo Teaching-Agent calls draw on a configured daily free budget and fall back to the rules engine when it is exhausted (D54/D60). Values are configuration, not code |
 
 Every `429 throttled` carries a `Retry-After` header (seconds; A-12). Capacity assumption: at most 10 users (NFR-04); a limit that is reached never triggers a paid fallback (D60).
+
+**Shared model budget (D75; Approved — D75, A1 (owner, 4 October 2026)).** The demo planner (E28, the Demo row above) and the plan conversation (E31, E32) draw on one daily free budget of the whole deployment: `QATRA_OPENROUTER_FREE_REQUESTS_PER_DAY` default 50 and `QATRA_OPENROUTER_FREE_REQUESTS_PER_MINUTE` default 20 (OpenRouter's published limits for free models without purchased credits, as read by the coordinator; verified at provisioning [O-31]). In addition each account has 10 model calls per day and each conversation 6 model turns (§1.7). Reaching any of these caps is **not** an error and never a `429`: the conversation answers with a rules reply (`kind = 'fallback'`) and E28 falls back to the rules engine; only the per-IP classes above produce `429 throttled`. A cap never triggers a paid fallback (D60).
 
 ### 1.9 Cache-Control
 
 | Responses | `Cache-Control` |
 |---|---|
-| All Anonymous-entry, Session and Demo operations (E03–E13 and E15–E30) | `no-store` (personal and offline data; Authentication-and-privacy, PWA-design §5) |
+| All Anonymous-entry, Session and Demo operations (E03–E13 and E15–E34) | `no-store` (personal and offline data; Authentication-and-privacy, PWA-design §5) |
 | E24 (snapshot download) | `no-store` (contract §7) |
 | E01, E02 | `no-store`: they are wake-up and keep-alive probes and must always reach the origin |
 | E14 (catalog metadata) | `no-store`; public catalog caching is deferred |
@@ -235,9 +259,10 @@ The server clock is the only clock the server trusts. `occurredAt`, `startedAt`,
 
 - Logs are structured and carry no personal data: method, route template, status, latency, error code (NFR-13).
 - Never logged: request or response bodies, cookies, tokens, passwords, recovery codes, answer text, usernames, raw IP addresses (NFR-07; Authentication-and-privacy).
-- The bodies of E03, E04, E06, E07, E08, E09, E13 and E21 must be excluded from any body logging, including host-level logging where it is configurable.
+- The bodies of E03, E04, E06, E07, E08, E09, E13 and E21 must be excluded from any body logging, including host-level logging where it is configurable; from v1.2 (D75) the bodies of E31, E32 and E34 are on the same list.
 - A recall answer (`answer.text`) is transient: graded and discarded. Only `attempts.wrong_token_ref` (a reference) may be kept (Architecture-and-data).
-- Account or learning data never reaches an external model (D17). The only model call is E28, and its input is synthetic (§4.9).
+- Conversation text and model output are never logged (D75; Approved — D75, A1 (owner, 4 October 2026)): the goal text, the learner and assistant messages, the model prompts and the raw model output of E31, E32 and E34 appear in no log, error detail or `ai_usage` row; `ai_usage` records provider, model, prompt version, token counts, cost and status only.
+- Account identifiers never reach an external model (D17, narrowed by D75). Model calls are E28, whose input is synthetic (§4.9), and the plan conversation E31/E32, whose payload is the allowed list of §4.10.2 under a temporary conversation id.
 
 ### 1.13 Lists, pagination and filtering
 
@@ -251,13 +276,13 @@ The contract defines no query parameters on any endpoint. Version 1 therefore ha
 |---|---|---|
 | **P — Public** | no session; read-only `GET`; no personal data. Visitors (unregistered) get the catalog **metadata only** (D71) | E01, E02, E14 |
 | **A — Anonymous entry** | no session yet; state-changing; Origin check and auth throttle apply. Needed because PRD v14 lets a visitor register, log in, recover an account and create a demo account [C-13] | E03, E04, E06, E07, E26 |
-| **S — Session** | a valid `__Host-qatra_session`; any account, learner or demo account (D71 "same as learners") unless the notes say otherwise | E05, E08–E13, E15–E25, E30 |
+| **S — Session** | a valid `__Host-qatra_session`; any account, learner or demo account (D71 "same as learners") unless the notes say otherwise | E05, E08–E13, E15–E25, E30, E31–E34 |
 | **D — Demo session** | a valid session whose account has `is_demo = true`, set by the server only; anything else gets `403` | E27, E28, E29 |
 | **O — Operator CLI** | no HTTP at all. Developer tools run by the content manager (the owner) and the reviewer (the owner, D71); `service_role` limited to publishing | the CLI commands of §5 |
 
 ### 2.2 Operation matrix
 
-`yes` allowed · `401` = `unauthenticated` · `403` = role denial with the code `forbidden` (decided, A-12; contract v1.4 amendment (D74), item 5) [O-05] · `—` not applicable.
+`yes` allowed · `401` = `unauthenticated` · `403` = role denial with the code `forbidden` (decided, A-12; contract v1.4 amendment (D74), item 5) [O-05] · `—` not applicable. Rows E31–E34 (D75) are Approved — D75, A1 (owner, 4 October 2026); paths use `:id` as elsewhere in this file (the source document writes `{id}`).
 
 | ID | Operation | Level | Visitor | Learner | Demo account | Notes |
 |---|---|---|---|---|---|---|
@@ -276,7 +301,7 @@ The contract defines no query parameters on any endpoint. Version 1 therefore ha
 | E13 | `POST /api/account/delete` | S | 401 | yes | yes | D71: demo accounts allowed; replaces `DELETE /api/account` (A-10, contract v1.4 amendment (D74)) |
 | E14 | `GET /api/catalog` | P | yes | yes | yes | metadata only for everyone (D71) |
 | E15 | `POST /api/plans/estimate` | S | 401 | yes | yes | read-only; demo accounts allowed (C-15) |
-| E16 | `POST /api/plans` | S | 401 | yes | 403 | a demo plan is created only through E28 (PRD roles matrix) |
+| E16 | `POST /api/plans` | S | 401 | yes | 403 | a demo plan is created only through E28 (PRD roles matrix); from v1.2 also through E34 (D75) |
 | E17 | `POST /api/plans/:id/revise` | S | 401 | yes | yes | D71: demo accounts may revise |
 | E18 | `GET /api/today` | S | 401 | yes | yes | own rows only |
 | E19 | `GET /api/progress` | S | 401 | yes | yes | own rows only |
@@ -288,9 +313,13 @@ The contract defines no query parameters on any endpoint. Version 1 therefore ha
 | E25 | `POST /api/offline/revalidate` | S | 401 | yes | yes | |
 | E26 | `POST /api/demo/accounts` | A | yes | — | — | the public demo link; the server sets `is_demo` |
 | E27 | `GET /api/demo/scenarios` | D | 401 | 403 | yes | |
-| E28 | `POST /api/demo/plans` | D | 401 | 403 | yes | synthetic data only |
+| E28 | `POST /api/demo/plans` | D | 401 | 403 | yes | synthetic data only; E34 also creates demo plans in `synthetic_demo` mode (D75) |
 | E29 | `GET /api/demo/simulations` | D | 401 | 403 | yes | read-only fixtures |
 | E30 | `POST /api/plans/:id/resume` | S | 401 | yes | 403 | learner only; demo plans are managed through E28; contract v1.4 (D74) |
+| E31 | `POST /api/plan-chats` | S | 401 | yes | yes | D75: creates the plan conversation and its first assistant turn; Chat write class |
+| E32 | `POST /api/plan-chats/:id/messages` | S | 401 | yes | yes | D75: one learner turn (text or quick reply) and one assistant turn; Chat write class |
+| E33 | `GET /api/plan-chats/:id` | S | 401 | yes | yes | D75: reload and resume; Session read class |
+| E34 | `POST /api/plan-chats/:id/confirm` | S | 401 | yes | yes | D75: saves the plan (E16 or E17 semantics) and closes the conversation; a demo account's creation runs in `synthetic_demo` mode; Chat write class |
 | — | CLI `acquire` … `delete-unused-draft` (§5) | O | no HTTP | no HTTP | no HTTP | content manager and reviewer only |
 
 ### 2.3 Cross-check against the PRD v14 roles matrix
@@ -302,6 +331,7 @@ The contract defines no query parameters on any endpoint. Version 1 therefore ha
 | Catalog | E14 | matches: visitor gets metadata only (titles, section names and references, word and passage counts, available paths); no text, lessons or questions; only published, non-revoked, non-hidden editions |
 | Placement session | E20 `kind=placement` | matches: visitor `401`; learner and demo allowed; never counted in daily time |
 | Create and revise a plan | E15, E16, E17, E28 | matches: demo accounts create only from a scenario (E28) and may revise (D71) |
+| Plan conversation (D75; Plan-conversation §1.3) | E31–E34 | matches: visitor `401`; learner and demo account allowed (a demo account's creation runs in `synthetic_demo` mode); one open conversation per account (a new E31 abandons the previous one); the content manager and the reviewer have no HTTP surface |
 | Daily sessions and games | E20, E21, E22 | matches: active plan, inside `targetScope` and edition, no lesson required (D42) |
 | Own progress | E18, E19 | matches: own rows only |
 | Settings, password, delete | E11, E12, E09, E13 (E08 for the recovery code) | matches: demo accounts included (D71); `isDemo` read-only |
@@ -310,7 +340,7 @@ The contract defines no query parameters on any endpoint. Version 1 therefore ha
 | Read other accounts' data | none | no operation exists; RLS and `404` |
 | Feedback and manager inbox (conditional) | not specified (§0) | outside this version |
 
-Deviations to review: the extra level **A** [C-13]; the `forbidden` code [O-05] and E15 for demo accounts [O-19] (decided, A-12 and C-15; approved by D74); E30 (contract v1.4, D74).
+Deviations to review: the extra level **A** [C-13]; the `forbidden` code [O-05] and E15 for demo accounts [O-19] (decided, A-12 and C-15; approved by D74); E30 (contract v1.4, D74); E31–E34 (D75, Approved — D75, A1 (owner, 4 October 2026)).
 
 ## 3. Server-side validation rules common to sessions
 
@@ -363,7 +393,7 @@ These rules apply to E20 (session creation), E21 (events), E22 (completion) and,
 
 ## 4. Endpoint specifications
 
-Each operation lists purpose and module, auth level, request schema with validation rules, success status and response DTO, errors, side effects (tables written), idempotency/concurrency, and one synthetic example. Modules and requirement ids are from PRD v14 (M1–M12, R01–R23); the full table is in §7. All examples are synthetic: placeholders such as «نص الآية كما ورد» stand for text, ids are fake UUIDs, and no real name, secret or religious text appears. Every response of an Anonymous-entry, Session or Demo operation carries `Cache-Control: no-store` (§1.9).
+Each operation lists purpose and module, auth level, request schema with validation rules, success status and response DTO, errors, side effects (tables written), idempotency/concurrency, and one synthetic example. Modules and requirement ids are from PRD v14 (M1–M12, R01–R23); E31–E34 also cite R24–R29 and NFR-15 to NFR-18 of Plan-conversation v1.1 (the PRD v15 amendment, D75); the full table is in §7. All examples are synthetic: placeholders such as «نص الآية كما ورد» stand for text, ids are fake UUIDs, and no real name, secret or religious text appears. Every response of an Anonymous-entry, Session or Demo operation carries `Cache-Control: no-store` (§1.9).
 
 Compact `Profile` used in examples (illustrative values; the initial `sessionMinutes` is open [O-13]):
 
@@ -775,7 +805,7 @@ Compact `Profile` used in examples (illustrative values; the initial `sessionMin
 
 **Errors:** `401 unauthenticated`; `401 invalid_credentials` (wrong password) [O-11]; `403 forbidden_origin`; `422 validation_error` (`confirm_literal`, missing field); `429 throttled` [O-04]; `503 unavailable` (the account is intact; the request may be repeated while the session is valid); `500 internal`.
 
-**Side effects (rows removed):** the Auth user; `private.account_handles`, `private.recovery_codes`, `private.password_reset_grants`, `private.app_sessions`, the account's `private.auth_throttle` rows; `public.profiles`, `master_plans`, `plan_versions`, `plan_phases`, `learning_sessions`, `attempts`, `session_activity_intervals`, `daily_progress`, `daily_completions`, `target_mastery`, `target_part_evidence`, `offline_snapshots` (and `content_feedback` only if D45 is activated). The `reviews` table no longer exists (directive 3) [C-08]. Published content is never deleted because a learner was deleted; `ai_usage` holds no account data.
+**Side effects (rows removed):** the Auth user; `private.account_handles`, `private.recovery_codes`, `private.password_reset_grants`, `private.app_sessions`, the account's `private.auth_throttle` rows; `public.profiles`, `master_plans`, `plan_versions`, `plan_phases`, `learning_sessions`, `attempts`, `session_activity_intervals`, `daily_progress`, `daily_completions`, `target_mastery`, `target_part_evidence`, `offline_snapshots`, and from v1.2 (D75) `plan_chat_messages` and `plan_chats` (and `content_feedback` only if D45 is activated). The `reviews` table no longer exists (directive 3) [C-08]. Published content is never deleted because a learner was deleted; `ai_usage` holds no account data.
 
 **Idempotency/concurrency:** once the personal rows are gone the session no longer exists, so a repeat returns `401`. A failure before that point leaves the account intact and may be repeated. If only the Auth deletion fails afterwards, the backend retries it and the answer stays `204` (decided, A-10); the residue is an unreachable Auth record holding only the alias (Database-schema OPEN-14).
 
@@ -844,14 +874,14 @@ Compact `Profile` used in examples (illustrative values; the initial `sessionMin
 | Input | Rule |
 |---|---|
 | `editionId` | UUID of a published, non-revoked, non-hidden edition (S-2); otherwise `422` rule `edition_not_available` |
-| `targetScope.sectionOrdinals` | non-empty array of at most 40 unique integers (A-12), each an existing section ordinal of the edition; stored in ascending order; the UI default is all sections. A scope never changes after creation (a different scope is a new plan) |
+| `targetScope.sectionOrdinals` | non-empty array of at most 60 unique integers (A-12; raised from 40 in v1.2), each an existing section ordinal of the edition; stored in ascending order; the UI default is all sections. A scope never changes after creation (a different scope is a new plan) |
 | `paths` | non-empty, unique, a subset of the edition's `availablePaths`. Quran edition: exactly `["quran"]`. Hadith edition: a non-empty subset of `matn`, `sanad`, `grade` (default `["matn"]`, D66) |
 | `sessionMinutes` | 5, 10 or 15 |
 | `order` (E15, E16, E17) | `book` or `reverse` (D72), default `book`. Inside a surah under `reverse`, passages keep mushaf order (A-12; **confirmed by D74, Q4**). `reverse` ("from An-Nas backwards") is allowed only when the edition's `contentFormat` is `quran`; for a hadith collection it is `422` rule `order_not_available`. Within the chosen order no unit is dropped and new passages are introduced in that order; the Teaching Agent never reorders new material |
 | `preferredDate` | optional `ISODate` (a learning date); a past date is `422` rule `date_invalid` (A-12) |
 | `placementSessionId` | optional UUID of a `placement` session owned by the caller for the same edition [O-17] |
 
-There is **no free-text goal field** on any plan endpoint: a free-text goal is resolved in the app (guided choice) into `editionId` and `targetScope`, and a fatwa or explanation request gets the fixed D26 message as a UI string (QA-and-evaluation «التخطيط والمراجعة»). Nothing here calls an external model for a learner (D17).
+There is **no free-text goal field** on any plan endpoint: a free-text goal is resolved in the app (guided choice) into `editionId` and `targetScope`, and a fatwa or explanation request gets the fixed D26 message as a UI string (QA-and-evaluation «التخطيط والمراجعة»). Nothing here calls an external model for a learner (D17). **D75 note (Approved — D75, A1 (owner, 4 October 2026)):** this paragraph still describes E15–E17, which have no free-text field and call no model; the free-text goal («الهدف والموعد») enters through E31 (`goalText`, §4.10), where a model may interpret it under D75.
 
 #### E15 · `POST /api/plans/estimate`
 
@@ -1000,7 +1030,7 @@ At least one optional field must be present (`422` rule `no_fields`). The scope 
 - The plan must be the caller's (`404` otherwise). An `active` plan or a `paused` plan may be revised (a paused plan stays paused); a `completed` plan is `409` with `details.reason = "plan_not_active"` (A-08; confirmed by D74, Q5).
 - A stale `expectedVersion` is `409 version_conflict` with `details.reason = "plan_version"` and `details.currentVersion`.
 - Success appends a new immutable `plan_versions` row (`version_no + 1`) that carries `effective_learning_date`; future phases and sessions that are not yet opened are re-planned; completed sessions are never changed and an open session is not changed (Architecture-and-data §«أين تحفظ الخطة الكبيرة؟»). History is never rewritten.
-- `Plan` shows the values of the latest version; the day they take effect is applied server-side, and E18 shows what is in force today [O-13]. A revision that changes the estimate carries the optional `confirmedEstimate` and replaces `agreedEstimate` (A-12, decision on [O-18]). Learners never invoke the Teaching Agent, and demo revisions do not call it either (A-12).
+- `Plan` shows the values of the latest version; the day they take effect is applied server-side, and E18 shows what is in force today [O-13]. A revision that changes the estimate carries the optional `confirmedEstimate` and replaces `agreedEstimate` (A-12, decision on [O-18]). Learners never invoke the Teaching Agent, and demo revisions do not call it either (A-12). From v1.2 a model-assisted revision happens in the plan conversation (E31–E34, §4.10; D75); E17 itself still calls no model.
 
 **Errors:** `401 unauthenticated`; `403 forbidden_origin`; `404 not_found`; `409 version_conflict` (`plan_version`, `plan_not_active`, `estimate_changed`); `422 validation_error` (`no_fields`, `paths_invalid`, `order_not_available`, `session_minutes_invalid`, `date_invalid`, `confirmed_estimate_invalid`, `forbidden_field`); `429 throttled` [O-03]; `503 unavailable`; `500 internal`.
 
@@ -1108,6 +1138,7 @@ At least one optional field must be present (`422` rule `no_fields`). The scope 
 | `nextNewPassage` | `{reference, sectionTitleAr}` of the next passage to be introduced in plan order, or `null` [O-24] |
 | `openSessionId` | the open daily session of today, or `null` |
 | `streakDays` | consecutive learning dates with the daily goal met, up to and including today or yesterday (A-12, decision on [O-24]) |
+| `openPlanChatId` | optional, added in v1.2 (D75; Approved — D75, A1 (owner, 4 October 2026)): the id of the account's `open` plan conversation, `null` or absent when there is none; it lets S-08 and S-11 resume the conversation (E33) |
 
 **Errors:** `401 unauthenticated`; `503 unavailable`; `500 internal`. **Side effects:** none; a GET never creates a session or any evidence.
 
@@ -1144,6 +1175,7 @@ At least one optional field must be present (`422` rule `no_fields`). The scope 
 - `history` lists past learning dates `{date, activeMs, goalMs, completed}` over the last 30 learning days (A-12, decision on [O-09]).
 - `plans` has one `PlanProgress` per plan of the account (active, paused or completed).
   - `overallPercent = floor(100 × confirmedWords ÷ totalWords)`, where `confirmedWords` is the sum of word counts of passages with status `confirmed` (a passage in `needs_refresh` is outside the numerator) and `totalWords` is the sum over all passages of the plan's scope for the selected paths (D66; contract §4.7). It is a progress indicator, never a memorization certificate.
+  - `currentVersion` (added in v1.2, [O-32]; Approved — D75, A1 (owner, 4 October 2026)) is the plan's current version number, as in `Plan.currentVersion`; it lets the client open an E20 `daily` maintenance session on a `completed` plan with the right `expectedPlanVersion` (UG-04 of UI-design.md).
   - `counts` gives passages per status (`new` includes passages that have no mastery row yet). `confirmedSections` counts a section when all its passages for the selected paths are confirmed. `nextReviewDate` is the earliest `next_review_due`, or `null`.
   - `sections[].percent` = `floor(100 × confirmed words ÷ section words)` for the selected paths (A-12, decision on [O-24]); the `.status` rollup is not defined by the contract and stays for implementation design.
 - Daily progress (time) and overall progress (confirmed material) are independent (D40).
@@ -1162,6 +1194,7 @@ At least one optional field must be present (`422` rule `no_fields`). The scope 
       "titleAr": "«عنوان الكتاب»",
       "titleEn": "Book title placeholder",
       "status": "active",
+      "currentVersion": 2,
       "overallPercent": 27,
       "confirmedWords": 50,
       "totalWords": 180,
@@ -1595,7 +1628,7 @@ Illustrative `stale` result after the plan was revised again:
 
 ### 4.9 Demo (committee journey, D29)
 
-A demo account is created from the public demo link and carries `is_demo = true`, set by the server only. It has learner rights (D71) except that it creates plans only from synthetic scenarios (E28), and only it may use the Teaching Agent (D17, D38). The processing mode `synthetic_demo` is fixed by the server for these accounts; no operation accepts a mode flag. Scenarios and simulations are developer-prepared synthetic fixtures (`fixtures/demo_scenarios.json`, `fixtures/demo_simulations.json`), never real learner rows.
+A demo account is created from the public demo link and carries `is_demo = true`, set by the server only. It has learner rights (D71) except that it creates plans only from synthetic scenarios (E28), and only it may use the Teaching Agent (D17, D38). From v1.2 (D75) the plan conversation of §4.10 is open to every account and E34 can also create a demo plan in `synthetic_demo` mode; E28 itself is unchanged. The processing mode `synthetic_demo` is fixed by the server for these accounts; no operation accepts a mode flag. Scenarios and simulations are developer-prepared synthetic fixtures (`fixtures/demo_scenarios.json`, `fixtures/demo_simulations.json`), never real learner rows.
 
 #### E26 · `POST /api/demo/accounts`
 
@@ -1671,7 +1704,7 @@ The edition, scope and other plan parameters come from the fixture scenario [O-1
 **Behaviour**
 1. The server fixes the mode `synthetic_demo` (only accounts with `is_demo` reach this endpoint).
 2. The demo usage and budget limits (D29) are applied: at most 10 `POST /demo/plans` per demo account per day, and Teaching-Agent calls draw on a configured daily free budget and fall back to the rules engine when it is exhausted (A-09; confirmed by D74, Q6); only free models are used (D60).
-3. **Teaching Agent input — the only data that can leave the server:** the scenario id, passage ids with word counts, and the placement correct and incorrect counts. No account id, username, free text or answer text.
+3. **Teaching Agent input — the only data E28 sends out (the plan conversation's allowed payload is in §4.10.2, D75):** the scenario id, passage ids with word counts, and the placement correct and incorrect counts. No account id, username, free text or answer text.
 4. The agent's output must be `{newWordsPerDay, reviewOffsetsDays, priorityReviewPassageIds}`, validated against allowed ids and bounds. New material always follows the plan order (D72) with no passage dropped: the agent sets pace and review timing and priority only, never the order of new passages.
 5. A call is made only after the model's free eligibility and quota are verified (D60). The timeout is 8 s. Any failure, timeout, quota exhaustion or ineligible model falls back to the rules engine; that is **not** an error — the answer is `201` with `planner.source = "rules"`.
 6. Every model call writes one `ai_usage` row (provider, model, prompt version, input and output tokens, cost — `null` when unknown, never recorded as 0 — status, time). No learner text and no account id.
@@ -1736,6 +1769,365 @@ The edition, scope and other plan parameters come from the fixture scenario [O-1
   ]
 }
 ```
+
+### 4.10 Plan conversation (D75)
+
+**Status: Approved — D75, A1 (owner, 4 October 2026: «A1 approved , best practice»).** E31–E34 and the rest of this section are taken from [Plan-conversation.md](Plan-conversation.md) v1.1 (§1, §2.1–§2.5) and add no field, number or behaviour beyond it; the few details that source does not fix are listed in §4.10.3 for implementation design. Nothing here is built or tested. The operations belong to modules M3 and M8 (R24–R29, NFR-15 to NFR-18, D75). Owner decision A2 stays declined: takhrij is displayed with the hadith and never tested, so `Path` keeps its four values.
+
+The plan conversation is how **every account** (learner and demo account, D71) builds and revises a plan. After the start form (S-08) and the placement test (S-09) the learner talks with the plan assistant in S-34; the assistant proposes a plan presented in six labelled sections, and the plan is saved only when the learner confirms the current proposal (D34). The conversation is limited to plan logistics (book, edition, scope, hadith paths, Juz' Amma order, daily minutes, preferred date, review rhythm, what happens next). A religious question (fatwa, ruling, explanation, meaning, translation) always receives the fixed D26 message verbatim, applied by the server before any model call and again on the model's reply; any other out-of-scope request receives a fixed redirect line. The **rules engine computes every number** (estimate, days, words per day, review rhythm); the model only interprets free text into plan parameters and writes conversational text, and the learner can complete the whole journey with quick replies and no free text. The conventions of §1 apply to all four operations (envelope, `Cache-Control: no-store`, Origin check, session cookie, 64 KiB cap, §1.5 codes). Rate classes (§1.8): E31, E32 and E34 are **Chat write**; E33 is **Session read**.
+
+#### 4.10.1 Shared shapes (Implementation-contract §7, v1.5)
+
+| DTO | Fields |
+|---|---|
+| `QuickReplyCode` | `fewer_minutes`, `more_minutes`, `smaller_scope`, `later_date`, `no_date`, `order_book`, `order_reverse`, `paths_matn_only`, `paths_all`, `confirm` |
+| `QuickReply` | `{code: QuickReplyCode, labelAr: string, labelEn: string}` |
+| `PlanSections` | `{goal, totalTime, dailyTime, stages, reviews, nextStep}`, all plain text in the interface language, built by the server from templates and the rules engine's numbers (the model's phrasing may appear only in the `goal` and `nextStep` lines, after the output guard; numbers never come from the model) |
+| `PlanProposal` | `{proposalVersion: number, editionId, targetScope: TargetScope, paths: Path[], order: PlanOrder, sessionMinutes: 5 \| 10 \| 15, preferredDate: ISODate \| null, estimate: Estimate, sections: PlanSections}` |
+| `ChatMessage` | `{messageId, ordinal, role: 'learner' \| 'assistant', kind: 'text' \| 'proposal' \| 'refusal' \| 'redirect' \| 'fallback' \| 'quick_reply', text, source: 'learner' \| 'rules' \| 'model' \| 'fixed', createdAt: ISODateTime}` |
+| `PlanChat` | `{chatId, status: 'open' \| 'confirmed' \| 'abandoned', planId: string \| null, language: 'ar' \| 'en', messages: ChatMessage[], proposal: PlanProposal \| null, quickReplies: QuickReply[], modelTurnsLeft: number, assistant: {source: 'rules' \| 'model', model?: string}}` |
+
+`planId` is set for a revision conversation and `null` for a creation. `modelTurnsLeft` is the number of model turns the conversation may still use (default cap 6, §1.7). `assistant` says who wrote the latest assistant message; `model` is present only when `source = 'model'`. `ChatMessage.source` is `learner` for the learner's messages, `rules` for templated replies, `model` for the model's phrasing after the output guard, and `fixed` for the D26 message and the redirect line. The model's raw output is never stored or returned.
+
+#### 4.10.2 The turn pipeline and the model payload (R26–R28)
+
+Every learner turn (E32, and the interpretation of `goalText` in E31) runs the same server-side pipeline, implemented in `services/plan_chat.py`, `domain/plan_chat_policy.py` and `providers/openrouter.py` (Programming-guide):
+
+1. **Guard (pure, no model).** `classify_request(text, language)` returns `religious`, `out_of_scope` or `logistics` from a reviewed keyword and pattern list in Arabic and English. `religious` → the fixed D26 message verbatim as an assistant message of kind `refusal`; `out_of_scope` → the fixed redirect line as kind `redirect`. No model call and no record of the text in logs.
+2. **Quick reply (rules only).** The code maps to a parameter patch: `fewer_minutes` / `more_minutes` → the next option of 5, 10, 15; `smaller_scope` → the first half in plan order; `later_date` → +25 % days; `order_book` / `order_reverse` → `book` / `reverse` (Quran edition only); `paths_matn_only` / `paths_all` → the path sets; `confirm` → the client calls E34. The rules engine (the E15 function) recomputes the estimate; the server builds the proposal and the templated reply; `source = 'rules'`.
+3. **Free text (model turn).** When the caps of §1.7 allow and the model is eligible (D60 live-pricing check, as E28): one request with structured output. The server validates every returned parameter (`reverse` only for the Quran edition; minutes in 5, 10, 15; sections exist; paths available; date not in the past), recomputes the estimate by rules and builds the proposal. The model's `reply` is shown only after the output guard (the same classifier, at most 600 characters, numbers replaced by the server's values or the templated reply used). An `intent` of `religious` or `out_of_scope` gives the fixed messages; for `set_parameters` the validated parameters are applied and the estimate and every other number are recomputed by the rules engine, never taken from the model.
+4. **Fallback (rules).** A time-out (8 s), provider error, invalid JSON, ineligible model, exhausted free quota or any cap gives a templated reply that restates the proposal and offers the quick replies (`kind = 'fallback'`, shown once per conversation as a calm notice). It is never an HTTP error; `ai_usage` records the failure (`failed`, `timed_out` or `rules_fallback`).
+5. **Record.** Every model call writes one `ai_usage` row (`prompt_version = plan-chat-v1`, tokens, cost or `null`, status; no learner text, no account id); the learner message and the assistant message are stored in `plan_chat_messages`; the model's raw output is never stored.
+
+**What may reach the model (R27, NFR-17).** One temporary conversation id (random, not derived from the account, unrelated to `chatId`, never reused) and: the instructions of prompt `plan-chat-v1`; the catalog metadata of the chosen edition (title, author, sections with reference, word counts); the current parameters and estimate; the placement summary `{knownWords, passageCount}`; the last ten messages; the interface language. For a **revision** conversation also the anonymized learning record: per-passage mastery states with review outcomes and dates, error-prone parts, the daily-time history of the last 30 learning days and the last 50 attempts (question type, reference, correct, assisted, error kind, date), source-text references only. A schema test on the outbound payload rejects any field outside this list. **Never sent:** user id, username, IP address, device, registration date, session data, account identifiers of any kind. For a demo account the model receives synthetic context only (§4.10.3).
+
+**Required model output** (JSON schema, validated by the server): `{intent: 'set_parameters' | 'question' | 'confirm' | 'religious' | 'out_of_scope', parameters?: {targetScope?, paths?, order?, sessionMinutes?, preferredDate?}, reply: string}`.
+
+#### E31 · `POST /api/plan-chats`
+
+| | |
+|---|---|
+| Purpose, module | create a plan conversation (a creation, or a revision of an active or paused plan when `planId` is present) and its first assistant turn: a proposal built by the rules engine. M3 (R24, R25, R29), M8 (R26–R28); D75 |
+| Auth | S — Session; learner and demo accounts (D71); Chat write class |
+| Success | `201` `PlanChat` |
+| Data access | the learner's token under RLS on `plan_chats` and `plan_chat_messages` (own rows, `P-OWN`); catalog reads and the rules engine as in E15; at most one model call; `ai_usage` through `srv_record_ai_usage` (Database-schema §8.2 item 18), as E28. No `srv_*` function is needed for the two conversation tables (Database-schema §6.3) |
+
+**Request body**
+
+| Field | Type | Required | Rules |
+|---|---|---|---|
+| `editionId` | UUID | yes | shared rule (§4.5): a published, non-revoked, non-hidden edition (`edition_not_available`); with `planId`, the plan's edition (E17 cannot change it) |
+| `targetScope` | `TargetScope` | yes | shared rule (§4.5), at most 60 `sectionOrdinals`; with `planId`, the plan's scope (E17 cannot change it, §4.10.3) |
+| `paths` | `Path[]` | yes | non-empty, unique, a subset of the edition's `availablePaths`; otherwise `422` rule `path_not_available`. Quran edition: `["quran"]`; hadith edition: a subset of `matn`, `sanad`, `grade` (takhrij is not a path) |
+| `sessionMinutes` | 5, 10 or 15 | yes | shared rule |
+| `preferredDate` | `ISODate` | no | a learning date; a past date is `422` rule `date_invalid` (shared rule) |
+| `placementSessionId` | UUID | no | a `placement` session owned by the caller for the same edition; otherwise `404 not_found` [O-17] |
+| `goalText` | string | yes | at most 500 characters after trimming (`422` rule `goal_text_length`); the composed sentence of the start form or the learner's free edit of the «الهدف والموعد» box; never logged |
+| `language` | `ar` or `en` | yes | the interface language of the conversation |
+| `planId` | UUID | no | present → a **revision** conversation: the plan must be the caller's (`404`) and not completed (`409` reason `plan_not_active`); an active or paused plan may be revised (E17 semantics) |
+
+There is no `order` field: the Juz' Amma order is chosen in the conversation (default `book`; `reverse` only for the Quran edition, R29). Any property outside this table, including `userId`, `isDemo` and `mode`, is `422` rule `forbidden_field` (S-1).
+
+**Behaviour**
+1. The shared plan rules of §4.5 are checked. A demo account may call E31 (D71); its model context is synthetic only and its confirmation runs in `synthetic_demo` mode (E34).
+2. An existing `open` conversation of the account is marked `abandoned` and replaced by the new one (the partial unique index `one open chat per user` is the final arbiter). The replaced conversation's id is not part of the `PlanChat` shape (§4.10.3).
+3. The server builds the first proposal with the rules engine (the E15 function; plan order `book` for a creation). **No model call** is made when `goalText` equals the sentence composed from the form parameters and asks nothing; otherwise the guard classifies `goalText`, and, if it is `logistics` and the caps and eligibility allow, one model turn interprets it (pipeline step 3) before the rules proposal is built from the validated parameters. A model failure falls back to the rules proposal (pipeline step 4).
+4. The first assistant message has `kind = 'proposal'` with the proposal snapshot in its payload; `proposal.proposalVersion = 1`. For a revision conversation the plan's `currentVersion` at this moment is kept in the conversation as the snapshot used later by E34; the placement session (`placementSessionId`) is kept in the stored proposal, and a revision reuses the plan's original placement session for `knownWords`, as E17 does with `agreedEstimate` ([O-17] resolved).
+
+**Errors**
+
+| Status | Code | When |
+|---|---|---|
+| 401 | `unauthenticated` | no valid session |
+| 403 | `forbidden_origin` | `Origin` mismatch |
+| 404 | `not_found` | `planId` or `placementSessionId` unknown or not the caller's |
+| 409 | `version_conflict` | `details.reason` = `plan_not_active` (the plan is `completed`) |
+| 422 | `validation_error` | shared rules (`edition_not_available`, `scope_invalid`, `session_minutes_invalid`, `date_invalid`), `goal_text_length`, `path_not_available`, `forbidden_field` |
+| 429 | `throttled` | Chat write class (§1.8) |
+| 503, 500 | `unavailable`, `internal` | |
+
+**Side effects:** `plan_chats` (insert: `status = 'open'`, `language`, `plan_id`, `proposal`, `proposal_version = 1`, `model_turns` 0 or 1; the previous `open` conversation → `abandoned` with `closed_at`); `plan_chat_messages` (the first assistant message); `ai_usage` (one row when a model call was made). **Idempotency:** none; each call creates a conversation and abandons the previous open one, so the client does not retry automatically [O-20].
+
+```json
+{
+  "editionId": "11111111-1111-4111-8111-0000000000e1",
+  "targetScope": { "sectionOrdinals": [1, 2] },
+  "paths": ["quran"],
+  "sessionMinutes": 5,
+  "preferredDate": "2026-10-20",
+  "placementSessionId": "33333333-3333-4333-8333-000000000001",
+  "goalText": "Placeholder goal sentence composed from the form",
+  "language": "en"
+}
+```
+
+`201` (the sentence equals the composed one, so no model call: `source = "rules"`, `modelTurnsLeft` is the whole cap; all texts are placeholders)
+
+```json
+{
+  "chatId": "66666666-6666-4666-8666-000000000001",
+  "status": "open",
+  "planId": null,
+  "language": "en",
+  "messages": [
+    { "messageId": "77777777-7777-4777-8777-000000000001", "ordinal": 1, "role": "assistant", "kind": "proposal", "text": "Placeholder: assistant text presenting the proposal", "source": "rules", "createdAt": "2026-10-04T09:00:00Z" }
+  ],
+  "proposal": {
+    "proposalVersion": 1,
+    "editionId": "11111111-1111-4111-8111-0000000000e1",
+    "targetScope": { "sectionOrdinals": [1, 2] },
+    "paths": ["quran"],
+    "order": "book",
+    "sessionMinutes": 5,
+    "preferredDate": "2026-10-20",
+    "estimate": { "days": 16, "endDate": "2026-10-20", "newWordsPerDay": 12, "totalWords": 180, "knownWords": 20, "passageCount": 4, "sessionMinutes": 5, "scope": { "sectionOrdinals": [1, 2] }, "paths": ["quran"] },
+    "sections": {
+      "goal": "Placeholder: overall goal",
+      "totalTime": "Placeholder: overall time",
+      "dailyTime": "Placeholder: daily time",
+      "stages": "Placeholder: stages",
+      "reviews": "Placeholder: reviews",
+      "nextStep": "Placeholder: next step"
+    }
+  },
+  "quickReplies": [
+    { "code": "more_minutes", "labelAr": "«نص الخيار»", "labelEn": "Placeholder label" },
+    { "code": "smaller_scope", "labelAr": "«نص الخيار»", "labelEn": "Placeholder label" },
+    { "code": "order_reverse", "labelAr": "«نص الخيار»", "labelEn": "Placeholder label" },
+    { "code": "confirm", "labelAr": "«نص الخيار»", "labelEn": "Placeholder label" }
+  ],
+  "modelTurnsLeft": 6,
+  "assistant": { "source": "rules" }
+}
+```
+
+#### E32 · `POST /api/plan-chats/:id/messages`
+
+| | |
+|---|---|
+| Purpose, module | one learner turn (free text or a quick reply) and one assistant turn. M3 (R24, R25), M8 (R26–R28); D75 |
+| Auth | S — Session; learner and demo accounts; `:id` is a conversation UUID; Chat write class |
+| Success | `200` `PlanChat` with the learner message and the assistant reply appended |
+| Data access | as E31 (own rows under RLS; the rules engine; at most one model call; `ai_usage` through `srv_record_ai_usage`) |
+
+**Request body:** `{text?: string, quickReply?: QuickReplyCode}` — **exactly one** of the two (`422` rule `one_of_text_or_quick_reply`, for both or neither). `text` has at most 500 characters (`422` validation error, rule name proposed `text_length`); `quickReply` is one of the ten codes of §4.10.1 (any other value is a `422` validation error). Unknown properties are `422` rule `forbidden_field`.
+
+**Behaviour**
+1. The conversation must be the caller's (`404` otherwise) and `open`; a conversation that is `confirmed` or `abandoned` is `409 version_conflict` with `details.reason = "chat_closed"`.
+2. The turn pipeline of §4.10.2 runs: guard for `text`; the rules patch for a `quickReply`; otherwise the model turn when the caps and eligibility allow; otherwise the fallback. Reaching a model cap is **not** an error: the reply is a rules reply with `kind = 'fallback'` (§1.8).
+3. The learner message (kind `text`, or `quick_reply` with the code in its payload) and the assistant message are appended with the next ordinals. When parameters changed, `proposal` is replaced by the new proposal and `proposalVersion` is incremented; `model_turns` is incremented when a model call was made.
+4. The response is the whole `PlanChat`: messages, current proposal, the quick replies offered next, `modelTurnsLeft` and `assistant`.
+
+**Errors**
+
+| Status | Code | When |
+|---|---|---|
+| 401 | `unauthenticated` | no valid session |
+| 403 | `forbidden_origin` | `Origin` mismatch |
+| 404 | `not_found` | unknown conversation or not the caller's |
+| 409 | `version_conflict` | `details.reason` = `chat_closed` (the conversation is not `open`) |
+| 422 | `validation_error` | `one_of_text_or_quick_reply`, text length, unknown quick-reply code, `forbidden_field` |
+| 429 | `throttled` | the Chat write IP class only; the model caps never produce `429` |
+| 503, 500 | `unavailable`, `internal` | |
+
+**Side effects:** `plan_chat_messages` (two rows), `plan_chats` (`proposal`, `proposal_version`, `model_turns` when changed), `ai_usage` (one row per model call). **Idempotency:** none; each call appends a turn and may consume a model call, so the client does not retry automatically [O-20].
+
+```json
+{ "quickReply": "more_minutes" }
+```
+
+`200` (abridged: the first assistant message of E31 is omitted; placeholder texts)
+
+```json
+{
+  "chatId": "66666666-6666-4666-8666-000000000001",
+  "status": "open",
+  "planId": null,
+  "language": "en",
+  "messages": [
+    { "messageId": "77777777-7777-4777-8777-000000000002", "ordinal": 2, "role": "learner", "kind": "quick_reply", "text": "Placeholder label", "source": "learner", "createdAt": "2026-10-04T09:01:00Z" },
+    { "messageId": "77777777-7777-4777-8777-000000000003", "ordinal": 3, "role": "assistant", "kind": "proposal", "text": "Placeholder: assistant text presenting the new proposal", "source": "rules", "createdAt": "2026-10-04T09:01:00Z" }
+  ],
+  "proposal": {
+    "proposalVersion": 2,
+    "editionId": "11111111-1111-4111-8111-0000000000e1",
+    "targetScope": { "sectionOrdinals": [1, 2] },
+    "paths": ["quran"],
+    "order": "book",
+    "sessionMinutes": 10,
+    "preferredDate": "2026-10-20",
+    "estimate": { "days": 8, "endDate": "2026-10-12", "newWordsPerDay": 25, "totalWords": 180, "knownWords": 20, "passageCount": 4, "sessionMinutes": 10, "scope": { "sectionOrdinals": [1, 2] }, "paths": ["quran"] },
+    "sections": {
+      "goal": "Placeholder: overall goal",
+      "totalTime": "Placeholder: overall time",
+      "dailyTime": "Placeholder: daily time",
+      "stages": "Placeholder: stages",
+      "reviews": "Placeholder: reviews",
+      "nextStep": "Placeholder: next step"
+    }
+  },
+  "quickReplies": [
+    { "code": "fewer_minutes", "labelAr": "«نص الخيار»", "labelEn": "Placeholder label" },
+    { "code": "confirm", "labelAr": "«نص الخيار»", "labelEn": "Placeholder label" }
+  ],
+  "modelTurnsLeft": 6,
+  "assistant": { "source": "rules" }
+}
+```
+
+#### E33 · `GET /api/plan-chats/:id`
+
+| | |
+|---|---|
+| Purpose, module | reload and resume a conversation (the gap UG-01 closed for conversations). M3 (R24, R25); D75 |
+| Auth | S — Session; learner and demo accounts; `:id` is a conversation UUID; Session read class |
+| Success | `200` `PlanChat` |
+| Data access | select of the caller's own rows under RLS |
+
+**Request:** none; no query parameters (§1.13). Only the caller's own conversations are readable, whatever their status; an unknown id and another account's id are both `404 not_found` (§1.4).
+
+**Errors:** `401 unauthenticated`; `404 not_found`; `429 throttled` (Session read class); `503 unavailable`; `500 internal`. **Side effects:** none. **Idempotency:** safe and repeatable.
+
+`GET /api/plan-chats/66666666-6666-4666-8666-000000000001` → `200`, the same `PlanChat` shape as the E31 and E32 responses (abridged: earlier messages omitted; placeholder texts)
+
+```json
+{
+  "chatId": "66666666-6666-4666-8666-000000000001",
+  "status": "open",
+  "planId": null,
+  "language": "en",
+  "messages": [
+    { "messageId": "77777777-7777-4777-8777-000000000003", "ordinal": 3, "role": "assistant", "kind": "proposal", "text": "Placeholder: assistant text presenting the proposal", "source": "rules", "createdAt": "2026-10-04T09:01:00Z" }
+  ],
+  "proposal": {
+    "proposalVersion": 2,
+    "editionId": "11111111-1111-4111-8111-0000000000e1",
+    "targetScope": { "sectionOrdinals": [1, 2] },
+    "paths": ["quran"],
+    "order": "book",
+    "sessionMinutes": 10,
+    "preferredDate": "2026-10-20",
+    "estimate": { "days": 8, "endDate": "2026-10-12", "newWordsPerDay": 25, "totalWords": 180, "knownWords": 20, "passageCount": 4, "sessionMinutes": 10, "scope": { "sectionOrdinals": [1, 2] }, "paths": ["quran"] },
+    "sections": {
+      "goal": "Placeholder: overall goal",
+      "totalTime": "Placeholder: overall time",
+      "dailyTime": "Placeholder: daily time",
+      "stages": "Placeholder: stages",
+      "reviews": "Placeholder: reviews",
+      "nextStep": "Placeholder: next step"
+    }
+  },
+  "quickReplies": [
+    { "code": "confirm", "labelAr": "«نص الخيار»", "labelEn": "Placeholder label" }
+  ],
+  "modelTurnsLeft": 6,
+  "assistant": { "source": "rules" }
+}
+```
+
+#### E34 · `POST /api/plan-chats/:id/confirm`
+
+| | |
+|---|---|
+| Purpose, module | save the plan the learner confirmed (creation: E16 semantics; revision: E17 semantics) and close the conversation. M3 (R24, R25); D75 |
+| Auth | S — Session; learner and demo accounts; `:id` is a conversation UUID; Chat write class |
+| Success | `201` `Plan` (creation) or `200` `Plan` (revision) |
+| Data access | the learner's token under RLS: the E16 commit function (`app_create_plan`) or the E17 commit function (`app_revise_plan`) of Database-schema §8.3, then the update of `plan_chats`; no model call |
+
+**Request body:** `{proposalVersion: integer}` — must equal the conversation's current `proposalVersion`. Unknown properties are `422` rule `forbidden_field`.
+
+**Behaviour**
+1. The conversation must be the caller's (`404`) and `open` (otherwise `409` reason `chat_closed`).
+2. A `proposalVersion` that is not the current one is `409 version_conflict` with `details.reason = "proposal_stale"` and the current proposal in `details.proposal`: confirming saves exactly the proposal the learner saw, or nothing (R24).
+3. **Creation** (`planId` null): the server calls the E16 function with the proposal's fields and `confirmedEstimate = proposal.estimate`; the account's previous active plan becomes `paused` in the same transaction; a race on the one-active-plan rule is `409` reason `active_plan_conflict`. Response `201` `Plan`.
+4. **Revision** (`planId` set): the server calls the E17 function with `expectedVersion` taken from the conversation's plan snapshot (the plan's `currentVersion` when the conversation was created); a plan that moved since is `409` reason `plan_version` (`details.currentVersion`), a plan that became `completed` is `409` reason `plan_not_active`. The changes take effect from the next learning day (D57). Response `200` `Plan` with the new `currentVersion`.
+5. On success the conversation becomes `confirmed` (`closed_at` set).
+6. **Demo accounts:** creation runs in `synthetic_demo` mode exactly as E28 (no real data); E16's `403 forbidden` for demo accounts does not apply to E34. E28 remains for the scripted scenarios of option C.
+7. `Plan.planner.source` is `rules` for a learner (E16 semantics); the demo path reports `rules` or the model value (§4.10.3).
+
+**Errors**
+
+| Status | Code | When |
+|---|---|---|
+| 401 | `unauthenticated` | no valid session |
+| 403 | `forbidden_origin` | `Origin` mismatch |
+| 404 | `not_found` | unknown conversation or not the caller's |
+| 409 | `version_conflict` | `details.reason` = `proposal_stale` (with `details.proposal`), `chat_closed`, `active_plan_conflict` (creation race), `plan_version` (revision, with `details.currentVersion`), `plan_not_active`, `estimate_changed` (the recomputation of the E16/E17 check differs, for instance after a change of learning day [O-17]) |
+| 422 | `validation_error` | missing or non-integer `proposalVersion`, `forbidden_field` |
+| 429 | `throttled` | Chat write class (§1.8) |
+| 503, 500 | `unavailable`, `internal` | |
+
+**Side effects:** creation: `master_plans`, `plan_versions` (version 1), `plan_phases`, the previous active plan → `paused` (as E16); revision: `plan_versions` (insert), `master_plans`, `plan_phases` (future phases) (as E17); then `plan_chats` (`status = 'confirmed'`, `closed_at`). **Idempotency/concurrency:** guarded by the conversation status and `proposalVersion`; the partial unique index on `master_plans(user_id) where status = 'active'` and the optimistic `expectedVersion` are the final arbiters; the client does not retry automatically [O-20].
+
+```json
+{ "proposalVersion": 2 }
+```
+
+`201` (a creation; the plan values are those of the confirmed proposal)
+
+```json
+{
+  "planId": "44444444-4444-4444-8444-000000000003",
+  "editionId": "11111111-1111-4111-8111-0000000000e1",
+  "titleAr": "«عنوان الكتاب»",
+  "titleEn": "Book title placeholder",
+  "targetScope": { "sectionOrdinals": [1, 2] },
+  "paths": ["quran"],
+  "order": "book",
+  "sessionMinutes": 10,
+  "preferredDate": "2026-10-20",
+  "agreedEstimate": { "days": 8, "endDate": "2026-10-12", "newWordsPerDay": 25, "totalWords": 180, "knownWords": 20, "passageCount": 4, "sessionMinutes": 10, "scope": { "sectionOrdinals": [1, 2] }, "paths": ["quran"] },
+  "currentVersion": 1,
+  "status": "active",
+  "createdAt": "2026-10-04T09:05:00Z",
+  "planner": { "source": "rules" }
+}
+```
+
+`409` (the learner confirmed an older proposal)
+
+```json
+{
+  "error": {
+    "code": "version_conflict",
+    "message": "The proposal changed; confirm the current one.",
+    "details": {
+      "reason": "proposal_stale",
+      "proposal": {
+        "proposalVersion": 3,
+        "editionId": "11111111-1111-4111-8111-0000000000e1",
+        "targetScope": { "sectionOrdinals": [1, 2] },
+        "paths": ["quran"],
+        "order": "book",
+        "sessionMinutes": 15,
+        "preferredDate": "2026-10-20",
+        "estimate": { "days": 5, "endDate": "2026-10-09", "newWordsPerDay": 40, "totalWords": 180, "knownWords": 20, "passageCount": 4, "sessionMinutes": 15, "scope": { "sectionOrdinals": [1, 2] }, "paths": ["quran"] },
+        "sections": {
+          "goal": "Placeholder: overall goal",
+          "totalTime": "Placeholder: overall time",
+          "dailyTime": "Placeholder: daily time",
+          "stages": "Placeholder: stages",
+          "reviews": "Placeholder: reviews",
+          "nextStep": "Placeholder: next step"
+        }
+      }
+    }
+  }
+}
+```
+
+#### 4.10.3 Details the source does not fix (for implementation design, B13)
+
+Plan-conversation v1.1 is approved as written (A1); these points are not decided by it, and this section does not decide them by assumption. Each is returned to the coordinator.
+
+1. **Revision conversations and scope.** E17 cannot change the edition or the scope (§4.5), while the source lists `targetScope` among the model's parameters and a `smaller_scope` quick reply. How E31 handles an `editionId` or `targetScope` that differs from the plan's, and what `smaller_scope` does in a revision conversation, are not stated.
+2. **`replacedChatId`.** The source names `details.replacedChatId` for the abandoned conversation, but the `PlanChat` DTO (§2.2 of the source) has no such field and a `201` carries no `details`. The shape is therefore not returned in this draft.
+3. **Rule names.** The source names `goal_text_length`, `path_not_available` and `one_of_text_or_quick_reply` (used above), while E15–E17 use `paths_invalid` for the same path condition. `plan_not_active` and `plan_version` are `version_conflict` reasons here (§1.5); `text_length` for an over-long `text` is proposed.
+4. **Closed conversations in E34, and `confirm` in E32.** The source specifies `chat_closed` for E32 only; it is applied to E34 by analogy, so a repeat of a successful confirm is `409`, not idempotent. The source says the `confirm` quick reply is handled by the client calling E34; what an E32 call with `quickReply = "confirm"` returns is not stated (a rules turn that restates the proposal is assumed). The `no_date` code is not in the source's list of parameter patches; it is assumed to clear the preferred date.
+5. **First learner message and a guarded `goalText`.** The source does not say whether `goalText` is stored as the first learner message in E31, nor what E31 returns when `goalText` itself is classified `religious` or `out_of_scope` (a rules proposal from the form parameters plus the fixed message is assumed).
+6. **Demo accounts.** Plan-conversation §1.3 says the model receives synthetic context only for a demo account, yet a demo user types text; whether that text reaches the model is not stated. The source says the demo `planner.source` reports `rules` or `model`, while the contract's `Plan.planner.source` is `rules` or `teaching_agent`; this draft keeps the contract values.
+7. **Atomicity and internal fields.** Whether closing the conversation shares the transaction of the plan commit is fixed at B13. The stored proposal keeps `placementSessionId` although the `PlanProposal` DTO has no such field (it is an internal field).
+8. **Purge of abandoned conversations.** The source allows opportunistic purging of an abandoned conversation's messages; no `DELETE` path exists in the grant posture (Database-schema OPEN-18).
 
 ## 5. Operator CLI interface (no HTTP)
 
@@ -1899,6 +2291,8 @@ A GitHub Actions scheduled workflow in the public repository keeps the free serv
 
 ### 7.1 Operations to PRD v14 modules, requirements and decisions
 
+Rows E31–E34 (D75) are Approved — D75, A1 (owner, 4 October 2026); their requirement ids R24–R29 and NFR-15 to NFR-18 are those of Plan-conversation v1.1 §1 (the PRD v15 amendment).
+
 | ID | Operation | PRD module | Requirement ids | NFR | Decisions |
 |---|---|---|---|---|---|
 | E01 | `GET /api/health` | M7 | R23 | NFR-01, NFR-02, NFR-13 | D48, D70 |
@@ -1931,6 +2325,10 @@ A GitHub Actions scheduled workflow in the public repository keeps the free serv
 | E28 | `POST /api/demo/plans` | M9, M8 | R09, R15 | NFR-05 | D17, D29, D38, D39, D60 |
 | E29 | `GET /api/demo/simulations` | M9 | none (D29) | — | D29 |
 | E30 | `POST /api/plans/:id/resume` | M3 | R14 | NFR-03 | none; plan lifecycle A-08 (contract v1.4, D74) |
+| E31 | `POST /api/plan-chats` | M3, M8 | R24, R25, R26, R27, R28, R29 | NFR-15, NFR-16, NFR-17, NFR-18 | D17 (narrowed), D26, D34, D60, D71, D72, D75 |
+| E32 | `POST /api/plan-chats/:id/messages` | M3, M8 | R24, R26, R27, R28 | NFR-15, NFR-16, NFR-17, NFR-18 | D17 (narrowed), D26, D38, D51, D60, D75 |
+| E33 | `GET /api/plan-chats/:id` | M3 | R24, R25 | NFR-03 | D75 |
+| E34 | `POST /api/plan-chats/:id/confirm` | M3, M8 | R24, R25, R28 | NFR-03, NFR-16 | D34, D57, D60, D71, D75 |
 | CLI | `acquire` … `delete-unused-draft` | M11 | R13, R21 (refs R03, R08) | NFR-11 | D37, D43, D44, D65, D68, D69, D70, D71 |
 | Job | keep-awake workflow | cross-cutting (M7) | R23 | NFR-01, NFR-02 | D48, D70, D72 |
 
@@ -1940,12 +2338,12 @@ A GitHub Actions scheduled workflow in the public repository keeps the free serv
 |---|---|
 | M1 Account and privacy | E03–E10, E13, E26 |
 | M2 Catalog and sources | E14 |
-| M3 Goal, placement, plan | E15–E17, E30, E20 (`placement`) |
+| M3 Goal, placement, plan | E15–E17, E30, E20 (`placement`), E31–E34 (D75) |
 | M4 Daily session | E18, E20, E22 |
 | M5 Games and hint | E20, E21 |
 | M6 Progress and memorization | E18, E19, E21, E22 |
 | M7 Offline and PWA | E01, E02, E10, E11, E21, E23–E25 |
-| M8 Teaching Agent and rules engine | E28 (rules engine inside E16, E17, E20) |
+| M8 Teaching Agent and rules engine | E28, E31, E32, E34 (D75; rules engine inside E16, E17, E20) |
 | M9 Committee demo | E26–E29 |
 | M10 Settings | E09, E11–E13 |
 | M11 Content workflow | the CLI commands of §5 |
@@ -1953,7 +2351,7 @@ A GitHub Actions scheduled workflow in the public repository keeps the free serv
 
 ## 8. Differences between sources and open points
 
-Summary: 30 HTTP operations (E01–E30) are specified (29 → 30: E30 `POST /api/plans/:id/resume` is a contract v1.4 amendment, D74); 15 differences between sources are recorded (§8.1): 11 resolved (C-01 and C-08 earlier, and C-02..C-07, C-11, C-12, C-15 on 4 October 2026) and 4 already applied (C-09, C-10, C-13, C-14); 30 open points are listed (§8.2): 26 decided by the architect (A-xx) and approved by D74 (4 of these were decided as defaults that the owner confirmed: O-16, O-17 mushaf order, O-19, O-29) and 4 still open with a deferral target (O-02, O-06, O-08, O-26). The 26 decided points are approved by D74 and the 4 open points keep their deferral targets. The rule applied to a difference is: **the contract plus the D-decisions win**.
+Summary: 34 HTTP operations (E01–E34) are specified (29 → 30: E30 `POST /api/plans/:id/resume` is a contract v1.4 amendment, D74; 30 → 34: E31–E34, the plan conversation of version 1.2, Approved — D75, A1 (owner, 4 October 2026)); 16 differences between sources are recorded (§8.1): 11 resolved (C-01 and C-08 earlier, and C-02..C-07, C-11, C-12, C-15 on 4 October 2026) and 4 already applied (C-09, C-10, C-13, C-14), plus C-16 resolved by D75; 32 open points are listed (§8.2): 26 decided by the architect (A-xx) and approved by D74 (4 of these were decided as defaults that the owner confirmed: O-16, O-17 mushaf order, O-19, O-29) and 4 still open with a deferral target (O-02, O-06, O-08, O-26), plus O-31 (open, deferred to provisioning) and O-32 (decided, D75) added in version 1.2. The 26 decided points are approved by D74 and the 4 open points keep their deferral targets. The rule applied to a difference is: **the contract plus the D-decisions win**.
 
 ### 8.1 Differences between sources
 
@@ -1974,6 +2372,7 @@ Summary: 30 HTTP operations (E01–E30) are specified (29 → 30: E30 `POST /api
 | C-13 | **Access levels.** The coordinator's brief lists four levels (Public, Session, Demo session, Operator CLI). PRD v14 lets a visitor register, log in, recover and create a demo account, which are neither read-only public metadata nor session operations | this specification adds level **A — Anonymous entry** (E03, E04, E06, E07, E26) |
 | C-14 | **Conditional feedback endpoints** appear in Architecture-and-data and Programming-guide §6 but not in contract §7; they depend on D43–D45 | not specified here (§0) |
 | C-15 | **Demo plan creation.** PRD v14 roles matrix: a demo account creates plans only through `POST /demo/plans`. Contract §7 states no role restriction for `POST /plans` | **Resolved (4 Oct 2026):** E16 denies demo accounts (`403 forbidden`; the PRD v14 roles matrix wins); E15 is read-only and stays allowed for demo accounts (closes O-19(a)) |
+| C-16 | **Free-text goal and model use for learners.** v1.1 (§4.5, §1.12) says that no plan endpoint has a free-text goal and that no learner data reaches a model (D17). D75 adds the plan conversation, where the learner's goal text and messages, and for a revision the anonymized learning record, reach an external free model under a temporary conversation id | **Resolved (D75, 4 October 2026; Approved — D75, A1 (owner, 4 October 2026)):** D17 is narrowed, not dropped. E31–E34 (§4.10) carry free text; E15–E17 are unchanged (no free text, no model); account identifiers never reach the model; §1.12 and the notes at §4.5, E17, §4.9 and E28 are amended accordingly |
 
 ### 8.2 Open points
 
@@ -1981,7 +2380,7 @@ Summary: 30 HTTP operations (E01–E30) are specified (29 → 30: E30 `POST /api
 
 | ID | Open point | Where | Proposal or decision needed |
 |---|---|---|---|
-| O-01 | **Request size limits.** No maximum body size or field cap is approved; only `events` ≤ 100 per request, username 3–24 characters and the password bounds are | §1.7, E15–E17, E21, E23 | **Decided (A-12, 4 Oct 2026; approved by D74):** one global body cap of 64 KiB, answered `413 payload_too_large`; `downloadTargetRefs` ≤ 60, `passageIds` ≤ 60, `sectionOrdinals` ≤ 40. Configuration defaults, not approved numbers. |
+| O-01 | **Request size limits.** No maximum body size or field cap is approved; only `events` ≤ 100 per request, username 3–24 characters and the password bounds are | §1.7, E15–E17, E21, E23 | **Decided (A-12, 4 Oct 2026; approved by D74):** one global body cap of 64 KiB, answered `413 payload_too_large`; `downloadTargetRefs` ≤ 60, `passageIds` ≤ 60, `sectionOrdinals` ≤ 40. Configuration defaults, not approved numbers. **v1.2 (coordinator decision, 4 October 2026):** `sectionOrdinals` raised to ≤ 60, because the Forty has 41–42 sections (§1.7, §4.5); still a configuration default under A-12. |
 | O-02 | **Timeouts.** No server-side request timeout is set. The Vercel rewrite timeout is an unverified risk. Long calls: E28 (agent timeout 8 s) and E23 (snapshot build) | §1.11, E28 | **Open (deferred to B0):** verify timeouts during the build; keep wake requests short. |
 | O-03 | **Rate limits** other than the auth throttle: public reads, E02 readiness, anonymous entry (E03, E26), session reads and writes, the demo usage and budget limits (D29) | §1.8 | **Decided (A-12, 4 Oct 2026; approved by D74):** per client IP per minute: public reads 60, readiness 6, anonymous entry 10, session reads 120, session writes 60; `Retry-After` on every `429`. Demo limits: see O-19. |
 | O-04 | **Auth throttle details.** The progressive-delay values after 5 failures; whether a success resets a counter; whether failed re-authentication on E07, E08, E09, E13, and registrations, count; the window granularity (Database-schema OPEN-05 proposes one-minute buckets) | §1.8, E03–E09, E13 | **Decided (A-03, 4 Oct 2026; approved by D74):** one-minute buckets, so "5 failures in 15 minutes" is a sliding sum; after the 5th failure the delay is 1, 2, 4, 8 s, then 10 s per failure (cap 60 s); a successful login clears the username key; failed password checks on E08, E09 and E13 count under the same username key; registrations do not count; purge is opportunistic and bounded (`DELETE … LIMIT 100`) inside `srv_throttle_record` for rows older than 24 hours, with no scheduled job. |
@@ -1997,7 +2396,7 @@ Summary: 30 HTTP operations (E01–E30) are specified (29 → 30: E30 `POST /api
 | O-14 | **Session behaviour.** (a) E10 tolerates a missing or invalid session (Proposed, so a pending offline logout can finish). (b) E09 changes the password with the user's own Supabase token, because `service_role` is limited to create user, reset by recovery and delete account (inferred). (c) The cookie is cleared on `401 unauthenticated` (Proposed) | E09, E10, §1.3 | **Decided (A-12, 4 Oct 2026; approved by D74):** E10 tolerates a missing session; E09 uses the user's own Supabase token; the cookie is cleared on `401 unauthenticated`. |
 | O-15 | **Catalog count semantics.** The catalog views give per-path counts (Database-schema §7); the DTO's `totalWords`, `CatalogSection.wordCount` and `passageCount` must say which paths they sum (all available paths, or the default path; for a hadith, `matn` only or `matn`, `sanad` and `grade` together) | E14 | **Decided (A-12, 4 Oct 2026; approved by D74):** catalog counts (`totalWords`, `wordCount`, `passageCount`) sum the edition's `defaultPaths`. |
 | O-16 | **Plan lifecycle gaps.** No operation resumes a paused plan; nothing says how a plan becomes `completed`; whether a paused or completed plan can be revised (E17 proposes `409 plan_not_active`) | E16, E17 | **Decided (A-08, 4 Oct 2026; approved by D74):** decided as default, confirmed by D74 (Q5). One active plan per account; E16 pauses the previous active plan; new E30 `POST /api/plans/{id}/resume` sets a paused plan active and pauses the current one, `409 plan_not_active` for a completed plan; a plan becomes `completed` automatically when every passage in the version scope is `confirmed`, and maintenance reviews (D66) stay available from a completed plan through the daily session (reviews only, no new passages); revision of a paused plan is allowed (it stays paused), revision of a completed plan is `409 plan_not_active`. Contract v1.4 amendment (new endpoint). |
-| O-17 | **Estimate and placement details.** Whether a past `preferredDate` is rejected; the alternatives when they do not apply (already 15 minutes; a one-section scope cannot be halved); whether a placement session must be completed before it is used; which paths a hadith placement samples (E20 has no `paths`; Proposed: the edition's `defaultPaths`); E15 has no `order`, so "first half in plan order" cannot follow `reverse` (Proposed: an optional `order` in E15); the order of passages inside a surah under `reverse` is mushaf order in contract §2.3, a design reading confirmed by the owner at architecture approval (Q4, D74); tolerance of `confirmedEstimate.endDate` when the day changes between E15 and E16; where placement-known passages are stored with the plan | E15, E16, E20 | **Decided (A-12, 4 Oct 2026; approved by D74):** a past `preferredDate` is `422`; E15 gets an optional `order`; a hadith placement samples the edition's `defaultPaths`. Inside a surah under `reverse`, passages keep mushaf order: decided as default, confirmed by D74 (Q4). Sub-points without a proposal (tolerance of `confirmedEstimate.endDate` across a day change, storage of placement-known passages, alternatives that do not apply) stay for implementation design. |
+| O-17 | **Estimate and placement details.** Whether a past `preferredDate` is rejected; the alternatives when they do not apply (already 15 minutes; a one-section scope cannot be halved); whether a placement session must be completed before it is used; which paths a hadith placement samples (E20 has no `paths`; Proposed: the edition's `defaultPaths`); E15 has no `order`, so "first half in plan order" cannot follow `reverse` (Proposed: an optional `order` in E15); the order of passages inside a surah under `reverse` is mushaf order in contract §2.3, a design reading confirmed by the owner at architecture approval (Q4, D74); tolerance of `confirmedEstimate.endDate` when the day changes between E15 and E16; where placement-known passages are stored with the plan | E15, E16, E20 | **Decided (A-12, 4 Oct 2026; approved by D74):** a past `preferredDate` is `422`; E15 gets an optional `order`; a hadith placement samples the edition's `defaultPaths`. Inside a surah under `reverse`, passages keep mushaf order: decided as default, confirmed by D74 (Q4). Sub-points without a proposal (tolerance of `confirmedEstimate.endDate` across a day change, storage of placement-known passages, alternatives that do not apply) stay for implementation design. **v1.2 (D75; Approved — D75, A1 (owner, 4 October 2026)):** placement persistence for revisions is resolved in §4.10: the stored proposal of a plan conversation keeps `placementSessionId`, and a revision conversation reuses the plan's original placement session for `knownWords`, as E17 does with `agreedEstimate`. |
 | O-18 | **Revision confirmation.** E17 has no `confirmedEstimate`, although UX says an estimate change is shown after the learner confirms; whether `Plan.agreedEstimate` is replaced on revision; whether a demo account's revision calls the Teaching Agent (AI-agent.md lists "plan edit" as a trigger) | E17 | **Decided (A-12, 4 Oct 2026; approved by D74):** E17 gets an optional `confirmedEstimate` (checked as in E16) that replaces `agreedEstimate`; demo revisions do not call the Teaching Agent (contract v1.4 amendment, item 4). |
 | O-19 | **Demo specifics.** Whether demo accounts may call E15 (PRD: creation only through E28); the fixture schemas (scenario parameters: paths, minutes, order; the simulation element shape and its label); handling of a scenario whose edition is not published; the numbers of the usage and budget limits (D29) | E15, E16, E27–E29 | **Decided (A-09, 4 Oct 2026; approved by D74):** decided as default, confirmed by D74 (Q6). At most 5 demo accounts per client IP per day; at most 10 `POST /demo/plans` per demo account per day; demo Teaching-Agent calls draw on a configured daily free budget and fall back to the rules engine when it is exhausted (D54/D60). Values are configuration, not code. E15 stays allowed for demo accounts (C-15). Fixture schemas and the handling of an unpublished scenario edition stay with the fixtures task. |
 | O-20 | **Session creation.** The "first session" text [C-03]; atomic get-or-create of the daily session: Database-schema OPEN-08 sets no uniqueness rule for open daily sessions (offline prepared sessions may coexist), so atomicity must come from the commit function (a lock or a conditional insert; Database-schema §8.3); `200` versus `201` when an existing daily session is returned (Proposed `200`); E03, E20 (`game`, `placement`) and E28 create again when repeated | E16, E20, E28 | **Decided (A-01, 4 Oct 2026; approved by D74):** learner commits run as `SECURITY INVOKER` functions in `public` with prefix `app_` (`app_create_plan`, `app_revise_plan`, `app_open_session`, `app_apply_events`, `app_complete_session`, `app_create_offline_snapshot`), `set search_path = ''`, `EXECUTE` granted to `authenticated` only, run with the learner's token; signatures are fixed at implementation (B2). Daily get-or-create is atomic through a conditional insert guarded by the partial unique index `(user_id, learning_date) WHERE kind = 'daily' AND status IN ('prepared','open') AND offline_snapshot_id IS NULL`; an existing daily session answers `200`, a new one `201`. |
@@ -2011,6 +2410,8 @@ Summary: 30 HTTP operations (E01–E30) are specified (29 → 30: E30 `POST /api
 | O-28 | **In-process execution.** `job_execution_mode = in_process` (D48) has no trigger in this specification: no public HTTP mutation exists and the Render free plan has no shell or Cron. If it is kept, its trigger must be defined without adding a public mutation | §5.4 | **Decided (A-11, 4 Oct 2026; approved by D74):** `job_execution_mode = in_process` is removed from the MVP scope; the content workflow runs through the operator CLI only; the configuration value is reserved and not documented as a feature. |
 | O-29 | **Keep-awake details.** The exact cron expression (`*/14` fires at minutes 0, 14, 28, 42 and 56, a 4-minute gap each hour); an interval inside 10–14 minutes for margin against the 15-minute idle stop; how the 15 or 22 October end date and the public base URL are stored (Proposed: non-secret repository variables); the weekly day and time and the start of the weekly checks; the retry policy; Architecture-and-data's list of shared root paths does not yet include `.github/workflows/keep-warm.yml` (named in Programming-guide); separate authorization for GitHub Actions | §6 | **Decided (A-06, 4 Oct 2026; approved by D74):** decided as default, confirmed by D74 (Q3). Liveness cron `4-59/10 * * * *`; readiness cron `23 2 * * 1,4` (Monday and Thursday 02:23 UTC = 06:23 Dubai) twice-weekly confirmed by D74 (Q3); window dates and base URL are non-secret repository variables (`KEEP_WARM_START`, `KEEP_WARM_END`, `READY_CHECK_END`, `PUBLIC_BASE_URL`); target = the frontend origin through the Vercel rewrite, with the Render URL as the documented fallback; retries 1, 2, 4, 8 s then 10 s steps up to 90 s; `.github/workflows/keep-warm.yml` is added to Architecture-and-data's shared root paths (Planned). |
 | O-30 | **Superseded editions for pinned plans.** Contract §3.1 says learners read editions that are "published and not revoked"; Database-schema reads `status = 'published'` and the current `bank_version` only (OPEN-03). Irrelevant while the MVP has one bank version; S-2 follows the contract wording | S-2, E20, E21 | **Decided (A-02, 4 Oct 2026; approved by D74):** the learner read predicate for content is `book_editions.status IN ('published','superseded')` (= contract §3.1 "published and not revoked"); learners read the `bank_version` pinned by their plan version. The MVP ships one bank version and no supersession. |
+| O-31 | **OpenRouter free-tier limits (D75, A4).** The caps of §1.7 and §1.8 (50 model requests per day and 20 per minute for the whole deployment, shared with E28; 10 per account per day; 6 model turns per conversation) are the coordinator's reading of OpenRouter's published limits for free models without purchased credits; openrouter.ai is unreachable from the build container, so the figures are unverified | §1.7, §1.8, §4.10 | **Open (deferred to provisioning, B13):** verify the current published limits and the free-eligibility rule (D60) when the key is provisioned, and correct the configuration defaults if they differ. The numbers are configuration, not promises (A4, Approved — D75, A1 (owner, 4 October 2026)). |
+| O-32 | **`currentVersion` on `PlanProgress` (UG-04).** A client that opens an E20 `daily` maintenance session on a `completed` plan needs the plan's version for `expectedPlanVersion` (UI-design.md UG-04), and E19's `PlanProgress` did not carry it | E19, E20, S-4 | **Decided (D75 package; Approved — D75, A1 (owner, 4 October 2026)):** `PlanProgress` gets `currentVersion: number`, the plan's `currentVersion` (contract v1.5 §7); an additive, non-breaking field (§1.1). |
 
 ### 8.3 Implementation-contract v1.4 amendments (applied, D74)
 
@@ -2025,3 +2426,15 @@ These nine items are amendments to [Implementation-contract.md](Implementation-c
 7. Enumerations of O-21.
 8. `SessionEvent` and `EventsResponse` confirmed as the only names (C-05/C-06).
 9. §3.2 grant rule: one exception — `srv_redact_revoked_content` is executable by `service_role` only (the CLI's publishing role), not by `qatra_server`; and `srv_throttle_record` takes a `p_outcome` argument (failure or success, A-03).
+
+### 8.4 Implementation-contract v1.5 amendments (D75; Approved — D75, A1 (owner, 4 October 2026))
+
+Applied on 4 October 2026 after the owner's approval A1; the contract is now v1.5 and its §14 keeps the change log from v1.4.
+
+1. E31–E34 and their DTOs (`QuickReplyCode`, `QuickReply`, `PlanSections`, `PlanProposal`, `ChatMessage`, `PlanChat`).
+2. `PlanProgress.currentVersion` (O-32, UG-04).
+3. Optional `Today.openPlanChatId`.
+4. The conversation rules (contract §5), the configuration names (§8) and the ownership of the B13 files and migrations (§10); `OPENROUTER_API_KEY` is required in production for this feature.
+5. The `version_conflict` reasons `proposal_stale` and `chat_closed`.
+
+`Path` keeps its four values: A2 (takhrij as a fourth path) was declined by the owner.

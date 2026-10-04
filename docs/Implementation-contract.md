@@ -1,8 +1,8 @@
-# Qatra — Implementation Contract v1.4
+# Qatra — Implementation Contract v1.5
 
-Version 1.4 · 2026-10-04 · Asia/Dubai · Status: **Approved — D74, 4 October 2026 (owner: «approve best practice», «q7 approved»); includes the nine v1.4 amendments of §13; implementation beyond the approved gates is not authorized.** Owner: root coordinator.
+Version 1.5 · 2026-10-04 · Asia/Dubai · Status: **Approved — D74, 4 October 2026 (owner: «approve best practice», «q7 approved») for v1.4, including the nine v1.4 amendments of §13; Approved — D75, A1 (owner, 4 October 2026: «A1 approved , best practice») for the v1.5 amendments of §14 (the plan conversation); implementation beyond the approved gates is not authorized.** Owner: root coordinator.
 
-This file is the single source of truth for **cross-package interfaces**: content bundle, database tables, API DTOs, mastery/session/planning rules, auth flow and configuration. It fills the remaining Needs Review/Needs Input details of the approved package (D01–D74) with concrete, implementable choices. Where it is silent, follow [Architecture-and-data.md](Architecture-and-data.md), [Programming-guide.md](Programming-guide.md) and the owning policy document. The physical database schema (ERD, tables, keys, roles, grants, migration order) is specified in [Database-schema.md](Database-schema.md) (v1.1) and the full REST API (per-endpoint authentication, authorization, schemas, limits, errors) in [API-spec.md](API-spec.md) (v1.1); both are approved by D74. They refine the interfaces fixed here, and a contradiction between them and this file is returned to the coordinator. A worker that finds a contradiction or gap returns it to the coordinator instead of inventing a rule. Changes to this file are made by the coordinator only.
+This file is the single source of truth for **cross-package interfaces**: content bundle, database tables, API DTOs, mastery/session/planning rules, auth flow and configuration. It fills the remaining Needs Review/Needs Input details of the approved package (D01–D74) with concrete, implementable choices. Where it is silent, follow [Architecture-and-data.md](Architecture-and-data.md), [Programming-guide.md](Programming-guide.md) and the owning policy document. The physical database schema (ERD, tables, keys, roles, grants, migration order) is specified in [Database-schema.md](Database-schema.md) (v1.2) and the full REST API (per-endpoint authentication, authorization, schemas, limits, errors) in [API-spec.md](API-spec.md) (v1.2); their v1.1 content is approved by D74 and their D75 additions by D75 (A1). They refine the interfaces fixed here, and a contradiction between them and this file is returned to the coordinator. A worker that finds a contradiction or gap returns it to the coordinator instead of inventing a rule. Changes to this file are made by the coordinator only.
 
 Non-negotiables that still apply: original religious text is stored and shown verbatim and complete (D03/D20/D25); no generated religious content, explanations or LLM-written questions/answers/distractors (D20/D22/D31); free plans and free AI only, rules engine always available (D48/D54/D60); no secrets, real personal data or source texts committed to git; Arabic RTL first with English LTR UI (UX.md, Design-system.md; English religious terms per D28).
 
@@ -16,7 +16,7 @@ qatra-app/
     scripts/content_tools.py
     tests/             incl. tests/data/synthetic_bundle.json (committed synthetic test bundle, §2.6)
     .content-build/    GITIGNORED: generated bundles/SQL containing source text
-  supabase/migrations/ 0001_content.sql … 0005_rls_functions.sql
+  supabase/migrations/ 0001_content.sql … 0005_rls_functions.sql, 0006_plan_chats.sql (D75), 0007_feedback.sql (conditional, D45; renumbered from 0006)
   fixtures/            synthetic demo scenarios/simulations only (demo_scenarios.json, demo_simulations.json)
 ```
 
@@ -117,6 +117,10 @@ Tables per Architecture "المخطط المنطقي: المحتوى المشت�
 - Private access functions live in `public` as `srv_*` `SECURITY DEFINER` functions with `set search_path = ''`; `revoke execute … from public, anon, authenticated, service_role; grant execute …` only to the separate limited database role whose credential is the `QATRA_SERVER_DB` secret on Render (D34, D69; the functions' uses are listed in Architecture-and-data.md, «RLS والحدود»). One exception (v1.4, A-04): `srv_redact_revoked_content` (Database-schema §8.2 item 19) is executable by `service_role` only (the CLI's publishing role, used by `withdraw`), not by `qatra_server`. `srv_throttle_record(p_key_hashes bytea[], p_outcome text)` takes `p_outcome` (`failure` or `success`, A-03). Apart from that function, `service_role` never runs these functions and is not used for learner requests: it is limited to the Supabase Auth Admin API (create user at registration, reset password by recovery, delete account) and content publishing, including content-workflow writes (D34, D37).
 - Learner tables: RLS `user_id = (select auth.uid())` with parent-ownership checks via composite foreign keys `(id, user_id)`.
 
+### 3.3 `0006_plan_chats.sql` (backend worker; D75, Approved — D75, A1 (owner, 4 October 2026))
+
+Two personal tables for the plan conversation, specified in [Database-schema.md](Database-schema.md) §6.3: `plan_chats(id, user_id, plan_id null, status open|confirmed|abandoned, language ar|en, proposal jsonb null, proposal_version, model_turns, created_at, updated_at, closed_at null)` with a partial unique index so an account has at most one `open` conversation, and `plan_chat_messages(id, chat_id, user_id, ordinal, role learner|assistant, kind text|proposal|refusal|redirect|fallback|quick_reply, text ≤ 2 000 characters, source learner|rules|model|fixed, payload jsonb null, created_at)`. RLS `user_id = (select auth.uid())`, privileges revoked from `anon` and `service_role`, composite parent keys `(id, user_id)` and `(plan_id, user_id)`. `ai_usage` (0004) is reused unchanged (`prompt_version` `plan-chat-v1`; no learner text, no account id). No `srv_*` function is needed. The conditional feedback migration is renumbered `0007_feedback.sql`.
+
 ## 4. Mastery engine (D41/D64 as resolved by D66)
 
 State per `(user, plan, passage)` in `target_mastery`: `status new|learning|reviewing|confirmed|needs_refresh`, `consecutive_correct`, `initial_success_at`, `initial_learning_date`, `review_stage 0..3`, `next_review_due date`, `last_review_date`, `confirmed_at` (current confirmation), `first_confirmed_at`, `maintenance_stage`, `lapse_count`, `error_part_ids uuid[]`. Coverage evidence in `target_part_evidence`.
@@ -142,7 +146,15 @@ State per `(user, plan, passage)` in `target_mastery`: `status new|learning|revi
 - **Daily session** (`kind=daily`), in order: (1) due review rounds (overdue first), capped at 6/10/14 questions for 5/10/15 min; (2) continue the current `learning` passage or introduce the next passage(s) in plan order up to capacity: a `learn` step showing the full passage with reference, edition, page(s), takhrij and D50 notice, then training questions (one per part, rotating templates) and extra questions until the passage reaches the ≥ 3 streak; (3) end-of-session test of 3/5/7 questions mixing today's passage parts, error parts and uncovered parts. The learner may continue with more practice; nothing force-closes the session.
 - **Absence (PRD R07)**: after 3 or more days of absence the session starts with a light review (the due reviews of step 1) and introduces no new material by default; missed days are not stacked, and due reviews that do not fit the session stay due for the following days (AI-agent.md, QA-and-evaluation.md).
 - **Game session** (`kind=game`): up to 10 questions of an optional `gameType` over optional `passageIds` inside the active plan scope (future-day passages allowed).
-- **Teaching Agent** (`services/planner.py`): for `is_demo` accounts with a fixture scenario only. Input = scenario id, passage ids/word counts, placement correct/incorrect counts (no account id or free text). Output JSON `{newWordsPerDay, reviewOffsetsDays, priorityReviewPassageIds}` validated against allowed ids and bounds; new material always follows the plan's chosen order (`'book'` or `'reverse'`, D72) with no unit dropped (AI-agent.md), so the agent sets pace and review timing/priority only, never the order of new passages; any failure, timeout (8 s) or ineligible model → rules engine. Every call records `ai_usage`.
+- **Teaching Agent** (`services/planner.py`): for `is_demo` accounts with a fixture scenario only. Input = scenario id, passage ids/word counts, placement correct/incorrect counts (no account id or free text). Output JSON `{newWordsPerDay, reviewOffsetsDays, priorityReviewPassageIds}` validated against allowed ids and bounds; new material always follows the plan's chosen order (`'book'` or `'reverse'`, D72) with no unit dropped (AI-agent.md), so the agent sets pace and review timing/priority only, never the order of new passages; any failure, timeout (8 s) or ineligible model → rules engine. Every call records `ai_usage`. From D75 the plan assistant for **all** learners is the plan conversation below; this bullet still describes `services/planner.py` and E28.
+
+- **Plan conversation (D75, Approved — D75, A1 (owner, 4 October 2026); [Plan-conversation.md](Plan-conversation.md) §2.4; endpoints E31–E34).** Every account builds and revises its plan in a conversation limited to plan logistics; the plan is saved only when the learner confirms the current proposal (E34 with `proposalVersion`; `409 version_conflict` reason `proposal_stale` otherwise). The rules engine computes every number; the model only interprets free text and phrases conversational text, and its output never supplies a number of the plan.
+  - **Rules first, model second.** Pipeline order per learner turn: (1) guard, (2) quick reply, (3) free text through the model, (4) rules fallback, (5) record. No model call when: the first turn's `goalText` equals the composed sentence and asks nothing; a quick reply is used; the guard matches; the daily or per-conversation model cap is reached.
+  - **Guard** (`domain/plan_chat_policy.py`, `classify_request`): reviewed Arabic and English keyword and pattern list (version `QATRA_CHAT_GUARD_VERSION`, default `guard-v1`) returning `religious | out_of_scope | logistics`. `religious` → the fixed D26 message verbatim; `out_of_scope` → the fixed redirect line. Applied on the input before any model call and again on the model's reply (≤ 600 characters; numbers replaced by the server's values or the templated reply used). The model has no tools and no data beyond its payload.
+  - **Quick replies** (`QuickReplyCode`) change parameters by rules only: minutes to the next option of 5, 10, 15; smaller scope = first half in plan order; later date = +25 % days; order `book` / `reverse` (Quran only); paths sets (hadith: `matn`, `sanad`, `grade`; takhrij is never a path); `confirm` is the client calling E34. The rules engine (the E15 function) recomputes the estimate each time.
+  - **Caps (configuration, not approved numbers; A4: «use best practice as mentioned in open router»):** the whole deployment 50 model requests per day and 20 per minute (OpenRouter's published limits for free models without purchased credits, to be verified at provisioning; shared with the demo planner), 10 model calls per account per day, 6 model turns per conversation; model timeout 8 s; at most 400 output tokens. Over any cap, or on a time-out, provider error, invalid JSON, ineligible model (D60 live-pricing check) or exhausted free quota: a templated rules reply with quick replies (`kind = 'fallback'`), shown as a calm notice once per conversation, never an HTTP error; the journey always completes without the model (NFR-16). Every model call writes one `ai_usage` row (`prompt_version = plan-chat-v1`).
+  - **Privacy of the payload (R27, NFR-17):** under a temporary conversation id (random, not derived from the account, unrelated to `chatId`, never reused) the model receives only the instructions, the edition's catalog metadata, the current parameters and estimate, the placement summary `{knownWords, passageCount}`, the last ten messages and the interface language; for a revision also the anonymized learning record (per-passage mastery states with review outcomes and dates, error-prone parts, the daily-time history of the last 30 learning days and the last 50 attempts, source-text references only). Never a user id, username, IP, device, registration date or session data. Message text, goal text and model output are never logged.
+  - **One open conversation per account;** a new E31 abandons the previous one. A completed plan cannot be revised in a conversation (`409 version_conflict`, `details.reason = "plan_not_active"`, A-08). A revision takes effect from the next learning day (D57). Demo accounts use the same operations in `synthetic_demo` mode (D71).
 
 ## 6. Authentication and sessions
 
@@ -158,9 +170,9 @@ State per `(user, plan, passage)` in `target_mastery`: `status new|learning|revi
 
 ## 7. API contract (all paths under `/api`, JSON, camelCase)
 
-The complete per-endpoint specification (authentication, authorization, request/response schemas, validation, status codes, errors, limits, examples) is [API-spec.md](API-spec.md) (v1.1, approved by D74); this section fixes the shared DTOs and the endpoint list it must honor.
+The complete per-endpoint specification (authentication, authorization, request/response schemas, validation, status codes, errors, limits, examples) is [API-spec.md](API-spec.md) (v1.2; v1.1 approved by D74, the D75 additions approved by D75 with A1); this section fixes the shared DTOs and the endpoint list it must honor.
 
-Errors: HTTP status + `{"error": {"code": "snake_case", "message": "safe text", "details": {}}}`. Codes: `validation_error` 422, `invalid_credentials` 401, `unauthenticated` 401, `forbidden_origin` 403, `forbidden` 403 (role-based denial, e.g. a demo account on a learner-only operation), `not_found` 404, `username_taken` 409, `version_conflict` 409 (also for a stale plan version on an offline snapshot), `payload_too_large` 413 (body above the 64 KiB cap), `terms_required` 400, `throttled` 429, `unavailable` 503, `internal` 500. `details` is an object whose keys are documented per endpoint and per code in [API-spec.md](API-spec.md) §1.5 (`{}` when none); values are never echoed. `Idempotency-Key` (UUID, optional) is accepted on `POST /sessions/:id/complete` only; no other mutation uses or requires it in v1.
+Errors: HTTP status + `{"error": {"code": "snake_case", "message": "safe text", "details": {}}}`. Codes: `validation_error` 422, `invalid_credentials` 401, `unauthenticated` 401, `forbidden_origin` 403, `forbidden` 403 (role-based denial, e.g. a demo account on a learner-only operation), `not_found` 404, `username_taken` 409, `version_conflict` 409 (also for a stale plan version on an offline snapshot; from v1.5 also for a stale conversation proposal, `details.reason = "proposal_stale"`, and a closed conversation, `"chat_closed"`), `payload_too_large` 413 (body above the 64 KiB cap), `terms_required` 400, `throttled` 429, `unavailable` 503, `internal` 500. `details` is an object whose keys are documented per endpoint and per code in [API-spec.md](API-spec.md) §1.5 (`{}` when none); values are never echoed. `Idempotency-Key` (UUID, optional) is accepted on `POST /sessions/:id/complete` only; no other mutation uses or requires it in v1.
 
 ```ts
 type ISODate = string;        // YYYY-MM-DD (learning date in the account time zone)
@@ -194,8 +206,10 @@ interface Plan { planId: string; editionId: string; titleAr: string; titleEn: st
 interface DailyProgress { learningDate: ISODate; dailyActiveMs: number; dailyGoalMs: number; dailyPercent: number;
   dailyCompleted: boolean; extraActiveMs: number; }
 interface Today extends DailyProgress { plan: Plan | null; dueReviews: number; nextNewPassage: { reference: string;
-  sectionTitleAr: string } | null; openSessionId: string | null; streakDays: number; }
-interface PlanProgress { planId: string; titleAr: string; titleEn: string; status: Plan['status']; overallPercent: number;
+  sectionTitleAr: string } | null; openSessionId: string | null; streakDays: number;
+  openPlanChatId?: string | null; }   // v1.5 (D75): optional, the open plan conversation, lets S-08/S-11 resume it
+interface PlanProgress { planId: string; titleAr: string; titleEn: string; status: Plan['status']; currentVersion: number; // v1.5 (O-32, D75, UG-04): lets a completed plan open an E20 daily session
+  overallPercent: number;
   confirmedWords: number; totalWords: number; confirmedSections: number; totalSections: number;
   counts: { new: number; learning: number; reviewing: number; confirmed: number; needsRefresh: number };
   nextReviewDate: ISODate | null;
@@ -277,6 +291,27 @@ interface RevalidationResult { status: OfflineStatus; currentPlanVersion: number
   catalogVersion: number; reasonCode: string; }
 ```
 
+Plan conversation DTOs (v1.5, D75; Approved — D75, A1 (owner, 4 October 2026); copied from [Plan-conversation.md](Plan-conversation.md) §2.2). The `Path` line repeats the unchanged type for reference (the owner declined takhrij as a path; "§0" there means Plan-conversation §0), and the `Today` line is the declaration-merging form of the optional field already shown on `Today` above. `PlanSections` text is assembled by the server from templates and the rules engine's numbers; when a model turn succeeded, the model's phrasing may appear only in the *goal* and *nextStep* lines, after the output guard, and the numbers never come from the model.
+
+```ts
+type Path = 'quran' | 'matn' | 'sanad' | 'grade';               // unchanged: the owner declined takhrij as a path (§0)
+type QuickReplyCode = 'fewer_minutes' | 'more_minutes' | 'smaller_scope' | 'later_date' | 'no_date'
+                    | 'order_book' | 'order_reverse' | 'paths_matn_only' | 'paths_all' | 'confirm';
+interface QuickReply { code: QuickReplyCode; labelAr: string; labelEn: string; }
+interface PlanSections { goal: string; totalTime: string; dailyTime: string; stages: string;
+  reviews: string; nextStep: string; }                           // plain text, interface language, server-built
+interface PlanProposal { proposalVersion: number; editionId: string; targetScope: TargetScope; paths: Path[];
+  order: PlanOrder; sessionMinutes: 5 | 10 | 15; preferredDate: ISODate | null; estimate: Estimate;
+  sections: PlanSections; }
+interface ChatMessage { messageId: string; ordinal: number; role: 'learner' | 'assistant';
+  kind: 'text' | 'proposal' | 'refusal' | 'redirect' | 'fallback' | 'quick_reply'; text: string;
+  source: 'learner' | 'rules' | 'model' | 'fixed'; createdAt: ISODateTime; }
+interface PlanChat { chatId: string; status: 'open' | 'confirmed' | 'abandoned'; planId: string | null;
+  language: 'ar' | 'en'; messages: ChatMessage[]; proposal: PlanProposal | null; quickReplies: QuickReply[];
+  modelTurnsLeft: number; assistant: { source: 'rules' | 'model'; model?: string }; }
+interface Today { /* unchanged fields */ openPlanChatId?: string | null; }   // optional addition, lets S-11/S-08 resume
+```
+
 | Method/path | Request | Response |
 |---|---|---|
 | GET `/health` | — | `{status:'ok', version, time}` (liveness: no database access, no auth, no secrets) |
@@ -308,8 +343,12 @@ interface RevalidationResult { status: OfflineStatus; currentPlanVersion: number
 | GET `/demo/scenarios` | — | `{scenarios: {scenarioId, titleAr, titleEn, editionKey, targetScope}[]}` |
 | POST `/demo/plans` | `{scenarioId, placementSessionId?}` (demo session only) | 201 `Plan` with `planner` |
 | GET `/demo/simulations` | — | `{simulations: …}` from `fixtures/demo_simulations.json`, labeled synthetic |
+| POST `/plan-chats` | `{editionId, targetScope, paths, sessionMinutes, preferredDate?, placementSessionId?, goalText, language, planId?}` (session; D75) | 201 `PlanChat` whose first assistant message is a rules-built `proposal`; `goalText` ≤ 500 characters; `planId` present = revision conversation; an existing `open` conversation is abandoned and replaced; 409 `version_conflict` (`plan_not_active`) for a completed plan |
+| POST `/plan-chats/:id/messages` | `{text?, quickReply?}`: exactly one (session; D75) | 200 `PlanChat` with the learner message and the assistant reply appended; `text` ≤ 500 characters; 409 `version_conflict` (`chat_closed`); model caps are never an error |
+| GET `/plan-chats/:id` | — (session; D75) | 200 `PlanChat` (own conversations only) |
+| POST `/plan-chats/:id/confirm` | `{proposalVersion}` (session; D75) | 201 `Plan` (creation, E16 semantics) or 200 `Plan` (revision, E17 semantics); 409 `version_conflict` (`proposal_stale` with `details.proposal`, `plan_version`, `active_plan_conflict`) |
 
-Server-side rules: never accept `userId`, `correct`, mastery, daily totals or demo/mode flags from the client; validate every question/passage against the session's edition, bank version and plan scope; reject events for sessions owned by another account (404); reject `order: 'reverse'` with `validation_error` unless the plan's edition has `contentFormat = 'quran'` (D72).
+Server-side rules: never accept `userId`, `correct`, mastery, daily totals or demo/mode flags from the client; validate every question/passage against the session's edition, bank version and plan scope; reject events for sessions owned by another account (404); reject `order: 'reverse'` with `validation_error` unless the plan's edition has `contentFormat = 'quran'` (D72). The conversation operations (D75) are resolved inside the caller's own rows: an unknown id and another account's conversation are both `404`; the model, the guard and the caps are server-side only, and no endpoint accepts a model name, a `userId` or a mode from the client.
 
 **Activity events**: `endedAt ≤ serverNow + 60 s`; `startedAt ≥ session.createdAt − 60 s`; `activeMs ≤ endedAt − startedAt + 1000`; ≤ 30 min per event; placement sessions excluded; learning date from `startedAt` in the account time zone effective that day; overlapping intervals of the same account and date are merged (union) before totals; `daily_completions` written once when `activeMs ≥ goalMs`.
 
@@ -317,7 +356,9 @@ Server-side rules: never accept `userId`, `correct`, mastery, daily totals or de
 
 ## 8. Configuration
 
-Backend (Render environment only; local `.env` gitignored): `APP_ENV` (`production|development|test`), `FRONTEND_ORIGIN`, `SUPABASE_URL`, `SUPABASE_ANON_KEY` (publishable), `SUPABASE_SERVICE_ROLE_KEY` (secret; Auth Admin API and content publishing only, never the `srv_*` functions or learner requests), `QATRA_SERVER_DB` (secret; credential of the separate limited database role that runs the private `SECURITY DEFINER` functions, D34/D69; never `service_role`), `QATRA_SESSION_KEY` (AES-256-GCM token encryption), `QATRA_SESSION_HMAC_KEY`, `QATRA_RECOVERY_HMAC_KEY` and `QATRA_THROTTLE_HMAC_KEY` (each 32 independent random bytes, base64; one key per purpose), `TERMS_VERSION`, `OPENROUTER_API_KEY` (optional), `OPENROUTER_MODELS` (comma-separated candidates; only models whose live pricing is zero are used), `QATRA_DATA_BACKEND` (`supabase|memory`; `memory` is refused when `APP_ENV=production`), `QATRA_CONTENT_BUNDLES` (memory mode: comma-separated bundle paths). `backend/.env.example` lists names only.
+Backend (Render environment only; local `.env` gitignored): `APP_ENV` (`production|development|test`), `FRONTEND_ORIGIN`, `SUPABASE_URL`, `SUPABASE_ANON_KEY` (publishable), `SUPABASE_SERVICE_ROLE_KEY` (secret; Auth Admin API and content publishing only, never the `srv_*` functions or learner requests), `QATRA_SERVER_DB` (secret; credential of the separate limited database role that runs the private `SECURITY DEFINER` functions, D34/D69; never `service_role`), `QATRA_SESSION_KEY` (AES-256-GCM token encryption), `QATRA_SESSION_HMAC_KEY`, `QATRA_RECOVERY_HMAC_KEY` and `QATRA_THROTTLE_HMAC_KEY` (each 32 independent random bytes, base64; one key per purpose), `TERMS_VERSION`, `OPENROUTER_API_KEY` (optional for the demo planner; **required in production for the plan conversation**, D75: without it every conversation turn is a rules turn and the journey still completes), `OPENROUTER_MODELS` (comma-separated candidates; only models whose live pricing is zero are used), `QATRA_DATA_BACKEND` (`supabase|memory`; `memory` is refused when `APP_ENV=production`), `QATRA_CONTENT_BUNDLES` (memory mode: comma-separated bundle paths). `backend/.env.example` lists names only.
+
+Plan conversation configuration (D75, Approved — D75, A1 (owner, 4 October 2026); defaults are configuration, not approved numbers; A4): `QATRA_OPENROUTER_FREE_REQUESTS_PER_DAY` (default 50, OpenRouter's published daily limit for free models without purchased credits; shared by the plan conversation and the demo planner), `QATRA_OPENROUTER_FREE_REQUESTS_PER_MINUTE` (default 20), `QATRA_CHAT_MODEL_CALLS_PER_ACCOUNT_PER_DAY` (default 10), `QATRA_CHAT_MODEL_TURNS_PER_CHAT` (default 6), `QATRA_CHAT_MODEL_TIMEOUT_SEC` (default 8), `QATRA_CHAT_MAX_TOKENS` (default 400), `QATRA_CHAT_GUARD_VERSION` (default `guard-v1`). The OpenRouter figures are the coordinator's reading of the published limits and are verified at provisioning (API-spec O-31). The chat write rate class (20 per client IP per minute) and the other conversation limits are in API-spec §1.7 and §1.8.
 
 Frontend (Vercel): `BACKEND_ORIGIN` (Render URL, used by rewrites; not secret).
 
@@ -336,6 +377,7 @@ Supported target (basic version): phones 360–430 px wide in portrait first, ta
 | Acquisition | `sources/<editionKey>/raw/**` in the private Storage bucket (raw publisher records only, written by the CLI `acquire` step), `backend/.content-build/acquisition_report.md` (gitignored) |
 | Content | `supabase/migrations/0001_content.sql`, `backend/app/workflow/**`, `backend/app/domain/content_policy.py`, `backend/app/domain/normalization.py`, `backend/scripts/content_tools.py`, `backend/tests/workflow/**`, `backend/tests/data/**` (committed synthetic bundle), `backend/.content-build/<editionKey>/**` |
 | Backend | `backend/` except the content-owned paths, `supabase/migrations/0002…0005`, `fixtures/demo_*.json` |
+| Plan conversation (B2b, B13; D75, Approved — D75, A1 (owner, 4 October 2026)) | `supabase/migrations/0006_plan_chats.sql` (B2b); `backend/app/routers/plan_chats.py`, `backend/app/services/plan_chat.py`, `backend/app/domain/plan_chat_policy.py`, `backend/app/providers/openrouter.py` (shared with the demo planner; B13 adds the structured-reply call only) and their tests (B13); `backend/app/workflow/**` is unchanged. The conditional feedback migration is renumbered `supabase/migrations/0007_feedback.sql` and is not created unless D45 is activated |
 | Frontend | `frontend/**` |
 | Coordinator | `docs/**`, root files, deployment, integration fixes |
 
@@ -362,3 +404,15 @@ Dated 4 October 2026. The owner approved the architecture package including thes
 7. Enumerations of O-21.
 8. `SessionEvent` and `EventsResponse` confirmed as the only names (C-05/C-06).
 9. §3.2 grant rule: one exception — `srv_redact_revoked_content` (Database-schema §8.2 item 19, A-04) is executable by `service_role` only (the CLI's publishing role), not by `qatra_server`; and `srv_throttle_record` takes a `p_outcome` argument (`failure` or `success`, A-03).
+
+## 14. v1.5 amendments (D75; Approved — D75, A1 (owner, 4 October 2026))
+
+Dated 4 October 2026. The owner approved the plan-conversation package with «A1 approved , best practice» (D75; [Plan-conversation.md](Plan-conversation.md) v1.1); the v1.4 content above keeps its Approved — D74 status. These items are applied in the sections above and this list is the change log from v1.4. Owner decision A2 stays declined: `Path` keeps its four values (`'quran' | 'matn' | 'sanad' | 'grade'`) and takhrij is displayed, never tested.
+
+1. **DTOs and operations (§7):** `QuickReplyCode`, `QuickReply`, `PlanSections`, `PlanProposal`, `ChatMessage` and `PlanChat`, and the endpoint rows E31–E34 (`POST /plan-chats`, `POST /plan-chats/:id/messages`, `GET /plan-chats/:id`, `POST /plan-chats/:id/confirm`).
+2. **`PlanProgress.currentVersion: number`** (API-spec O-32, UG-04), so a completed plan can open an E20 `daily` session with the right `expectedPlanVersion`.
+3. **`Today.openPlanChatId?: string | null`**, optional, so S-08 and S-11 can resume an open conversation.
+4. **Conversation rules (§5):** rules-first pipeline, guard, quick replies, caps, time-out, fallback, payload privacy.
+5. **Configuration (§8):** `QATRA_OPENROUTER_FREE_REQUESTS_PER_DAY`, `QATRA_OPENROUTER_FREE_REQUESTS_PER_MINUTE`, `QATRA_CHAT_MODEL_CALLS_PER_ACCOUNT_PER_DAY`, `QATRA_CHAT_MODEL_TURNS_PER_CHAT`, `QATRA_CHAT_MODEL_TIMEOUT_SEC`, `QATRA_CHAT_MAX_TOKENS`, `QATRA_CHAT_GUARD_VERSION`; `OPENROUTER_API_KEY` is required in production for this feature.
+6. **Ownership and migrations (§1, §3.3, §10):** the B13 files (`backend/app/routers/plan_chats.py`, `services/plan_chat.py`, `domain/plan_chat_policy.py`, `providers/openrouter.py`; `backend/app/workflow` unchanged), `supabase/migrations/0006_plan_chats.sql`, and the conditional feedback migration renumbered `0007_feedback.sql`.
+7. **Error details (§7):** `version_conflict` reasons `proposal_stale` and `chat_closed`.

@@ -1,6 +1,8 @@
 # Qatra — Database Schema (physical design)
 
-Version 1.1 · 2026-10-04 · Status: Approved — D74, 4 October 2026 (owner: «approve best practice», «q7 approved»)
+Version 1.2 · 2026-10-04 · Status: Approved — D74, 4 October 2026 (owner: «approve best practice», «q7 approved») for the v1.1 content; Approved — D75, A1 (owner, 4 October 2026: «A1 approved , best practice») for the D75 additions of version 1.2 (`plan_chats`, `plan_chat_messages`, migration `0006_plan_chats`, feedback renumbered `0007_feedback`)
+
+**Version 1.2 (4 October 2026).** Adds the two tables of the plan conversation (D75; [Plan-conversation.md](Plan-conversation.md) v1.1 §2.1): `plan_chats` and `plan_chat_messages` (ERD §3.3, composite keys §4.3, value sets §4.4, access matrix §5.3, definitions §6.3, migration `0006_plan_chats` §11, deletion list §12.1, traceability §13), moves the conditional feedback migration from `0006` to `0007_feedback`, and records the open point OPEN-18. Every D75 addition is marked **Approved — D75, A1 (owner, 4 October 2026)**; the v1.1 content remains Approved — D74. Owner decision A2 stays declined: the path value set keeps its four values (`quran`, `matn`, `sanad`, `grade`) and takhrij is not a path. Nothing is built or tested.
 
 Prepared by the Solutions Architect role (Role 3) for the root coordinator's review. Approval evidence: D74, 4 October 2026 (owner: «approve best practice», «q7 approved») approved the architecture package including this schema as a design. Nothing in this file has been built or tested: no SQL file, migration, role, bucket, policy or function exists anywhere. The coordinator consistency pass of 4 October 2026 resolved OPEN-01, OPEN-02, OPEN-03, OPEN-05, OPEN-07, OPEN-09 and OPEN-16 as architect decisions recorded in §15 (A-01 to A-05, A-13); they are approved by D74 together with the architecture package (design only; nothing is built).
 
@@ -12,6 +14,7 @@ It is documentation only (AGENTS.md: schema design may be documented, but no run
 
 Inputs, read on 2026-10-04:
 
+- [Plan-conversation.md](Plan-conversation.md) v1.1 (D75, approved with A1), §2.1: the two conversation tables.
 - [Decision-register.md](Decision-register.md) D01–D71 (register v14). **D72** (plan order option, answer keys accepted for the MVP, GitHub scheduled keep-awake) and the seven architect directives come from the coordinator's decision record of 2026-10-04; D72 is not yet in register v14 (see §16).
 - [Implementation-contract.md](Implementation-contract.md) v1.3 (approved, D69), §2–§4, §6, §8 (physical additions, mastery state, authentication, configuration).
 - [Architecture-and-data.md](Architecture-and-data.md) v12 (logical schema, RLS and role text), [Authentication-and-privacy.md](Authentication-and-privacy.md) v11, [PWA-design.md](PWA-design.md) v11 (offline snapshot fields), [AI-agent.md](AI-agent.md) (AI usage record), [Additional-features.md](Additional-features.md) (conditional feedback, D45), [PRD.md](PRD.md) v14 (modules M1–M12, R and NFR identifiers).
@@ -22,7 +25,7 @@ Reading guide:
 - **proposed** marks a design choice made here for integrity or security that no approved document states. It became part of the architecture when the owner approved this document (D74). Items marked *decided* (A-nn) are the architect decisions of 4 October 2026, approved by D74 with the architecture package.
 - Every column, FK, unique key, check, index, policy and trigger below is a design proposal (status Approved — D74; not implemented).
 
-At a glance: **36 application tables** (35 unconditional plus the conditional `content_feedback`) created by five migrations (`0001_content` to `0005_rls_functions`) and one conditional migration (`0006_feedback`); the external `auth.users`; one logical table dropped (`reviews`); 2 catalog views; 19 `srv_*` functions; 5 trigger functions; the 4 database roles of directive 7 plus the migration owner; 1 private storage bucket; 17 points in §15, of which 7 are resolved by architect decision (approved by D74) and 10 remain open.
+At a glance: **38 application tables** (37 unconditional plus the conditional `content_feedback`) created by six migrations (`0001_content` to `0006_plan_chats`) and one conditional migration (`0007_feedback`); the external `auth.users`; one logical table dropped (`reviews`); 2 catalog views; 19 `srv_*` functions; 5 trigger functions; the 4 database roles of directive 7 plus the migration owner; 1 private storage bucket; 18 points in §15, of which 7 are resolved by architect decision (approved by D74) and 11 remain open (OPEN-18 is added in v1.2, D75).
 
 ## 2. Access paths and ownership boundaries
 
@@ -47,10 +50,10 @@ flowchart LR
 | A. Shared published content | 14 catalog and bank tables (`categories`, `sources`, `books`, `book_editions`, `edition_pages`, `book_sections`, `units`, `unit_page_spans`, `passages`, `passage_parts`, `lessons`, `lesson_units`, `question_items`, `generic_plan_templates`) | `service_role`, publishing scope only (CLI or workflow, D48) | `authenticated`: published rows only; `anon`: only the two `public.catalog_*` views (D71) |
 | B. Server-only content operations | `approved_source_rules`, `content_jobs`, `unit_embeddings`, Storage bucket `sources` | `service_role`, publishing scope only | nobody through learner roles |
 | C. Private identity | `private.account_handles`, `private.recovery_codes`, `private.password_reset_grants`, `private.app_sessions`, `private.auth_throttle` | `srv_*` functions run by `qatra_server` | nobody directly; only `srv_*` functions |
-| D. Personal learning rows | `profiles`, `master_plans`, `plan_versions`, `plan_phases`, `learning_sessions`, `attempts`, `session_activity_intervals`, `daily_progress`, `daily_completions`, `target_mastery`, `target_part_evidence`, `offline_snapshots`, and conditionally `content_feedback` | the backend with the learner's access token (RLS), after server-side validation (D40–D42) | the owning learner only (`user_id = auth.uid()`) |
+| D. Personal learning rows | `profiles`, `master_plans`, `plan_versions`, `plan_phases`, `learning_sessions`, `attempts`, `session_activity_intervals`, `daily_progress`, `daily_completions`, `target_mastery`, `target_part_evidence`, `offline_snapshots`, `plan_chats`, `plan_chat_messages` (D75), and conditionally `content_feedback` | the backend with the learner's access token (RLS), after server-side validation (D40–D42) | the owning learner only (`user_id = auth.uid()`) |
 | E. Server metering | `ai_usage` (no learner reference) | `srv_record_ai_usage` run by `qatra_server` | the owner through the Supabase dashboard (not through any application role) |
 
-Counts: A 14, B 3, C 5, D 12 (plus one conditional), E 1, which is 35 tables plus the conditional one. Boundary A and B tables carry no `user_id`. Boundary C and D rows cascade on account deletion; published content is never deleted because a learner was deleted (contract §3).
+Counts: A 14, B 3, C 5, D 14 (plus one conditional; the two conversation tables are added in v1.2, D75), E 1, which is 37 tables plus the conditional one. Boundary A and B tables carry no `user_id`. Boundary C and D rows cascade on account deletion; published content is never deleted because a learner was deleted (contract §3).
 
 ## 3. Entity-relationship diagrams
 
@@ -332,9 +335,9 @@ erDiagram
     }
 ```
 
-### 3.3 Learning (boundaries D and E: 12 tables, plus the conditional `content_feedback`)
+### 3.3 Learning (boundaries D and E: 14 tables, plus the conditional `content_feedback`)
 
-Content entities that learner rows reference are shown with their key only (their full definition is in §3.1). `ai_usage` has no relationship by design (D17: no account identifier ever reaches the model or its usage record). `content_feedback` is **conditional** (D45, migration `0006_feedback`): it exists only if the owner activates the feedback feature after the first-day gate.
+Content entities that learner rows reference are shown with their key only (their full definition is in §3.1). `ai_usage` has no relationship by design (D17: no account identifier ever reaches the model or its usage record). `content_feedback` is **conditional** (D45, migration `0007_feedback`): it exists only if the owner activates the feedback feature after the first-day gate. `plan_chats` and `plan_chat_messages` (D75, Approved — D75, A1 (owner, 4 October 2026)) hold the plan conversation: a conversation belongs to an account and optionally to the plan it revises, and owns its ordered messages; like `master_plans` they are personal rows (`P-OWN`).
 
 ```mermaid
 erDiagram
@@ -361,6 +364,9 @@ erDiagram
     passage_parts ||--o{ target_part_evidence : "covered part"
     attempts ||--o{ target_part_evidence : "first covering attempt"
     auth_users ||--o{ offline_snapshots : owns
+    auth_users ||--o{ plan_chats : "owns (D75)"
+    master_plans |o--o{ plan_chats : "revision conversation, optional plan (D75)"
+    plan_chats ||--o{ plan_chat_messages : "ordered messages (D75)"
     auth_users ||--o{ content_feedback : "submits (conditional, D45)"
     book_editions ||--o{ content_feedback : references
     lessons |o--o{ content_feedback : "exactly one of lesson or question"
@@ -533,6 +539,31 @@ erDiagram
         jsonb quota_record
         timestamptz created_at
     }
+    plan_chats {
+        uuid id PK
+        uuid user_id FK
+        uuid plan_id FK "nullable, composite with user_id"
+        text status "open / confirmed / abandoned"
+        text language "ar / en"
+        jsonb proposal "current PlanProposal, nullable"
+        int proposal_version
+        int model_turns
+        timestamptz created_at
+        timestamptz updated_at
+        timestamptz closed_at "nullable"
+    }
+    plan_chat_messages {
+        uuid id PK
+        uuid chat_id FK "composite with user_id"
+        uuid user_id FK
+        int ordinal "unique per chat"
+        text role "learner / assistant"
+        text kind "text / proposal / refusal / redirect / fallback / quick_reply"
+        text text
+        text source "learner / rules / model / fixed"
+        jsonb payload "nullable"
+        timestamptz created_at
+    }
     content_feedback {
         uuid id PK
         uuid user_id FK
@@ -580,6 +611,8 @@ Architect directive 3: the logical `reviews` table (Architecture-and-data v12; c
 | `content_jobs.step` | vocabulary of directive 5; one row per `(edition_id, bank_version, step)` | directive 5, Architecture idempotency rule |
 | `generic_plan_templates` | added `edition_id` | `catalog_version` is meaningful only together with an edition |
 | `ai_usage` | defined from contract §3.2 plus `quota_record` | AI-agent: the checked free-tier quota is recorded per call |
+| `plan_chats`, `plan_chat_messages` | new tables (v1.2); `ai_usage` is reused unchanged (`prompt_version` `plan-chat-v1`) | D75, Plan-conversation §2.1 (Approved — D75, A1 (owner, 4 October 2026)) |
+| conditional `content_feedback` migration | renumbered from `0006_feedback` to `0007_feedback` (v1.2) | `0006` is `0006_plan_chats` (D75) |
 
 ## 4. Conventions
 
@@ -610,6 +643,8 @@ Every foreign key in §6 names its class and the resulting `ON DELETE` action.
 
 Learner deletion therefore never touches content: foreign keys point from learner rows to content rows only (class C), never the other way.
 
+The two conversation tables (D75, Approved — D75, A1 (owner, 4 October 2026)) use class A for `user_id` to `auth.users (id)` on both tables and class B for the composite keys `(plan_id, user_id)` (`plan_chats` to `master_plans`) and `(chat_id, user_id)` (`plan_chat_messages` to `plan_chats`); no new class is needed.
+
 ### 4.3 Composite parent-ownership keys
 
 Foreign-key checks run without RLS. Because a policy forces every inserted row's `user_id` to `auth.uid()` (§4.5, `P-OWN`), a composite foreign key `(parent_id, user_id)` proves that the parent belongs to the same account, and a composite key that includes `edition_id` proves that the content referenced belongs to the same edition (Architecture: parent ownership and edition match are enforced by composite keys, not by the client or the model). Each referenced unique key below exists only to serve those foreign keys.
@@ -625,7 +660,7 @@ Foreign-key checks run without RLS. Because a policy forces every inserted row's
 | `lessons (id, edition_id)` | `lesson_units (lesson_id, edition_id)`, `question_items (lesson_id, edition_id)`, `content_feedback (lesson_id, edition_id)` |
 | `question_items (id, edition_id, passage_id)` | `attempts (question_id, edition_id, passage_id)` |
 | `question_items (id, edition_id)` | `content_feedback (question_id, edition_id)` |
-| `master_plans (id, user_id)` | `plan_versions (plan_id, user_id)`, `daily_completions (reached_in_plan_id, user_id)` |
+| `master_plans (id, user_id)` | `plan_versions (plan_id, user_id)`, `daily_completions (reached_in_plan_id, user_id)`, `plan_chats (plan_id, user_id)` (D75) |
 | `master_plans (id, user_id, edition_id)` | `learning_sessions`, `target_mastery`, `offline_snapshots` (each on `(plan_id, user_id, edition_id)`) |
 | `plan_versions (plan_id, version_no)` | `master_plans (id, current_version)` (class G), `offline_snapshots (plan_id, plan_version)` |
 | `plan_versions (id, user_id)` | `plan_phases (plan_version_id, user_id)` |
@@ -635,6 +670,7 @@ Foreign-key checks run without RLS. Because a policy forces every inserted row's
 | `learning_sessions (id, user_id)` | `session_activity_intervals (session_id, user_id)` |
 | `learning_sessions (id, user_id, edition_id)` | `attempts (session_id, user_id, edition_id)`, `content_feedback (session_id, user_id, edition_id)` |
 | `attempts (id, user_id, passage_id)` | `target_part_evidence (attempt_id, user_id, passage_id)` |
+| `plan_chats (id, user_id)` (D75) | `plan_chat_messages (chat_id, user_id)` |
 | `target_mastery (user_id, plan_id, passage_id)` (primary key) | `target_part_evidence (user_id, plan_id, passage_id)` |
 
 Nullable composite keys use the default `MATCH SIMPLE`: when the nullable member is `NULL` (for example `plan_id` of a placement session) the key is not checked, which is intended.
@@ -647,7 +683,7 @@ Nullable composite keys use the default `MATCH SIMPLE`: when the nullable member
 | `books.content_format` | quran, hadith_collection | contract §2.6 |
 | `book_sections.kind` | surah, hadith | contract §2.6 |
 | `units.kind` | ayah, hadith_narration, hadith_takhrij, hadith_grade | contract §2.2 |
-| `passages.path` and elements of `master_plans.paths` | quran, matn, sanad, grade | contract §2.3 |
+| `passages.path` and elements of `master_plans.paths` | quran, matn, sanad, grade (four values; takhrij is not a path, A2 declined by the owner, D75) | contract §2.3 |
 | `question_items.type` | word_order, word_choice, word_recall, similar_distinction | D04, contract §2.4 |
 | `question_items.variant` | word, segment (choice); keyword, continuation (recall); null | contract §2.6 |
 | `content_jobs.step` | acquired, verified (the step identifier fixed by directive 5, not a document status), segmented, bank_built, validated, approved, published (web editions, directive 5); withdrawn, archived (audit steps for withdrawing and archiving an edition, A-12, A-04); uploaded, extracted, page_mapped, embedded reserved for later editions and skipped in the MVP (D68, D69) | directive 5, Architecture, A-12 |
@@ -658,6 +694,11 @@ Nullable composite keys use the default `MATCH SIMPLE`: when the nullable member
 | `master_plans.plan_order` | book, reverse | D72 |
 | `target_mastery.status` | new, learning, reviewing, confirmed, needs_refresh | contract §4 |
 | `profiles.language` | ar, en | PRD R11 |
+| `plan_chats.status` | open, confirmed, abandoned | D75, Plan-conversation §2.1 |
+| `plan_chats.language` | ar, en | D75: the interface language of the conversation |
+| `plan_chat_messages.role` | learner, assistant | D75, Plan-conversation §2.1 |
+| `plan_chat_messages.kind` | text, proposal, refusal, redirect, fallback, quick_reply | D75, Plan-conversation §2.1 |
+| `plan_chat_messages.source` | learner, rules, model, fixed | D75, Plan-conversation §2.1 (provenance of the text) |
 | `profiles.session_minutes` | 5, 10, 15 | R01, D34 |
 | `content_feedback.status` | submitted, in_review, resolved, closed | D45 |
 | `password_reset_grants.status` | active, executing, consumed, cancelled | from the flow in Authentication-and-privacy (steps 2–5: no parallel execution, cancellation on expiry); fixed with a `CHECK` (A-05) |
@@ -706,15 +747,16 @@ The password of `qatra_server` is set by the owner out of band (Supabase SQL edi
 
 ### 5.2 Grant posture
 
-1. **Defaults are revoked first.** Supabase grants broad default privileges on new `public` objects to `anon`, `authenticated` and `service_role`. Each table-creating migration revokes them for `anon` and `authenticated` immediately and enables RLS in the same migration; private and personal tables also revoke them from `service_role`. The reviewed grants and policies are then issued in `0005_rls_functions` (OPEN-15: confirm the defaults on the real project).
+1. **Defaults are revoked first.** Supabase grants broad default privileges on new `public` objects to `anon`, `authenticated` and `service_role`. Each table-creating migration revokes them for `anon` and `authenticated` immediately and enables RLS in the same migration; private and personal tables also revoke them from `service_role`. The reviewed grants and policies are then issued in `0005_rls_functions` (OPEN-15: confirm the defaults on the real project); the two D75 conversation tables are the exception: their policies and grants are issued in `0006_plan_chats`, which runs after `0005`.
 2. **Schema `private`**: no privilege for `PUBLIC`, `anon`, `authenticated` or `service_role`; `qatra_server` has no `USAGE`. `srv_*` functions reach it because they run as the owner.
 3. **Schema `public`**: `qatra_server` receives `USAGE` only (it needs it to call the functions).
 4. **`authenticated` read grants**: table-level `SELECT` on the content tables of §5.3 (policies decide the rows), except column lists on `book_editions` (all columns except `raw_storage_path` and `review_record`) and on `sources` (`id`, `title`, `provider`, `source_url`: eligibility and licence records stay internal). The backend must name columns explicitly for these two tables.
 5. **`authenticated` write grants** (the backend writes under the learner's token, after validation; there is no direct browser path):
    - `INSERT` only (append-only rows): `plan_versions`, `plan_phases`, `attempts`, `session_activity_intervals`, `daily_completions`, `target_part_evidence`, `offline_snapshots` (and `content_feedback` if enabled).
    - `INSERT` and column-limited `UPDATE`: `master_plans` (all columns except `id`, `user_id`, `edition_id`, `created_at`), `learning_sessions` (only `status`, `elapsed_ms`), `daily_progress` (only `active_ms`, `goal_ms`), `target_mastery` (the state columns, never the key or `edition_id`).
+   - From v1.2 (D75, Approved — D75, A1 (owner, 4 October 2026)): `plan_chats` receives `INSERT` and column-limited `UPDATE` (only `status`, `proposal`, `proposal_version`, `model_turns`, `closed_at`; never the key, `user_id`, `plan_id`, `language` or `created_at`), and `plan_chat_messages` is `INSERT` only (append-only), both issued in `0006_plan_chats` itself because `0005` has already run.
    - Column-limited `UPDATE` only, no `INSERT`: `profiles` (only `language`, `time_zone`, `session_minutes`, `reminder_settings`, `pending_settings`; the row is created by `srv_register_account`, and `terms_version`, `terms_accepted_at` and `is_demo` are never writable by the learner).
-   - No `DELETE` on any table: personal rows are removed only by account deletion (§12.1).
+   - No `DELETE` on any table: personal rows are removed only by account deletion (§12.1). The opportunistic purge of an abandoned conversation's messages that Plan-conversation §2.1 allows would need a `DELETE` path and is OPEN-18.
    - No grant at all on `ai_usage`, `unit_embeddings`, `content_jobs`, `approved_source_rules` and every `private.*` table.
 6. **Functions.** The default `EXECUTE` for `PUBLIC`, `anon`, `authenticated` and `service_role` is revoked for the owner's `public` schema (so new functions are closed by default); `srv_*` functions 1–18 are granted to `qatra_server` only (contract §3.2); `srv_redact_revoked_content` (item 19, A-04) is granted to `service_role` only, because the CLI uses that role for publishing (§5.1), and is not granted to `qatra_server`. The `app_*` functions of §8.3 are granted to `authenticated` only (A-01).
 7. **Views.** `SELECT` on the two `catalog_*` views to `anon` and `authenticated`, nothing else (§7).
@@ -762,6 +804,8 @@ The password of `qatra_server` is set by the owner out of band (Supabase SQL edi
 | `target_mastery` | — | S, I, U (columns) (`P-OWN`) | — | — |
 | `target_part_evidence` | — | S, I (`P-OWN`) | — | — |
 | `offline_snapshots` | — | S, I (`P-OWN`) | — | — |
+| `plan_chats` (D75) | — | S, I, U (columns) (`P-OWN`) | — | — |
+| `plan_chat_messages` (D75) | — | S, I (`P-OWN`) | — | — |
 | `ai_usage` | — | — | — (`srv_record_ai_usage`) | — |
 | `content_feedback` (conditional) | — | S, I (`P-OWN`; insert forced to `submitted`) | — | — |
 
@@ -1512,7 +1556,56 @@ One record per model call (D39, D60, R09, NFR-05); **no learner, account, plan o
 - **RLS:** enabled · anon: none · authenticated: none · qatra_server: none (`srv_record_ai_usage` inserts) · service_role: none (revoked). The owner reads it through the Supabase dashboard.
 - **Triggers:** none.
 
-### 6.4 Conditional table (D45, migration `0006_feedback`)
+#### `plan_chats`
+
+The plan conversation of one account (D75, Approved — D75, A1 (owner, 4 October 2026); Plan-conversation §2.1, §2.3): the learner builds a plan, or revises the plan named by `plan_id`, with the plan assistant. A conversation saves nothing until the learner confirms the current proposal (E34).
+
+| Column | Type | Null | Default | Rules |
+|---|---|---|---|---|
+| `id` | uuid | no | `gen_random_uuid()` | primary key |
+| `user_id` | uuid | no | — | |
+| `plan_id` | uuid | yes | — | set for a revision conversation; `NULL` for a creation |
+| `status` | text | no | — (set explicitly) | `open`, `confirmed` or `abandoned` |
+| `language` | text | no | — | `ar` or `en`: the interface language of the conversation |
+| `proposal` | jsonb | yes | — | `jsonb_typeof = 'object'` when not null; the current `PlanProposal` (API-spec §4.10.1); `NULL` until the first proposal; the stored object also keeps the placement session id used for `knownWords` ([O-17] resolved, API-spec §4.10) |
+| `proposal_version` | integer | no | `0` | `>= 0`; incremented on every new proposal; a confirmation must quote it |
+| `model_turns` | integer | no | `0` | `>= 0`; model calls consumed by this conversation |
+| `created_at` | timestamptz | no | `now()` | |
+| `updated_at` | timestamptz | no | `now()` | maintained by trigger |
+| `closed_at` | timestamptz | yes | — | set on confirm or abandon |
+
+- **Checks:** `status` and `language` value sets (§4.4); `proposal` is null or `jsonb_typeof(proposal) = 'object'`; `proposal_version >= 0` and `model_turns >= 0`; **proposed** (derived from "`closed_at` set on confirm or abandon"): `(closed_at is null) = (status = 'open')`.
+- **PK:** `id`. **FKs:** `user_id` to `auth.users (id)` (class A, `ON DELETE CASCADE`); `(plan_id, user_id)` to `master_plans (id, user_id)` (class B, `ON DELETE CASCADE`; with the default `MATCH SIMPLE` the key is not checked when `plan_id` is `NULL`). **Unique:** `(id, user_id)` (serves the messages' composite key); **partial unique `(user_id)` where `status = 'open'`** (`one open chat per user`: an account has at most one open conversation, so creating a new one abandons the previous one in the same transaction).
+- **Indexes:** the partial unique index above serves the lookup of the open conversation; **proposed:** `(plan_id)` where `plan_id` is not null — foreign-key support (the convention of this section).
+- **RLS:** enabled · anon: none · authenticated: select, insert, update own rows (`P-OWN`; update only `status`, `proposal`, `proposal_version`, `model_turns`, `closed_at`; no delete) · qatra_server: none · service_role: none (revoked). No `srv_*` function is needed.
+- **Triggers:** `set_updated_at`. **Retention:** the rows live with the account and are deleted with it (§12.1). An `abandoned` conversation is one superseded by a newer conversation or older than 7 days (configuration); its messages may be purged opportunistically, which needs a `DELETE` path that does not exist yet (OPEN-18).
+
+#### `plan_chat_messages`
+
+The ordered messages of a conversation (D75, Approved — D75, A1 (owner, 4 October 2026); Plan-conversation §2.1). Append-only; the model's raw output is never stored.
+
+| Column | Type | Null | Default | Rules |
+|---|---|---|---|---|
+| `id` | uuid | no | `gen_random_uuid()` | primary key |
+| `chat_id` | uuid | no | — | |
+| `user_id` | uuid | no | — | |
+| `ordinal` | integer | no | — | reading order inside the conversation; unique with `chat_id` |
+| `role` | text | no | — | `learner` or `assistant` |
+| `kind` | text | no | — | `text`, `proposal`, `refusal`, `redirect`, `fallback` or `quick_reply`; a `proposal` message carries the proposal snapshot in `payload` |
+| `text` | text | no | — | `char_length(text) <= 2000` (check); a learner's text is limited to 500 characters by the API |
+| `source` | text | no | — | `learner`, `rules`, `model` or `fixed` (provenance of the text) |
+| `payload` | jsonb | yes | — | the proposal snapshot, or the quick-reply code; never a model's raw output |
+| `created_at` | timestamptz | no | `now()` | |
+
+- **Checks:** `role`, `kind` and `source` value sets (§4.4); `char_length(text) <= 2000`.
+- **PK:** `id`. **FKs:** `user_id` to `auth.users (id)` (class A, `ON DELETE CASCADE`); `(chat_id, user_id)` to `plan_chats (id, user_id)` (class B, `ON DELETE CASCADE`). **Unique:** `(chat_id, ordinal)`.
+- **Indexes:** the unique key `(chat_id, ordinal)` serves the reading order and the composite foreign key.
+- **RLS:** enabled · anon: none · authenticated: select, insert own rows (`P-OWN`; no update, no delete) · qatra_server: none · service_role: none (revoked).
+- **Triggers:** none. **Retention:** as `plan_chats`.
+
+`ai_usage` (below) is reused unchanged by the conversation: its rows carry `prompt_version = 'plan-chat-v1'`, no learner text and no account id (D75; Plan-conversation §2.1).
+
+### 6.4 Conditional table (D45, migration `0007_feedback`)
 
 #### `content_feedback`
 
@@ -1635,7 +1728,7 @@ All trigger functions live in schema `private`, declare `search_path = ''`, are 
 
 | Function (trigger) | Table | When | Purpose | Security | Basis |
 |---|---|---|---|---|---|
-| `private.set_updated_at` | `categories`, `sources`, `books`, `book_editions`, `content_jobs`, `profiles`, `master_plans`, `learning_sessions`, `daily_progress`, `target_mastery`, `content_feedback` | before update | sets `updated_at = now()` | invoker | standard |
+| `private.set_updated_at` | `categories`, `sources`, `books`, `book_editions`, `content_jobs`, `profiles`, `master_plans`, `learning_sessions`, `daily_progress`, `target_mastery`, `plan_chats`, `content_feedback` | before update | sets `updated_at = now()` | invoker | standard |
 | `private.guard_edition_delete` | `book_editions` | before delete | rejects the delete unless the edition is `draft` and no `content_jobs` row of step `published` exists | invoker | D44, Content-and-sources |
 | `private.guard_unit_text` | `units` | before update | rejects a change of `canonical_text`, `token_spans` or `text_hash` once the edition has left `draft` | invoker | D03, D20, D44 |
 | `private.validate_profile` | `profiles` | before insert or update | `time_zone`, and `pending_settings.timeZone` when present, must be a known IANA zone | definer | D57, R10 |
@@ -1643,7 +1736,7 @@ All trigger functions live in schema `private`, declare `search_path = ''`, are 
 
 ## 11. Migration plan (description only)
 
-No migration file is created now; the SQL names and order below are the proposal the owner reviews (Programming-guide lists the same file names). Each table-creating migration enables RLS and revokes default privileges immediately; the reviewed policies, grants, views and functions arrive in `0005_rls_functions`, before any application access (contract §3, Programming-guide). Every migration only references objects created by itself or by an earlier migration.
+No migration file is created now; the SQL names and order below are the proposal the owner reviews (Programming-guide lists the same file names). Each table-creating migration enables RLS and revokes default privileges immediately; the reviewed policies, grants, views and functions arrive in `0005_rls_functions`, before any application access (contract §3, Programming-guide); the tables of `0006_plan_chats` (D75) carry their own policies and grants in that migration. Every migration only references objects created by itself or by an earlier migration.
 
 ### `0001_content`
 
@@ -1682,13 +1775,21 @@ No migration file is created now; the SQL names and order below are the proposal
 6. A check that no `storage.objects` policy exists for `sources`.
 7. The schema checks of §14 are run before any production use (Programming-guide: not before security review).
 
-### `0006_feedback` (conditional, D45)
+### `0006_plan_chats` (D75, Approved — D75, A1 (owner, 4 October 2026))
+
+1. Tables, in dependency order: `plan_chats` (after `master_plans` of `0003`), then `plan_chat_messages`.
+2. The composite keys of §4.3 (`plan_chats (id, user_id)`; `(plan_id, user_id)` to `master_plans`; `(chat_id, user_id)` to `plan_chats`), the `CHECK` value sets of §4.4, the partial unique index `one open chat per user` on `plan_chats (user_id)` where `status = 'open'`, the other indexes of §6.3, trigger `set_updated_at` on `plan_chats`.
+3. RLS enabled; every default privilege revoked from `anon`, `authenticated` and `service_role`.
+4. The `P-OWN` policies and the `authenticated` grants of §5.2 and §5.3 (select, insert and column-limited update on `plan_chats`; select and insert on `plan_chat_messages`), issued in this migration because `0005` has already run; no application access to these tables exists before it. No `srv_*` function and no catalog view is added. Whether the multi-row writes of E31, E32 and E34 use `SECURITY INVOKER` `app_*`-style functions (§8.3, A-01) is decided at B13 (OPEN-18).
+5. The schema check 18 of §14 is run before any production use.
+
+### `0007_feedback` (conditional, D45; renumbered from `0006` in v1.2)
 
 `content_feedback`, its indexes, trigger and policies, only after the first-day gate and an approved feedback contract; any manager access path is designed then (OPEN-13).
 
 ## 12. Data lifecycle
 
-### 12.1 Account deletion (`DELETE /api/account`)
+### 12.1 Account deletion (`POST /api/account/delete`)
 
 Immediate and permanent (D34). Order: the backend checks the password and the confirmation; `srv_delete_personal_rows` removes the rows below in one transaction; the Auth Admin API deletes the Auth user (idempotent and retried if it fails, because every personal table also cascades from `auth.users` as a safety net); the client clears the local copy of the current device (PWA-design; another offline device cannot be cleared at once).
 
@@ -1696,7 +1797,7 @@ Immediate and permanent (D34). Order: the backend checks the password and the co
 |---|---|
 | `private.app_sessions`, `private.password_reset_grants`, `private.recovery_codes`, `private.account_handles` | explicit delete by `user_id` |
 | `private.auth_throttle` rows of the account's username key | explicit delete by the HMAC key the backend passes; IP-prefix rows are not linked to the account and expire by the 24-hour purge |
-| `content_feedback` (only if enabled), `target_part_evidence`, `target_mastery`, `daily_completions`, `daily_progress`, `session_activity_intervals`, `attempts`, `learning_sessions` (including placement sessions without a plan), `offline_snapshots`, `plan_phases`, `plan_versions`, `master_plans`, `profiles` | explicit delete by `user_id`, backed by class A and B cascades |
+| `content_feedback` (only if enabled), `target_part_evidence`, `target_mastery`, `daily_completions`, `daily_progress`, `session_activity_intervals`, `attempts`, `learning_sessions` (including placement sessions without a plan), `offline_snapshots`, `plan_chat_messages` and `plan_chats` (D75), `plan_phases`, `plan_versions`, `master_plans`, `profiles` | explicit delete by `user_id`, backed by class A and B cascades |
 
 Not removed: `ai_usage` (it holds no account link), all content tables, objects in `sources`, and the provider's own backups, which follow the provider's retention; that period must be documented before publication and stated in the privacy statement, and no figure is claimed now (Architecture, Authentication-and-privacy). `reviews` is not in the list because the table does not exist (§3.4).
 
@@ -1764,8 +1865,10 @@ Modules are those of [PRD.md](PRD.md) v14: M1 account and privacy; M2 catalog an
 | `target_mastery` | D41, D56, D64, D66 | M6 | R15, R19 |
 | `target_part_evidence` | D64, D66 | M6 | R19 |
 | `offline_snapshots` | D46, D58, D59 | M7 | R16, R23 |
-| `ai_usage` | D17, D39, D60, D65 | M8 | R09, NFR-05, NFR-13 |
-| `content_feedback` (conditional) | D45 | M12 | R22 |
+| `plan_chats` (D75) | D17, D34, D57, D60, D71, D75 | M3, M8 | R24, R25, R28, NFR-16 |
+| `plan_chat_messages` (D75) | D17, D26, D51, D60, D75 | M3, M8 | R24, R26, R27, NFR-17 |
+| `ai_usage` | D17, D39, D60, D65, D75 | M8 | R09, R27, NFR-05, NFR-13, NFR-17 |
+| `content_feedback` (conditional, migration `0007_feedback`) | D45 | M12 | R22 |
 | Storage bucket `sources` | D37, D48, D68, D69 | M11 | R13, NFR-11 |
 | Views `catalog_editions`, `catalog_sections` | D71 | M2 | R03, R08 |
 | Roles and `srv_*` functions | D34, D36, D69, D71 | M1 | R10, NFR-06, NFR-07 |
@@ -1792,10 +1895,11 @@ Nothing exists to test yet; these are the checks the later security review and t
 15. **Throttle purge.** Rows older than 24 hours are gone once `srv_throttle_record` has run enough times, each call deleting at most 100 rows.
 16. **Daily session uniqueness (A-01).** A second server-side daily session (`prepared` or `open`, no offline snapshot) for the same `user_id` and `learning_date` is rejected by the partial unique index, and `app_open_session` returns the existing one (`200`, a new one `201`); an offline-prepared daily session, a completed daily session and game and placement sessions on the same date are accepted. Not run.
 17. **Value-set `CHECK` constraints (A-05).** Each value outside the sets of §4.4 is rejected for `sources.rights_status`, `attempts.error_kind` (a null stays accepted), `ai_usage.status`, `content_jobs.status`, `lessons.status`, `question_items.status`, `generic_plan_templates.status` and `password_reset_grants.status`; `content_feedback.category_code` accepts any non-empty value. Not run.
+18. **Plan conversation (D75).** Account A cannot select, insert or update the `plan_chats` or `plan_chat_messages` rows of account B, including a forged `plan_id` or `chat_id`; a second `open` conversation for the same `user_id` is rejected by the partial unique index and an `abandoned` or `confirmed` one is accepted; each value outside the sets of §4.4 for `plan_chats.status`, `plan_chats.language`, `plan_chat_messages.role`, `kind` and `source` is rejected, as is a `text` longer than 2 000 characters; `anon`, `service_role` and `qatra_server` have no privilege on either table; after `srv_delete_personal_rows` (and after a cascade from `auth.users` alone) no conversation row of the account remains; the path value set still has four values. Not run.
 
 ## 15. Open points
 
-Everything here is listed instead of being decided by guesswork. Each item names what is open, how this document currently handles it, and who must decide. Rows marked **Resolved 4 Oct 2026** carry an architect decision of the coordinator consistency pass; approved by D74 with the architecture package. Ten points are still open or partly open: OPEN-04, 06, 08, 10, 11, 12, 13, 14, 15 and 17.
+Everything here is listed instead of being decided by guesswork. Each item names what is open, how this document currently handles it, and who must decide. Rows marked **Resolved 4 Oct 2026** carry an architect decision of the coordinator consistency pass; approved by D74 with the architecture package. Eleven points are still open or partly open: OPEN-04, 06, 08, 10, 11, 12, 13, 14, 15, 17 and 18 (OPEN-18 is added in v1.2, D75).
 
 | ID | Open point | Handling in this document | Decider |
 |---|---|---|---|
@@ -1816,6 +1920,7 @@ Everything here is listed instead of being decided by guesswork. Each item names
 | OPEN-15 | **Facts to confirm on the real project, not checked now:** Supabase Free allows a custom login role through the pooler (D69 assumes it); the platform default grants to `anon`, `authenticated`, `service_role`; the PostgreSQL major version (the column-list form of `ON DELETE SET NULL` and `security_invoker` views need version 15 or later); Data API exposes `public` only; the GraphQL extension's schema introspection for `anon`; no table in the Realtime publication; the values for `qatra_server` connection limit and statement timeout | Stated as targets | owner, at provisioning |
 | OPEN-16 | **`srv_*` functions live in the exposed `public` schema** (contract §3.2); a non-exposed schema would add a second barrier against a wrongly granted `EXECUTE` | **Resolved 4 Oct 2026 (architect decision A-13; approved by D74).** `srv_*` stays in `public` (contract); the controls are unchanged: `EXECUTE` revocation and check 5 of §14 | closed (D74) |
 | OPEN-17 | **Storage details:** bucket file-size and MIME limit values, and the file naming inside `raw/` | Not set | content workflow design |
+| OPEN-18 | **Plan conversation writes and retention (D75):** (a) whether the multi-row writes of E31, E32 and E34 (create the conversation and its first message; append a turn and update the proposal; confirm and close) use `SECURITY INVOKER` `app_*`-style functions (A-01) or single-table writes under the learner's token, and their names and signatures; (b) the opportunistic purge of the messages of abandoned conversations (superseded, or older than 7 days) needs a `DELETE` path, while the grant posture of §5.2 has no `DELETE` on any table; (c) whether closing the conversation shares the transaction of the plan commit | (a) and (c) are fixed at B13 with the API contract (API-spec §4.10); for (b) no `DELETE` grant and no purge function are defined here: either a narrow delete policy for abandoned conversations or a bounded purge inside a learner function must be chosen | backend design (B13), then the owner for any new grant |
 
 Open risk carried from D69 and D72 (accepted for the MVP, not a schema defect): answer keys travel to the device (`question_items.correct_ref`, `learning_sessions.steps`) and `attempts.assisted` is client-reported; the server grades every submitted answer and never accepts correctness or mastery from the client.
 

@@ -63,7 +63,7 @@ Earlier the same day the owner asked that the plan screen be titled «ما هي 
 
 ### 1.4 Open points resolved by this amendment
 
-UQ-01 and UQ-02 of [UI-design.md](UI-design.md) §9.3 are answered; contract §11 "English religious labels" stays open (unchanged); API-spec [O-17] (placement persistence for revisions) is resolved in §2.3 below. UG-04 of UI-design.md (the version of a completed plan for maintenance reviews) is resolved by adding `currentVersion: number` to `PlanProgress` (E19) in the API-spec v1.2 and contract v1.5 amendments of §4, so the client can open an E20 `daily` session on a completed plan with the right `expectedPlanVersion`.
+UQ-01 and UQ-02 of [UI-design.md](UI-design.md) §9.3 are answered; contract §11 "English religious labels" stays open (unchanged); API-spec [O-17] (placement persistence for revisions) is resolved in §2.3 below. UG-04 of UI-design.md (the version of a completed plan for maintenance reviews) is resolved by adding `currentVersion: number` to `PlanProgress` (E19, API-spec O-32) in the API-spec v1.2 and contract v1.5 amendments of §4, so the client can open an E20 `daily` session on a completed plan with the right `expectedPlanVersion`.
 
 ## 2. Architecture amendment
 
@@ -100,7 +100,7 @@ The conditional feedback migration moves from `0006` to `0007`. Both tables are 
 | `payload` | jsonb, null | proposal snapshot or quick-reply code; no model raw output |
 | `created_at` | timestamptz | |
 
-`ai_usage` (0004) is reused unchanged: `prompt_version` values `plan-chat-v1` distinguish these calls from the demo planner's; no learner text, no account id. Retention: messages live with the account and are deleted with it (D52 list of personal rows is extended); an `abandoned` conversation is one superseded by a newer conversation or older than 7 days (configuration), and its messages may be purged opportunistically.
+`ai_usage` (0004) is reused unchanged: `prompt_version` values `plan-chat-v1` distinguish these calls from the demo planner's; no learner text, no account id. Retention: messages live with the account and are deleted with it (D52 list of personal rows is extended); an `abandoned` conversation is one superseded by a newer conversation; no separate purge exists in the MVP (no `DELETE` path is granted; Database-schema OPEN-18 closed on that basis).
 
 ### 2.2 DTOs (Implementation-contract §7 additions)
 
@@ -183,6 +183,17 @@ S-08 start form: title «ما هي خطتك؟»; category → book → edition; 
 | Q7 | QA cases: guard set, privacy payload, fallback journey, caps, latency | B13, F14 | yes | S | 2–4 | — |
 
 Estimated added effort 25–38 hours; with the R2 workers the backend part runs in parallel with B3–B6. The D55 dates were already at very high risk (Qatra-build-plan §calibration); this package moves the earliest estimated finish later by about one calendar day unless capacity proves higher at CP1. No date is guaranteed.
+
+### 2.9 Decisions on the points the propagation left open (coordinator, 4 October 2026; API-spec §4.10.3)
+
+1. A revision conversation never changes the edition or the scope (E17 rule): `smaller_scope` is not offered and a model `targetScope` change is ignored with a templated reply explaining that a new scope needs a new plan.
+2. E31 returns `replacedChatId?: string` inside `PlanChat` when an open conversation was replaced.
+3. Validation rule names follow E15–E17 (`paths_invalid`, `scope_invalid`, `order_invalid`, `goal_text_length`).
+4. `chat_closed` applies to E32 and E34; `quickReply = "confirm"` on E32 is `422 validation_error` (`quick_reply_confirm_use_e34`); `later_date` adds 25 % to the days, `no_date` clears `preferredDate`.
+5. `goalText` is stored as the first learner message; when it is religious or out of scope, the first assistant turn is the fixed refusal or redirect followed by the rules proposal built from the structured selections.
+6. Demo accounts: quick replies only (§1.3). `planner.source` keeps the contract values: `rules` for rules-built plans, `teaching_agent` for plans whose parameters came from a model turn (the model id in `planner.model`).
+7. Confirming closes the conversation in the same transaction as the plan commit; `placementSessionId` is kept in the stored proposal only (not in the DTO).
+8. No purge of abandoned conversations in the MVP (§2.1).
 
 ## 3. Risks and mitigations
 
