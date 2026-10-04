@@ -4,7 +4,7 @@
 
 | ابدأ بالوثيقة | الغرض |
 |---|---|
-| [Decision-register.md](Decision-register.md) | القرارات الثابتة D01–D69 وأثر القرارات الأحدث |
+| [Decision-register.md](Decision-register.md) | القرارات الثابتة D01–D70 وأثر القرارات الأحدث |
 | [Readiness.tracker.md](Readiness.tracker.md) | حالات الاعتماد والأسئلة المتبقية والإجراء التالي |
 | [Programming-guide.md](Programming-guide.md) | خريطة المهمة إلى الوثائق والملفات المخططة؛ بداية أي مهمة برمجية |
 | [PRD.md](PRD.md) | النطاق والمتطلبات ومعايير القبول |
