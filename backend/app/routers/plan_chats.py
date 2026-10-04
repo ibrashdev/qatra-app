@@ -5,9 +5,10 @@ Every mutation lists ``require_valid_origin`` before ``require_session`` and the
 output are never logged here (API-spec §1.12). Handlers are synchronous: the model call blocks
 for up to 8 s, so they run in the framework's thread pool, not on the event loop.
 
-The service is created at startup by the package that supplies the ports (B3/B4) with
-``build_plan_chat_service`` and stored on ``app.state.plan_chat_service``; without it the
-endpoints answer ``503 unavailable`` (nothing is faked).
+The service is a ``PlanChatGateway`` that ``app.wiring.install_plan_chat`` stores on
+``app.state.plan_chat_service`` (it binds the ports of B4 and the learner's token per request);
+without it, for example in supabase mode without its configuration, the endpoints answer
+``503 unavailable`` (nothing is faked). E33 is in the Session read class (API-spec §1.8).
 """
 
 from __future__ import annotations
@@ -28,7 +29,7 @@ from app.contracts_plan_chat import (
 from app.dependencies import SessionContext, require_session, require_valid_origin
 from app.errors import AppError, ErrorCode
 from app.routers.health import ip_rate_limit
-from app.services.plan_chat import PlanChatService
+from app.services.plan_chat import PlanChatApi
 
 router = APIRouter(prefix="/api", tags=["plan-chats"])
 
@@ -45,24 +46,28 @@ _ERRORS = {
 }
 
 
-def get_plan_chat_service(request: Request) -> PlanChatService:
-    service: PlanChatService | None = getattr(request.app.state, "plan_chat_service", None)
+def get_plan_chat_service(request: Request) -> PlanChatApi:
+    service: PlanChatApi | None = getattr(request.app.state, "plan_chat_service", None)
     if service is None:
         raise AppError(ErrorCode.unavailable)
     return service
 
 
-# Chat write class: E31, E32 and E34.
+# Chat write class: E31, E32 and E34. Session read class (shared with the plan routes): E33.
 enforce_chat_write_limit = ip_rate_limit("chat_write_limiter", "QATRA_RATE_CHAT_WRITE_PER_MIN")
+enforce_session_read_limit = ip_rate_limit(
+    "session_read_limiter", "QATRA_RATE_SESSION_READ_PER_MIN"
+)
 
 
-Service = Annotated[PlanChatService, Depends(get_plan_chat_service)]
+Service = Annotated[PlanChatApi, Depends(get_plan_chat_service)]
 Session = Annotated[SessionContext, Depends(require_session)]
 _WRITE_GUARDS = [
     Depends(require_valid_origin),
     Depends(require_session),
     Depends(enforce_chat_write_limit),
 ]
+_READ_GUARDS = [Depends(require_session), Depends(enforce_session_read_limit)]
 
 
 @router.post(
@@ -106,6 +111,7 @@ def send_plan_chat_message(
     response_model_by_alias=True,
     summary="Read a plan conversation (E33)",
     responses=_ERRORS,
+    dependencies=_READ_GUARDS,
 )
 def read_plan_chat(chat_id: UUID, response: Response, ctx: Session, service: Service) -> PlanChat:
     response.headers["Cache-Control"] = _NO_STORE

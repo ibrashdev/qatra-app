@@ -172,7 +172,11 @@ def test_the_real_provider_sends_only_the_allowed_payload_over_http() -> None:
             },
         )
 
-    settings = make_settings(OPENROUTER_API_KEY="dummy-key", OPENROUTER_MODELS="free/a:free")
+    settings = make_settings(
+        OPENROUTER_API_KEY="dummy-key",
+        OPENROUTER_MODELS="free/a:free",
+        QATRA_CHAT_MODEL_FOR_LEARNERS=True,
+    )
     provider = OpenRouterProvider(settings, httpx.MockTransport(handler))
     base = make_env()
     service = build_plan_chat_service(
