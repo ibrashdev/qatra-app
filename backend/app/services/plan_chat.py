@@ -9,6 +9,15 @@ guard. Nothing is saved as a plan before ``confirm_plan``.
 Integration happens through ports (``domain/planning_port.py``) that B3/B4 implement; this
 module never reads the session cookie: identity arrives as a ``SessionContext``.
 
+Wiring (B13): the ports of B4 and the learner's access token are bound per request, so the
+application installs a ``PlanChatGateway`` (``app.state.plan_chat_service``) that builds one
+``PlanChatService`` per call from ``PlanService.ports_for(ctx)``, a repository and a learning
+adapter. What must outlive a request (per-conversation locks, temporary model ids) lives in the
+shared ``ChatRuntime``. E31 builds the whole first turn in memory and stores it with one
+repository call; E34 writes the plan and closes the conversation through a ``PlanConfirmer``:
+under one lock in memory mode, in one database function (``app_plan_chat_confirm``) in
+supabase mode.
+
 Privacy: learner text, goal text and model output are never logged. The outbound payload is
 built from public data only, checked against an allowlist, and sent under a temporary
 conversation id that is held in memory and unrelated to the stored conversation id.
@@ -23,7 +32,7 @@ from collections import OrderedDict
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, date, datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any, Protocol
 from uuid import UUID
 
 from app.config import Settings
@@ -50,6 +59,7 @@ from app.contracts_plan_chat import (
 from app.dependencies import SessionContext
 from app.domain import plan_chat_policy as policy
 from app.domain import plan_chat_templates as templates
+from app.domain.plan_policy import EstimateMismatch, PlanInputError
 from app.domain.planning_port import (
     ActivePlanConflict,
     EstimateChanged,
@@ -78,15 +88,32 @@ from app.providers.llm import (
     StructuredReplyProvider,
 )
 from app.providers.openrouter import build_default_provider
-from app.repositories.ai_usage import InMemoryUsageLedger, UsageLedger, UsageRecord
+from app.repositories.ai_usage import (
+    InMemoryUsageLedger,
+    PostgresUsageLedger,
+    UsageLedger,
+    UsageRecord,
+)
 from app.repositories.plan_chats import (
     ChatClosedError,
+    ChatNotFoundError,
     ChatRecord,
     InMemoryPlanChatRepository,
+    LocalPlanChatRepository,
     MessageRecord,
+    NewMessage,
     PlanChatRepository,
+    PlanVersionMoved,
+    PostgrestPlanChatRepository,
     ProposalStaleError,
 )
+from app.services.plan_chat_learning import EmptyLearningSummary, PlanChatLearningSummary
+from app.services.plans import PlanService, plan_dto
+
+if TYPE_CHECKING:
+    from app.providers.postgrest import PostgrestClient
+    from app.repositories.bank import BankRepository
+    from app.repositories.learning import LearningRepository
 
 logger = logging.getLogger("qatra.plan_chat")
 
@@ -96,6 +123,9 @@ MODEL_CONTEXT_MESSAGES = 10
 _TEMP_ID_LIMIT = 1000
 
 _UNSET: Any = object()
+
+# The route label of a model-path outcome in the log (names only).
+_TURN_ROUTES = {"fallback": "fallback", "rules_only": "rules"}
 
 
 def _fields(*pairs: tuple[str, str]) -> AppError:
@@ -119,12 +149,48 @@ class _KeyedLocks:
             return self._locks.setdefault(key, threading.Lock())
 
 
+class ChatRuntime:
+    """State that must outlive one request and is shared by every request-scoped service: the
+    per-conversation locks and the temporary model ids (held in memory only, never stored or
+    logged)."""
+
+    def __init__(self) -> None:
+        self.locks = _KeyedLocks()
+        self._temp_ids: OrderedDict[UUID, UUID] = OrderedDict()
+        self._temp_lock = threading.Lock()
+
+    def temp_id(self, chat_id: UUID) -> UUID:
+        """A random id for the model, never equal to the chat id, stable for one conversation."""
+        with self._temp_lock:
+            existing = self._temp_ids.get(chat_id)
+            if existing is not None:
+                return existing
+            value = uuid.uuid4()
+            self._temp_ids[chat_id] = value
+            while len(self._temp_ids) > _TEMP_ID_LIMIT:
+                self._temp_ids.popitem(last=False)
+            return value
+
+    def forget_temp_id(self, chat_id: UUID | None) -> None:
+        if chat_id is not None:
+            with self._temp_lock:
+                self._temp_ids.pop(chat_id, None)
+
+    def rekey_temp_id(self, old: UUID, new: UUID) -> None:
+        """The first turn runs before the conversation has its stored id: keep its temporary id."""
+        with self._temp_lock:
+            value = self._temp_ids.pop(old, None)
+            if value is not None:
+                self._temp_ids[new] = value
+
+
 @dataclass
 class _Turn:
     """The outcome of the model path for one learner message."""
 
     kind: (
         str  # fixed_religious | fixed_out_of_scope | confirm | text | applied | rejected | fallback
+        # | rules_only (the model is switched off by configuration)
     )
     params: PlanParameters
     reply: str | None = None  # model text that passed the output guard
@@ -148,6 +214,8 @@ class PlanChatService:
         learning: LearningSummaryPort,
         provider: StructuredReplyProvider | None = None,
         clock: Callable[[], datetime] | None = None,
+        runtime: ChatRuntime | None = None,
+        confirmer: PlanConfirmer | None = None,
     ) -> None:
         self._settings = settings
         self._repo = repository
@@ -157,9 +225,12 @@ class PlanChatService:
         self._learning = learning
         self._provider = provider
         self._clock = clock or (lambda: datetime.now(UTC))
-        self._locks = _KeyedLocks()
-        self._temp_ids: OrderedDict[UUID, UUID] = OrderedDict()
-        self._temp_lock = threading.Lock()
+        self._runtime = runtime or ChatRuntime()
+        if confirmer is None:
+            if not hasattr(repository, "commit_and_close"):
+                raise TypeError("a repository without commit_and_close needs a confirmer")
+            confirmer = LocalPlanConfirmer(repository, writer)  # type: ignore[arg-type]
+        self._confirmer = confirmer
 
     # ------------------------------------------------------------------ small helpers
 
@@ -172,23 +243,6 @@ class PlanChatService:
         if self._provider is None or not self._provider.is_enabled():
             return False
         return ctx.is_demo or self._settings.QATRA_CHAT_MODEL_FOR_LEARNERS
-
-    def _temp_id(self, chat_id: UUID) -> UUID:
-        """A random id for the model, held in memory only and never equal to the chat id."""
-        with self._temp_lock:
-            existing = self._temp_ids.get(chat_id)
-            if existing is not None:
-                return existing
-            value = uuid.uuid4()
-            self._temp_ids[chat_id] = value
-            while len(self._temp_ids) > _TEMP_ID_LIMIT:
-                self._temp_ids.popitem(last=False)
-            return value
-
-    def _forget_temp_id(self, chat_id: UUID | None) -> None:
-        if chat_id is not None:
-            with self._temp_lock:
-                self._temp_ids.pop(chat_id, None)
 
     def _edition(self, edition_id: UUID) -> CatalogEdition:
         try:
@@ -366,7 +420,7 @@ class PlanChatService:
         ar = chat.language == "ar"
         history = chat.messages[-MODEL_CONTEXT_MESSAGES:]
         return ModelContext(
-            conversation_id=str(self._temp_id(chat.id)),
+            conversation_id=str(self._runtime.temp_id(chat.id)),
             language=chat.language,  # type: ignore[arg-type]
             edition=EditionView(
                 title=edition.title_ar if ar else edition.title_en,
@@ -433,9 +487,18 @@ class PlanChatService:
         edition: CatalogEdition,
         estimate: Estimate,
         today: date,
+        *,
+        persist: bool = True,
     ) -> _Turn:
-        """One model request for the learner's latest message (already stored in ``chat``)."""
+        """One model request for the learner's latest message (already in ``chat.messages``).
+
+        ``persist`` is false for the first turn of E31, whose conversation is not stored yet:
+        the model turns it used are counted on ``chat`` and stored with the first turn."""
         fallback = _Turn("fallback", params)
+        if not ctx.is_demo and not self._settings.QATRA_CHAT_MODEL_FOR_LEARNERS:
+            # Switched off by configuration (D76): a rules-only conversation without the
+            # "assistant unavailable" notice (UI-screens, S-34 state "Model switched off").
+            return _Turn("rules_only", params)
         if not self._model_enabled(ctx) or self._provider is None:
             return fallback
         if not policy.caps_allow(self._cap_counts(ctx, chat), self._settings):
@@ -456,11 +519,13 @@ class PlanChatService:
                     ctx, model=failure.model, status=failure.usage_status, failure=failure
                 )
             if failure.request_made:
-                self._repo.add_model_turn(ctx.user_id, chat.id, self._now())
+                if persist:
+                    self._repo.add_model_turn(ctx.user_id, chat.id, self._now())
                 chat.model_turns += 1
             return fallback
         self._record_usage(ctx, model=reply.model, status="succeeded", reply=reply)
-        self._repo.add_model_turn(ctx.user_id, chat.id, self._now())
+        if persist:
+            self._repo.add_model_turn(ctx.user_id, chat.id, self._now())
         chat.model_turns += 1
 
         output = reply.output
@@ -548,6 +613,12 @@ class PlanChatService:
     # ------------------------------------------------------------------ E31
 
     def create_conversation(self, ctx: SessionContext, req: CreatePlanChatRequest) -> PlanChat:
+        # One first turn per account at a time: a second simultaneous call waits, then replaces
+        # the first conversation. The lock key is the account id; no conversation id equals it.
+        with self._runtime.locks.get(ctx.user_id):
+            return self._create_conversation(ctx, req)
+
+    def _create_conversation(self, ctx: SessionContext, req: CreatePlanChatRequest) -> PlanChat:
         goal = req.goal_text.strip()
         if not goal or len(goal) > MAX_GOAL_CHARS:
             raise _fields(("goalText", "goal_text_length"))
@@ -589,19 +660,12 @@ class PlanChatService:
             raise _fields(*[(e.field, e.rule) for e in errors])
         result = self._estimate(ctx, params, placement_id)  # may raise 404/422
 
-        opened = self._repo.open_new(
-            ctx.user_id,
-            plan_id=revision_plan.plan_id if revision_plan else None,
-            language=req.language,
-            now=self._now(),
-        )
-        chat = opened.chat
-        self._forget_temp_id(opened.replaced_chat_id)
         plan_version = revision_plan.current_version if revision_plan else None
         revision = revision_plan is not None
-
-        self._append(ctx, chat.id, role="learner", kind="text", text=goal, source="learner")
-        chat = self._get_chat(ctx, chat.id)
+        now = self._now()
+        # The conversation is stored once, after the first turn is complete (migration 0006:
+        # ``app_plan_chat_open``), so the model and the guard work on this unsaved draft.
+        chat = self._draft_chat(ctx, req.language, revision_plan, goal, now)
 
         composed = templates.goal_matches_composed(goal, edition, params, req.language)
         route = "rules"
@@ -618,29 +682,25 @@ class PlanChatService:
                 guard_message = ("redirect", templates.redirect_text(req.language))
                 route = "guard"
             else:
-                turn = self._model_turn(ctx, chat, params, edition, result.estimate, today)
-                route = "model" if turn.kind != "fallback" else "fallback"
+                turn = self._model_turn(
+                    ctx, chat, params, edition, result.estimate, today, persist=False
+                )
+                route = _TURN_ROUTES.get(turn.kind, "model")
 
+        assistant: list[NewMessage] = []
         if guard_message is not None:
-            self._append(
-                ctx,
-                chat.id,
-                role="assistant",
-                kind=guard_message[0],
-                text=guard_message[1],
-                source="fixed",
-            )
+            assistant.append(NewMessage("assistant", guard_message[0], guard_message[1], "fixed"))
         if turn is not None and turn.kind in ("fixed_religious", "fixed_out_of_scope"):
             religious = turn.kind == "fixed_religious"
-            self._append(
-                ctx,
-                chat.id,
-                role="assistant",
-                kind="refusal" if religious else "redirect",
-                text=templates.refusal_text(req.language)
-                if religious
-                else templates.redirect_text(req.language),
-                source="fixed",
+            assistant.append(
+                NewMessage(
+                    "assistant",
+                    "refusal" if religious else "redirect",
+                    templates.refusal_text(req.language)
+                    if religious
+                    else templates.redirect_text(req.language),
+                    "fixed",
+                )
             )
         final_params = turn.params if turn is not None else params
         proposal = self._make_proposal(
@@ -653,54 +713,120 @@ class PlanChatService:
             guarded = policy.guard_reply(turn.reply, draft, req.language)
             if guarded.ok:
                 text, source = guarded.text, "model"
-        self._save_proposal(
-            ctx,
-            chat,
-            proposal,
-            text=text,
-            source=source,
-            model=turn.model if turn and source == "model" else None,
-            params_from_model=bool(turn and turn.params_from_model),
-        )
-        chat = self._get_chat(ctx, chat.id)
-        if turn is not None:
-            self._extra_first_turn_messages(ctx, chat, turn, proposal.public(), req.language)
-        log_event(logger, "plan_chat_created", route=route, revision=revision)
-        return self._dto(ctx, self._get_chat(ctx, chat.id), replaced=opened.replaced_chat_id)
-
-    def _extra_first_turn_messages(
-        self,
-        ctx: SessionContext,
-        chat: ChatRecord,
-        turn: _Turn,
-        proposal: PlanProposal,
-        language: str,
-    ) -> None:
-        if turn.kind == "fallback":
-            self._append_fallback(ctx, chat, proposal, language, include_summary=False)
-        elif turn.kind in ("text", "rejected", "applied") and turn.rejected:
-            self._append(
-                ctx,
-                chat.id,
-                role="assistant",
-                kind="text",
-                text=templates.rejected_parameters_message(
-                    proposal, language, scope_locked=turn.scope_locked_hit
-                ),
-                source="rules",
+        dumped = proposal.model_dump(by_alias=True, mode="json")
+        assistant.append(
+            NewMessage(
+                "assistant",
+                "proposal",
+                text,
+                source,
+                payload={
+                    "proposal": dumped,
+                    # The model id is kept whenever the model supplied the parameters, also
+                    # when its text was replaced by the template: it becomes ``planner.model``.
+                    "model": turn.model
+                    if turn and (source == "model" or turn.params_from_model)
+                    else None,
+                    "paramsFromModel": bool(turn and turn.params_from_model),
+                },
             )
-        elif turn.kind == "text" and turn.reply:
+        )
+        if turn is not None:
+            assistant.extend(self._first_turn_extras(turn, draft, req.language))
+
+        try:
+            opened = self._repo.open_chat(
+                ctx.user_id,
+                plan_id=chat.plan_id,
+                language=req.language,
+                learner_text=goal,
+                assistant=assistant,
+                proposal=dumped,
+                model_turns=chat.model_turns,
+                now=now,
+            )
+        except PlanNotActive:
+            raise AppError(
+                ErrorCode.version_conflict, details={"reason": "plan_not_active"}
+            ) from None
+        except PlanNotFound:
+            raise AppError(ErrorCode.not_found) from None
+        self._runtime.rekey_temp_id(chat.id, opened.chat.id)
+        self._runtime.forget_temp_id(opened.replaced_chat_id)
+        log_event(logger, "plan_chat_created", route=route, revision=revision)
+        return self._dto(ctx, opened.chat, replaced=opened.replaced_chat_id)
+
+    @staticmethod
+    def _draft_chat(
+        ctx: SessionContext,
+        language: str,
+        revision_plan: RevisablePlan | None,
+        goal: str,
+        now: datetime,
+    ) -> ChatRecord:
+        """The first turn's conversation before it is stored: a random provisional id, the
+        learner's goal text as the only message, no proposal and no model turn yet."""
+        chat_id = uuid.uuid4()
+        goal_message = MessageRecord(
+            id=uuid.uuid4(),
+            chat_id=chat_id,
+            user_id=ctx.user_id,
+            ordinal=1,
+            role="learner",
+            kind="text",
+            text=goal,
+            source="learner",
+            payload=None,
+            created_at=now,
+        )
+        return ChatRecord(
+            id=chat_id,
+            user_id=ctx.user_id,
+            plan_id=revision_plan.plan_id if revision_plan else None,
+            status="open",
+            language=language,
+            proposal=None,
+            proposal_version=0,
+            model_turns=0,
+            created_at=now,
+            updated_at=now,
+            messages=[goal_message],
+        )
+
+    def _first_turn_extras(
+        self, turn: _Turn, proposal: PlanProposal, language: str
+    ) -> list[NewMessage]:
+        """Assistant messages that follow the first proposal message."""
+        if turn.kind == "fallback":
+            return [self._fallback_message(proposal, language, first_time=True, summary=False)]
+        if turn.kind in ("text", "rejected", "applied") and turn.rejected:
+            return [
+                NewMessage(
+                    "assistant",
+                    "text",
+                    templates.rejected_parameters_message(
+                        proposal, language, scope_locked=turn.scope_locked_hit
+                    ),
+                    "rules",
+                )
+            ]
+        if turn.kind == "text" and turn.reply:
             guarded = policy.guard_reply(turn.reply, proposal, language)
             if guarded.ok:
-                self._append(
-                    ctx,
-                    chat.id,
-                    role="assistant",
-                    kind="text",
-                    text=guarded.text,
-                    source="model",
-                    payload={"model": turn.model},
-                )
+                return [
+                    NewMessage("assistant", "text", guarded.text, "model", {"model": turn.model})
+                ]
+        return []
+
+    @staticmethod
+    def _fallback_message(
+        proposal: PlanProposal | None, language: str, *, first_time: bool, summary: bool
+    ) -> NewMessage:
+        """The calm rules notice; ``kind`` is ``fallback`` the first time, ``text`` afterwards."""
+        text = templates.fallback_message(
+            proposal, language, first_time=first_time, include_summary=summary
+        )
+        return NewMessage("assistant", "fallback" if first_time else "text", text, "rules")
 
     def _append_fallback(
         self,
@@ -708,20 +834,38 @@ class PlanChatService:
         chat: ChatRecord,
         proposal: PlanProposal | None,
         language: str,
-        *,
-        include_summary: bool,
     ) -> None:
         shown_before = any(m.kind == "fallback" for m in chat.messages)
-        text = templates.fallback_message(
-            proposal, language, first_time=not shown_before, include_summary=include_summary
-        )
-        self._append(
+        self._append_message(
             ctx,
             chat.id,
-            role="assistant",
-            kind="text" if shown_before else "fallback",
-            text=text,
-            source="rules",
+            self._fallback_message(proposal, language, first_time=not shown_before, summary=True),
+        )
+
+    def _append_rules_reply(
+        self,
+        ctx: SessionContext,
+        chat: ChatRecord,
+        proposal: PlanProposal | None,
+        language: str,
+    ) -> None:
+        """The reply of a conversation whose model is switched off: the plan restated, with the
+        quick replies, and no notice."""
+        self._append_message(
+            ctx,
+            chat.id,
+            self._fallback_message(proposal, language, first_time=False, summary=True),
+        )
+
+    def _append_message(self, ctx: SessionContext, chat_id: UUID, message: NewMessage) -> None:
+        self._append(
+            ctx,
+            chat_id,
+            role=message.role,
+            kind=message.kind,
+            text=message.text,
+            source=message.source,
+            payload=message.payload,
         )
 
     # ------------------------------------------------------------------ E32
@@ -740,17 +884,24 @@ class PlanChatService:
             stripped = (req.text or "").strip()
             if not stripped or len(stripped) > MAX_TEXT_CHARS:
                 raise _fields(("text", "text_length"))
-        with self._locks.get(chat_id):
+        with self._runtime.locks.get(chat_id):
             chat = self._get_chat(ctx, chat_id)
             if chat.status != "open":
                 raise AppError(ErrorCode.version_conflict, details={"reason": "chat_closed"})
             stored = self._stored(chat)
             if stored is None:  # cannot happen: E31 always stores a first proposal
                 raise AppError(ErrorCode.internal)
-            if has_quick:
-                self._quick_reply_turn(ctx, chat, stored, str(req.quick_reply))
-            else:
-                self._text_turn(ctx, chat, stored, (req.text or "").strip())
+            try:
+                if has_quick:
+                    self._quick_reply_turn(ctx, chat, stored, str(req.quick_reply))
+                else:
+                    self._text_turn(ctx, chat, stored, (req.text or "").strip())
+            except ChatClosedError:  # another process closed it after the check above
+                raise AppError(
+                    ErrorCode.version_conflict, details={"reason": "chat_closed"}
+                ) from None
+            except ChatNotFoundError:
+                raise AppError(ErrorCode.not_found) from None
             return self._dto(ctx, self._get_chat(ctx, chat_id))
 
     def _quick_reply_turn(
@@ -826,11 +977,13 @@ class PlanChatService:
         params = self._params_of(stored)
         turn = self._model_turn(ctx, chat, params, edition, stored.estimate, today)
         current = stored.public()
-        route = "fallback" if turn.kind == "fallback" else "model"
+        route = _TURN_ROUTES.get(turn.kind, "model")
         log_event(logger, "plan_chat_turn", route=route, outcome=turn.kind)
 
         if turn.kind == "fallback":
-            self._append_fallback(ctx, chat, current, language, include_summary=True)
+            self._append_fallback(ctx, chat, current, language)
+        elif turn.kind == "rules_only":
+            self._append_rules_reply(ctx, chat, current, language)
         elif turn.kind == "fixed_religious":
             self._append_fixed(ctx, chat, "refusal", templates.refusal_text(language))
         elif turn.kind == "fixed_out_of_scope":
@@ -869,7 +1022,7 @@ class PlanChatService:
                 proposal,
                 text=message,
                 source=source,
-                model=turn.model if source == "model" else None,
+                model=turn.model,
                 params_from_model=True,
             )
         elif turn.rejected:
@@ -923,7 +1076,7 @@ class PlanChatService:
         self, ctx: SessionContext, chat_id: UUID, proposal_version: int
     ) -> tuple[Plan, bool]:
         """Save exactly the proposal the learner saw. Returns ``(plan, created)``."""
-        with self._locks.get(chat_id):
+        with self._runtime.locks.get(chat_id):
             chat = self._get_chat(ctx, chat_id)
             if chat.status != "open":
                 raise AppError(ErrorCode.version_conflict, details={"reason": "chat_closed"})
@@ -931,40 +1084,9 @@ class PlanChatService:
                 raise self._stale(chat)
             stored = StoredProposal.model_validate(chat.proposal)
             created = chat.plan_id is None
-
-            def commit(record: ChatRecord) -> Plan:
-                source, model = self._planner_of(record)
-                if created:
-                    return self._writer.create_plan(
-                        ctx.user_id,
-                        is_demo=ctx.is_demo,
-                        edition_id=stored.edition_id,
-                        target_scope=stored.target_scope,
-                        paths=list(stored.paths),
-                        order=stored.order,
-                        session_minutes=stored.session_minutes,
-                        preferred_date=stored.preferred_date,
-                        placement_session_id=stored.placement_session_id,
-                        confirmed_estimate=stored.estimate,
-                        planner_source=source,
-                        planner_model=model,
-                    )
-                assert record.plan_id is not None
-                return self._writer.revise_plan(
-                    ctx.user_id,
-                    record.plan_id,
-                    expected_version=stored.plan_version or 1,
-                    target_scope=stored.target_scope,
-                    paths=list(stored.paths),
-                    order=stored.order,
-                    session_minutes=stored.session_minutes,
-                    preferred_date=stored.preferred_date,
-                    confirmed_estimate=stored.estimate,
-                )
-
             try:
-                plan = self._repo.commit_and_close(
-                    ctx.user_id, chat_id, proposal_version, commit, self._now()
+                plan = self._confirmer.confirm(
+                    ctx, Confirmation(chat, stored, proposal_version, created), self._now()
                 )
             except ChatClosedError:
                 raise AppError(
@@ -987,20 +1109,15 @@ class PlanChatService:
                 raise AppError(
                     ErrorCode.version_conflict, details={"reason": "plan_not_active"}
                 ) from None
-            except PlanNotFound:
+            except (PlanNotFound, PlacementNotFound, ChatNotFoundError):
                 raise AppError(ErrorCode.not_found) from None
-            self._forget_temp_id(chat_id)
+            except PlanningRuleError as exc:
+                # A rule that held when the proposal was made no longer holds (for example a
+                # preferred date that has passed): the learner changes it and confirms again.
+                raise _fields((exc.field or "proposal", exc.rule)) from None
+            self._runtime.forget_temp_id(chat_id)
             log_event(logger, "plan_chat_confirmed", created=created)
             return plan, created
-
-    @staticmethod
-    def _planner_of(chat: ChatRecord) -> tuple[Any, str | None]:
-        """``teaching_agent`` when a model turn supplied parameters (§2.9 item 6)."""
-        for message in chat.messages:
-            payload = message.payload or {}
-            if payload.get("paramsFromModel"):
-                return "teaching_agent", payload.get("model")
-        return "rules", None
 
     @staticmethod
     def _stale(chat: ChatRecord) -> AppError:
@@ -1042,6 +1159,148 @@ class PlanChatService:
         return self._stale(self._get_chat(ctx, chat_id))
 
 
+# --- the confirmation of E34 (plan write and closing of the conversation as one unit) -------------
+
+
+def planner_of(chat: ChatRecord) -> tuple[Any, str | None]:
+    """``teaching_agent`` when a model turn supplied parameters (Plan-conversation §2.9 item 6)."""
+    for message in chat.messages:
+        payload = message.payload or {}
+        if payload.get("paramsFromModel"):
+            return "teaching_agent", payload.get("model")
+    return "rules", None
+
+
+@dataclass(frozen=True, slots=True)
+class Confirmation:
+    """What E34 confirms: the conversation as read under its lock and the proposal the learner
+    saw. ``created`` is true for a new plan and false for the revision of ``chat.plan_id``."""
+
+    chat: ChatRecord
+    stored: StoredProposal
+    proposal_version: int
+    created: bool
+
+
+class PlanConfirmer(Protocol):
+    def confirm(self, ctx: SessionContext, confirmation: Confirmation, now: datetime) -> Plan:
+        """Write the plan and mark the conversation ``confirmed`` as one unit: when the plan write
+        fails nothing is closed. Raises ``ChatClosedError``, ``ProposalStaleError``,
+        ``EstimateChanged``, ``ActivePlanConflict``, ``PlanVersionConflict``, ``PlanNotActive``,
+        ``PlanNotFound``, ``PlanningRuleError`` or ``ChatNotFoundError``."""
+
+
+class LocalPlanConfirmer:
+    """Memory mode: the plan functions of the ports run inside the repository's lock, in the
+    same unit of work as the closing of the conversation."""
+
+    def __init__(self, repository: LocalPlanChatRepository, writer: PlanWriter) -> None:
+        self._repo = repository
+        self._writer = writer
+
+    def confirm(self, ctx: SessionContext, confirmation: Confirmation, now: datetime) -> Plan:
+        stored = confirmation.stored
+
+        def commit(record: ChatRecord) -> Plan:
+            source, model = planner_of(record)
+            if confirmation.created:
+                return self._writer.create_plan(
+                    ctx.user_id,
+                    is_demo=ctx.is_demo,
+                    edition_id=stored.edition_id,
+                    target_scope=stored.target_scope,
+                    paths=list(stored.paths),
+                    order=stored.order,
+                    session_minutes=stored.session_minutes,
+                    preferred_date=stored.preferred_date,
+                    placement_session_id=stored.placement_session_id,
+                    confirmed_estimate=stored.estimate,
+                    planner_source=source,
+                    planner_model=model,
+                )
+            assert record.plan_id is not None
+            return self._writer.revise_plan(
+                ctx.user_id,
+                record.plan_id,
+                expected_version=stored.plan_version or 1,
+                target_scope=stored.target_scope,
+                paths=list(stored.paths),
+                order=stored.order,
+                session_minutes=stored.session_minutes,
+                preferred_date=stored.preferred_date,
+                confirmed_estimate=stored.estimate,
+            )
+
+        return self._repo.commit_and_close(
+            ctx.user_id, confirmation.chat.id, confirmation.proposal_version, commit, now
+        )
+
+
+class AtomicPlanConfirmer:
+    """Supabase mode: ``app_plan_chat_confirm`` writes the plan and closes the conversation in
+    one transaction. B4's ``prepare_creation`` / ``prepare_revision`` run the E16 / E17 checks and
+    build the same commit (phases, policy snapshot) that those endpoints write; nothing is
+    written before the database function runs, and the plan is read back afterwards."""
+
+    def __init__(self, plans: PlanService, repository: PostgrestPlanChatRepository) -> None:
+        self._plans = plans
+        self._repo = repository
+
+    def confirm(self, ctx: SessionContext, confirmation: Confirmation, now: datetime) -> Plan:
+        chat, stored = confirmation.chat, confirmation.stored
+        try:
+            if confirmation.created:
+                source, model = planner_of(chat)
+                commit = self._plans.prepare_creation(
+                    ctx,
+                    edition_id=stored.edition_id,
+                    ordinals=stored.target_scope.section_ordinals,
+                    paths=list(stored.paths),
+                    order=stored.order,
+                    session_minutes=stored.session_minutes,
+                    preferred_date=stored.preferred_date,
+                    placement_session_id=stored.placement_session_id,
+                    confirmed=stored.estimate,
+                    planner_source=source,
+                    planner_model=model,
+                )
+                plan_args = commit.plan_args()
+            else:
+                assert chat.plan_id is not None
+                expected = stored.plan_version or 1
+                commit = self._plans.prepare_revision(
+                    ctx,
+                    chat.plan_id,
+                    expected_version=expected,
+                    scope=stored.target_scope.section_ordinals,
+                    paths=list(stored.paths),
+                    order=stored.order,
+                    session_minutes=stored.session_minutes,
+                    preferred_date=stored.preferred_date,
+                    confirmed=stored.estimate,
+                )
+                plan_args = {**commit.plan_args(), "expected_version": expected}
+        except PlanInputError as exc:
+            first = exc.errors[0]
+            raise PlanningRuleError(first.rule, first.field) from None
+        except EstimateMismatch:
+            raise EstimateChanged from None
+        try:
+            plan_id = self._repo.confirm(
+                ctx.user_id, chat.id, confirmation.proposal_version, plan_args, now
+            )
+        except PlanVersionMoved:
+            current = self._plans.read_plan(ctx, chat.plan_id) if chat.plan_id is not None else None
+            if current is None:
+                raise PlanNotFound from None
+            raise PlanVersionConflict(current.current_version) from None
+        written = self._plans.read_plan(ctx, plan_id)
+        if written is None:
+            log_event(logger, "plan_missing_after_confirm", level=logging.ERROR)
+            raise AppError(ErrorCode.internal)
+        return plan_dto(written)
+
+
 def build_plan_chat_service(
     settings: Settings,
     *,
@@ -1052,10 +1311,13 @@ def build_plan_chat_service(
     ledger: UsageLedger | None = None,
     provider: Any = _UNSET,
     clock: Callable[[], datetime] | None = None,
+    runtime: ChatRuntime | None = None,
+    confirmer: PlanConfirmer | None = None,
 ) -> PlanChatService:
-    """Wire the service. ``provider`` defaults to OpenRouter when a key and candidates are
-    configured (otherwise ``None``: every turn is a rules turn); pass ``None`` to force that.
-    B3/B4 call this once at startup and store the result on ``app.state.plan_chat_service``."""
+    """Wire one service over fixed ports (tests, and anything that needs no per-request binding).
+    ``provider`` defaults to OpenRouter when a key and candidates are configured (otherwise
+    ``None``: every turn is a rules turn); pass ``None`` to force that. The application uses
+    ``build_plan_chat_gateway`` instead, which binds the ports of each request."""
     if settings.APP_ENV == "production" and (repository is None or ledger is None):
         # Never fall back to process memory in production: conversations and quota counters
         # would silently disappear on restart (pre-merge audit, 4 October 2026).
@@ -1069,6 +1331,163 @@ def build_plan_chat_service(
         planning=planning,
         writer=writer,
         learning=learning,
+        provider=build_default_provider(settings) if provider is _UNSET else provider,
+        clock=clock,
+        runtime=runtime,
+        confirmer=confirmer,
+    )
+
+
+# --- the application's request-scoped service -----------------------------------------------------
+
+
+class PlanChatApi(Protocol):
+    """The four operations the router calls: a ``PlanChatService`` or a ``PlanChatGateway``."""
+
+    def create_conversation(self, ctx: SessionContext, req: CreatePlanChatRequest) -> PlanChat: ...
+
+    def send_message(
+        self, ctx: SessionContext, chat_id: UUID, req: SendMessageRequest
+    ) -> PlanChat: ...
+
+    def read_conversation(self, ctx: SessionContext, chat_id: UUID) -> PlanChat: ...
+
+    def confirm_plan(
+        self, ctx: SessionContext, chat_id: UUID, proposal_version: int
+    ) -> tuple[Plan, bool]: ...
+
+
+@dataclass(frozen=True, slots=True)
+class Binding:
+    """The storage of one request: the repository and how E34 confirms (``None``: locally)."""
+
+    repository: PlanChatRepository
+    confirmer: PlanConfirmer | None = None
+
+
+class PlanChatGateway:
+    """Installed on ``app.state.plan_chat_service``. The ports of B4 and the learner's access
+    token are bound per request (``PlanService.ports_for``), so each call builds a
+    ``PlanChatService`` for its session context; the provider, the usage ledger and the shared
+    ``ChatRuntime`` are the same for every call."""
+
+    def __init__(
+        self,
+        settings: Settings,
+        *,
+        plans: PlanService,
+        bind: Callable[[SessionContext], Binding],
+        learning_for: Callable[[SessionContext], LearningSummaryPort],
+        ledger: UsageLedger,
+        provider: StructuredReplyProvider | None,
+        clock: Callable[[], datetime] | None = None,
+        runtime: ChatRuntime | None = None,
+    ) -> None:
+        self._settings = settings
+        self._plans = plans
+        self._bind = bind
+        self._learning_for = learning_for
+        self._clock = clock
+        self.ledger = ledger
+        self.provider = provider
+        self.runtime = runtime or ChatRuntime()
+
+    def binding(self, ctx: SessionContext) -> Binding:
+        """The storage of one request: its repository and its confirmer."""
+        return self._bind(ctx)
+
+    def _service(self, ctx: SessionContext) -> PlanChatService:
+        ports = self._plans.ports_for(ctx)
+        binding = self.binding(ctx)
+        return PlanChatService(
+            self._settings,
+            repository=binding.repository,
+            ledger=self.ledger,
+            planning=ports,
+            writer=ports,
+            learning=self._learning_for(ctx),
+            provider=self.provider,
+            clock=self._clock,
+            runtime=self.runtime,
+            confirmer=binding.confirmer,
+        )
+
+    def create_conversation(self, ctx: SessionContext, req: CreatePlanChatRequest) -> PlanChat:
+        return self._service(ctx).create_conversation(ctx, req)
+
+    def send_message(self, ctx: SessionContext, chat_id: UUID, req: SendMessageRequest) -> PlanChat:
+        return self._service(ctx).send_message(ctx, chat_id, req)
+
+    def read_conversation(self, ctx: SessionContext, chat_id: UUID) -> PlanChat:
+        return self._service(ctx).read_conversation(ctx, chat_id)
+
+    def confirm_plan(
+        self, ctx: SessionContext, chat_id: UUID, proposal_version: int
+    ) -> tuple[Plan, bool]:
+        return self._service(ctx).confirm_plan(ctx, chat_id, proposal_version)
+
+
+def build_plan_chat_gateway(
+    settings: Settings,
+    *,
+    plans: PlanService,
+    learning: LearningRepository | None = None,
+    bank: BankRepository | None = None,
+    client: PostgrestClient | None = None,
+    provider: Any = _UNSET,
+    ledger: UsageLedger | None = None,
+    repository: PlanChatRepository | None = None,
+    clock: Callable[[], datetime] | None = None,
+) -> PlanChatGateway:
+    """The conversation of the configured backend.
+
+    Memory mode shares one repository and one ledger for the process (``repository`` and
+    ``ledger`` replace them in tests). Supabase mode (needs ``client``) reads and writes the
+    conversations through PostgREST under each learner's token and records usage through the
+    restricted database role ``QATRA_SERVER_DB``; in production a missing role is a startup
+    failure, never a fallback to process memory. ``learning`` and ``bank`` feed the anonymized
+    learning record of revision conversations; without them that record is empty."""
+    production = settings.APP_ENV == "production"
+    binder: Callable[[SessionContext], Binding]
+    if settings.QATRA_DATA_BACKEND == "memory":
+        if production:
+            raise RuntimeError("the memory backend is refused in production")
+        shared = repository or InMemoryPlanChatRepository()
+        ledger = ledger or InMemoryUsageLedger()
+
+        def binder(ctx: SessionContext) -> Binding:
+            return Binding(shared)
+
+    else:
+        if client is None:
+            raise ValueError("the supabase plan conversation needs the PostgREST client")
+        if ledger is None:
+            if not settings.is_missing("QATRA_SERVER_DB"):
+                assert settings.QATRA_SERVER_DB is not None
+                ledger = PostgresUsageLedger(settings.QATRA_SERVER_DB.get_secret_value())
+            elif production:
+                raise RuntimeError(
+                    "the plan-chat repository and usage ledger must be provided in production"
+                )
+            else:
+                ledger = InMemoryUsageLedger()  # development and test without the restricted role
+        postgrest = client
+
+        def binder(ctx: SessionContext) -> Binding:
+            store = PostgrestPlanChatRepository(postgrest, ctx)
+            return Binding(store, AtomicPlanConfirmer(plans, store))
+
+    def learning_for(ctx: SessionContext) -> LearningSummaryPort:
+        if learning is None or bank is None:
+            return EmptyLearningSummary()
+        return PlanChatLearningSummary(ctx, plans=plans, learning=learning, bank=bank)
+
+    return PlanChatGateway(
+        settings,
+        plans=plans,
+        bind=binder,
+        learning_for=learning_for,
+        ledger=ledger,
         provider=build_default_provider(settings) if provider is _UNSET else provider,
         clock=clock,
     )

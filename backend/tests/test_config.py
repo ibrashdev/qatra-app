@@ -227,3 +227,15 @@ def test_invalid_values_are_reported_by_name_without_the_value(
     assert "QATRA_READY_RATE_PER_MIN" in message
     assert "SENTINEL" not in message
     assert raised.value.__cause__ is None
+
+
+def test_the_learner_model_switch_defaults_to_false(clean_env: pytest.MonkeyPatch) -> None:
+    """D76 (Q2): a forgotten variable must not send a learner's text to a model. Turning the
+    model on is configuration, not a code change."""
+    assert Settings(_env_file=None).QATRA_CHAT_MODEL_FOR_LEARNERS is False  # type: ignore[call-arg]
+    assert make_settings().QATRA_CHAT_MODEL_FOR_LEARNERS is False
+    clean_env.setenv("FRONTEND_ORIGIN", "http://localhost:3000")
+    clean_env.setenv("TERMS_VERSION", "2026-10-04")
+    assert load_settings().QATRA_CHAT_MODEL_FOR_LEARNERS is False
+    clean_env.setenv("QATRA_CHAT_MODEL_FOR_LEARNERS", "true")
+    assert load_settings().QATRA_CHAT_MODEL_FOR_LEARNERS is True

@@ -366,7 +366,17 @@ class Env:
         self.settings: Settings
 
 
-def make_env(*script: Any, provider: bool = True, **settings_overrides: Any) -> Env:
+def make_env(
+    *script: Any,
+    provider: bool = True,
+    learner_model: bool | None = True,
+    **settings_overrides: Any,
+) -> Env:
+    """A wired service over fakes. Most tests exercise the model path, so learners may use the
+    model here (``QATRA_CHAT_MODEL_FOR_LEARNERS=true``); ``learner_model=None`` leaves the
+    setting unset, which is the code default (false, D76)."""
+    if learner_model is not None:
+        settings_overrides.setdefault("QATRA_CHAT_MODEL_FOR_LEARNERS", learner_model)
     settings = make_settings(**settings_overrides)
     planning = RulesEstimateStub()
     writer = FakePlanWriter()

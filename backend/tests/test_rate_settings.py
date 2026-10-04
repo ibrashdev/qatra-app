@@ -106,8 +106,8 @@ def test_chat_write_follows_its_setting() -> None:
     app = create_app(make_settings(QATRA_RATE_CHAT_WRITE_PER_MIN=2))
     login_as(app)
     client = browser(app)
-    # No chat service is installed: 503 until the limiter answers 429.
-    assert statuses(client, lambda c: c.post("/api/plan-chats", json={}), 3) == [503, 503, 429]
+    # An empty body is a 422, which still counts: the limiter runs before the body check.
+    assert statuses(client, lambda c: c.post("/api/plan-chats", json={}), 3) == [422, 422, 429]
     assert app.state.chat_write_limiter._limit == 2
 
 
