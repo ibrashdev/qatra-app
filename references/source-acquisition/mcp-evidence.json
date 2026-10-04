@@ -43,5 +43,20 @@
   "mcp_tools_connected_in_this_task": false,
   "source_item_lookup_performed": false,
   "religious_source_text_saved": false,
-  "rights_or_source_edition_approval_inferred": false
+  "rights_or_source_edition_approval_inferred": false,
+  "local_codex_registration": {
+    "checked_on": "2026-10-04",
+    "user_authorized": true,
+    "registered": true,
+    "enabled": true,
+    "server_name": "islamic_content",
+    "transport": "streamable_http",
+    "url": "https://mcp.islamiccontent.org/mcp",
+    "credentials_or_custom_headers_added": false,
+    "native_configuration_readback_passed": true,
+    "restart_pending": true,
+    "live_initialization_verified": false,
+    "prior_denied_probe_repeated": false,
+    "user_configuration_published": false
+  }
 }

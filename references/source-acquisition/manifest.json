@@ -3,12 +3,13 @@
   "task_date": "2026-10-04",
   "status": "preparation_blocked_pending_source_access_and_rights",
   "approval_scope": {
-    "user_authorized": "Prepare sources for proof of concept; research and documentation only.",
+    "user_authorized": "Prepare sources for proof of concept; subsequent explicit request on 2026-10-04 authorizes adding the Islamic Content MCP connection to local Codex settings.",
     "does_not_authorize": [
-      "application implementation or persistent MCP configuration",
+      "application implementation or application MCP integration",
       "publication or redistribution of source text",
       "inference that source presence proves rights, edition approval, or completeness"
-    ]
+    ],
+    "connection_request": "create the needed connection with the MCP https://mcp.islamiccontent.org/"
   },
   "authority": {
     "reference_document": "Expanded scientific source reference supplied 2026-10-04; review only, replacement approval unresolved",
@@ -64,7 +65,21 @@
     ],
     "actual_tools_list_received": false,
     "mcp_license_or_source_content_license_inferred": false,
-    "probe_evidence": "qatra-app/references/source-acquisition/mcp-evidence.json"
+    "probe_evidence": "qatra-app/references/source-acquisition/mcp-evidence.json",
+    "codex_configuration": {
+      "server_name": "islamic_content",
+      "scope": "local Codex user settings; not included in the repository",
+      "registered": true,
+      "enabled": true,
+      "transport": "streamable_http",
+      "endpoint": "https://mcp.islamiccontent.org/mcp",
+      "authentication_configured": false,
+      "custom_headers_configured": false,
+      "verified_by": "codex mcp get --json islamic_content",
+      "activation_status": "restart_pending",
+      "live_connection_verified": false,
+      "next_action": "Settings > MCP servers > Restart, then inspect /mcp; respect the recorded provider access denial."
+    }
   },
   "sources": [
     {
