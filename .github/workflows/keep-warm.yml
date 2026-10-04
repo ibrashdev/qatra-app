@@ -1,0 +1,176 @@
+name: keep-warm
+
+# Keeps the free Render and Supabase services awake during the judging period (D70, D72, D74).
+# Every request is a plain GET to a public endpoint: no secrets, no tokens, no repository files.
+#
+# Schedules (cron runs in UTC):
+#   4-59/10 * * * *  liveness: GET /api/health at minutes 4, 14, 24, 34, 44 and 54 of every hour.
+#                    The 10-minute step leaves a 5-minute margin before the 15-minute idle stop
+#                    of the Render free service and avoids minute 0.
+#   23 2 * * 1,4     readiness: GET /api/health/ready on Monday and Thursday at 02:23 UTC
+#                    (06:23 Asia/Dubai). It runs a trivial database query so the free Supabase
+#                    project is not paused for inactivity.
+#
+# Window: cron cannot express date ranges, so each scheduled run compares today's Asia/Dubai date
+# with its window and exits successfully, without any request, outside it:
+#   liveness   KEEP_WARM_START to KEEP_WARM_END, both days included
+#   readiness  KEEP_WARM_START to READY_CHECK_END, both days included
+# A manual run (workflow_dispatch) is a trial and ignores the window.
+#
+# Retry budget: success is HTTP 200. After a failed attempt the job waits 1, 2, 4 and 8 seconds,
+# then 10 seconds per step, until about 90 seconds have passed since the first attempt. If no 200
+# arrived by then, the run fails; the failed run in the Actions list is the only alarm.
+#
+# KEEP_WARM_START, KEEP_WARM_END, READY_CHECK_END and PUBLIC_BASE_URL are non-secret repository
+# variables. The defaults in env below apply when a variable is unset or empty.
+
+on:
+  schedule:
+    - cron: "4-59/10 * * * *"
+    - cron: "23 2 * * 1,4"
+  workflow_dispatch:
+    inputs:
+      check:
+        description: Check to run (a manual run ignores the date window)
+        type: choice
+        options:
+          - health
+          - ready
+        default: health
+
+permissions: {}
+
+concurrency:
+  group: keep-warm
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check the date window, then call the health endpoint
+        env:
+          KEEP_WARM_START: ${{ vars.KEEP_WARM_START || '2026-10-06' }}
+          KEEP_WARM_END: ${{ vars.KEEP_WARM_END || '2026-10-15' }}
+          READY_CHECK_END: ${{ vars.READY_CHECK_END || '2026-10-31' }}
+          PUBLIC_BASE_URL: ${{ vars.PUBLIC_BASE_URL || 'https://qatra-api-knmj.onrender.com' }}
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_SCHEDULE: ${{ github.event.schedule }}
+          DISPATCH_CHECK: ${{ inputs.check }}
+        run: |
+          set -euo pipefail
+
+          # Which check runs: the cron string that fired, or the manual input.
+          # The two patterns must stay identical to the cron entries under "on".
+          case "$EVENT_NAME" in
+            schedule)
+              case "$EVENT_SCHEDULE" in
+                '4-59/10 * * * *') check=health ;;
+                '23 2 * * 1,4') check=ready ;;
+                *)
+                  echo "::error::keep-warm: unknown schedule '$EVENT_SCHEDULE'"
+                  exit 1
+                  ;;
+              esac
+              ;;
+            workflow_dispatch)
+              check=${DISPATCH_CHECK:-health}
+              ;;
+            *)
+              echo "::error::keep-warm: unsupported event '$EVENT_NAME'"
+              exit 1
+              ;;
+          esac
+
+          case "$check" in
+            health)
+              path=/api/health
+              last_day=$KEEP_WARM_END
+              ;;
+            ready)
+              path=/api/health/ready
+              last_day=$READY_CHECK_END
+              ;;
+            *)
+              echo "::error::keep-warm: unknown check '$check'"
+              exit 1
+              ;;
+          esac
+
+          # Window check by the Asia/Dubai calendar date. A manual run skips it.
+          today=$(TZ=Asia/Dubai date +%F)
+          if [ "$EVENT_NAME" = schedule ]; then
+            date_re='^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+            for day in "$today" "$KEEP_WARM_START" "$last_day"; do
+              if [[ ! $day =~ $date_re ]]; then
+                echo "::error::keep-warm: '$day' is not a YYYY-MM-DD date"
+                exit 1
+              fi
+            done
+            today_n=$((10#${today//-/}))
+            start_n=$((10#${KEEP_WARM_START//-/}))
+            last_n=$((10#${last_day//-/}))
+            if [ "$today_n" -lt "$start_n" ] || [ "$today_n" -gt "$last_n" ]; then
+              echo "keep-warm: $today (Asia/Dubai) is outside the $check window $KEEP_WARM_START to $last_day, no request sent"
+              exit 0
+            fi
+          fi
+
+          base=${PUBLIC_BASE_URL%/}
+          case "$base" in
+            http://* | https://*) ;;
+            *)
+              echo "::error::keep-warm: PUBLIC_BASE_URL must start with http:// or https://"
+              exit 1
+              ;;
+          esac
+          url=$base$path
+          echo "keep-warm: event=$EVENT_NAME check=$check date=$today (Asia/Dubai) url=$url"
+
+          # GET with retries. Success is HTTP 200 only; the body is never printed.
+          budget=90
+          step=1
+          attempt=0
+          start=$SECONDS
+          while :; do
+            attempt=$((attempt + 1))
+            stamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+            rc=0
+            result=$(curl --silent --show-error --output /dev/null \
+              --connect-timeout 10 --max-time 15 \
+              --write-out '%{http_code} %{time_total}' "$url") || rc=$?
+            status=000
+            latency=0
+            if [ -n "$result" ]; then
+              read -r status latency <<< "$result"
+            fi
+            line="$stamp attempt=$attempt status=$status time_total=${latency}s"
+            if [ "$rc" -ne 0 ]; then
+              line="$line curl_exit=$rc"
+            fi
+            echo "$line"
+            if [ "$status" = 200 ]; then
+              exit 0
+            fi
+            elapsed=$((SECONDS - start))
+            if [ "$elapsed" -ge "$budget" ]; then
+              echo "::error::keep-warm: no HTTP 200 from $url within ${budget}s ($attempt attempts)"
+              exit 1
+            fi
+            # Waits are 1, 2, 4, 8, then 10 seconds; the last one is cut to the remaining budget.
+            pause=$step
+            if [ "$pause" -gt $((budget - elapsed)) ]; then
+              pause=$((budget - elapsed))
+            fi
+            sleep "$pause"
+            if [ "$step" -lt 8 ]; then
+              step=$((step * 2))
+            else
+              step=10
+            fi
+          done
