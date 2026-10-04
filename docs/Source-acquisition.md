@@ -1,6 +1,7 @@
 # سجل تجهيز المصادر
 
 حالة الملف: مسودة تجهيز ومتابعة، وليس اعتمادًا لمصدر أو إذن نشر.
+ملاحظة بعد الدمج (٤ أكتوبر ٢٠٢٦): اختار المالك المصدر بقرار D68 — Islamic Content MCP للكتابين (QuranEnc لجزء عم، وسجلات HadeethEnc بلفظ الأربعين)؛ وحيث تختلف خطة هذا الملف عن D68 يسري D68. موصل Islamic Content في Claude Code يعمل، واسترجعت عبره عينات تحقق؛ انظر [Content-and-sources.md](Content-and-sources.md) و[Decision-register.md](Decision-register.md).
 آخر تحديث: ٤ أكتوبر ٢٠٢٦.
 
 ## الغرض والنطاق
