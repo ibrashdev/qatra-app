@@ -1,0 +1,17 @@
+/* Amiri Quran and Amiri (SIL OFL-1.1) from the npm packages, arabic subset, weight 400. Fontsource ships font-display: swap; original text must never fall back to a font without the Uthmani marks, hence block. */
+
+@font-face {
+  font-family: "Amiri Quran";
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url("../../node_modules/@fontsource/amiri-quran/files/amiri-quran-arabic-400-normal.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Amiri";
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url("../../node_modules/@fontsource/amiri/files/amiri-arabic-400-normal.woff2") format("woff2");
+}
