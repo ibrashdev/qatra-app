@@ -186,6 +186,7 @@ def test_without_an_installed_resolver_the_dependency_still_always_denies() -> N
     from tests.support import make_settings
 
     app = create_app(make_settings())
+    del app.state.session_resolver  # create_app installs one; this is the B0 state
     add_probes(app)
     with TestClient(app) as client:
         client.cookies.set("qatra_session", "A" * 43)

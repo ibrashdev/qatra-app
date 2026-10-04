@@ -14,13 +14,13 @@ from fastapi import APIRouter, Depends, Request, Response
 from app.contracts import ErrorEnvelope
 from app.contracts_plan_chat import CamelModel, CatalogEdition
 from app.errors import AppError, ErrorCode
-from app.routers.plans import PUBLIC_READ_RATE_PER_MIN, ip_rate_limit
+from app.routers.health import ip_rate_limit
 from app.services.catalog import CatalogService
 
 router = APIRouter(prefix="/api", tags=["catalog"])
 
 _NO_STORE = "no-store"
-enforce_public_read_limit = ip_rate_limit("public_read_limiter", PUBLIC_READ_RATE_PER_MIN)
+enforce_public_read_limit = ip_rate_limit("public_read_limiter", "QATRA_RATE_PUBLIC_READ_PER_MIN")
 
 
 class CatalogResponse(CamelModel):

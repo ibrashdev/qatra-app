@@ -19,7 +19,6 @@ from app.repositories.catalog import (
     PostgrestCatalogRepository,
     edition_from_bundle,
 )
-from app.routers.plans import PUBLIC_READ_RATE_PER_MIN
 from app.services.catalog import CatalogService
 from tests.plans.fake_postgrest import ANON_KEY, FakePostgrest
 from tests.plans.plans_support import (
@@ -170,7 +169,7 @@ def test_a_missing_english_label_falls_back_to_the_arabic_one(tmp_path: Path) ->
 
 
 def test_public_read_limit_is_60_per_client_ip_per_minute(env) -> None:
-    assert PUBLIC_READ_RATE_PER_MIN == 60  # API-spec §1.8 (A-12 configuration default)
+    assert make_settings().QATRA_RATE_PUBLIC_READ_PER_MIN == 60  # API-spec §1.8, A-12
     env.app.state.public_read_limiter = SlidingWindowLimiter(3)
     client = TestClient(env.app)
     assert [client.get("/api/catalog").status_code for _ in range(3)] == [200, 200, 200]

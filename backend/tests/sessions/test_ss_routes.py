@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 
 from app.domain.rate_limit import SlidingWindowLimiter
 from app.main import create_app
-from app.routers.sessions import SESSION_WRITE_RATE_PER_MIN, install_sessions, router
+from app.routers.sessions import install_sessions, router
 from tests.sessions.ss_support import (
     HADITH,
     PLAN_B_ID,
@@ -299,9 +299,8 @@ def test_a_body_above_the_cap_is_413() -> None:
 
 def test_the_sixty_first_request_in_a_minute_is_429_with_retry_after() -> None:
     _, _, client = client_for()
-    statuses = [
-        post(client, {"kind": "nope"}).status_code for _ in range(SESSION_WRITE_RATE_PER_MIN)
-    ]
+    limit = make_settings().QATRA_RATE_SESSION_WRITE_PER_MIN
+    statuses = [post(client, {"kind": "nope"}).status_code for _ in range(limit)]
     assert set(statuses) == {422}  # invalid bodies count as well
     limited = post(client, DAILY)
     assert limited.status_code == 429
@@ -309,7 +308,7 @@ def test_the_sixty_first_request_in_a_minute_is_429_with_retry_after() -> None:
     assert error["code"] == "throttled"
     assert int(limited.headers["retry-after"]) >= 1
     assert error["details"]["retryAfterSec"] == int(limited.headers["retry-after"])
-    assert SESSION_WRITE_RATE_PER_MIN == 60
+    assert limit == 60
 
 
 def test_the_limiter_is_shared_by_name_with_other_session_write_operations() -> None:

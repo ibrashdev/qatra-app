@@ -1,14 +1,11 @@
-"""Authentication and account policy (pure: standard library only, no framework or database).
+"""Authentication and account policy: rules and numbers only, standard library only.
 
 Sources: Implementation-contract §6 and Authentication-and-privacy.md (the owning policy), API-spec
 §1.7, §1.8 (auth throttle, A-03), §1.10 (learning dates), §4.2 and §4.3 (E03-E13).
 
-Everything here is a rule or a number; storage, cryptography and HTTP live elsewhere. Do not
-confuse username normalization with ``arabic-norm-v1`` (``normalization.py``): that policy grades
-words and is never applied to usernames, passwords or recovery codes.
-
-Numbers that the contract approves are plain constants. Numbers that are architect configuration
-defaults (API-spec A-03 and A-12, not owner-approved numbers) are marked as such.
+Username normalization is not ``arabic-norm-v1`` (``normalization.py``): that policy grades words
+and is never applied to usernames, passwords or recovery codes. Numbers marked A-03 or A-12 are
+architect configuration defaults, not owner-approved numbers.
 """
 
 from __future__ import annotations
@@ -22,8 +19,7 @@ from dataclasses import dataclass, replace
 from datetime import UTC, date, datetime, timedelta
 from typing import Any, Final
 
-# --- approved numbers (contract §6, API-spec §1.7) ------------------------------------------------
-
+# Approved numbers (contract §6, API-spec §1.7).
 USERNAME_MIN_LENGTH: Final = 3
 USERNAME_MAX_LENGTH: Final = 24
 PASSWORD_MIN_CHARS: Final = 15
@@ -36,8 +32,7 @@ THROTTLE_FAILURES_BEFORE_DELAY: Final = 5
 THROTTLE_FAILURES_LOCK: Final = 20
 THROTTLE_LOCK_SEC: Final = 15 * 60
 
-# --- configuration defaults (A-03, A-12), not approved numbers ------------------------------------
-
+# Configuration defaults (A-03, A-12), not approved numbers.
 THROTTLE_DELAY_STEPS_SEC: Final = (1, 2, 4, 8)
 THROTTLE_DELAY_PER_FAILURE_SEC: Final = 10
 THROTTLE_DELAY_CAP_SEC: Final = 60
@@ -50,8 +45,7 @@ LANGUAGES: Final = ("ar", "en")
 SESSION_MINUTES_OPTIONS: Final = (5, 10, 15)
 DEFAULT_SESSION_MINUTES: Final = 10  # A-07 (Database-schema OPEN-09)
 
-# --- usernames (contract §6, API-spec E03 and O-11) -----------------------------------------------
-
+# Usernames (contract §6, API-spec E03, O-11).
 _ARABIC_INDIC_DIGITS: Final = {0x0660 + i: ord("0") + i for i in range(10)}
 _LATIN_LOWER: Final = {code: code + 32 for code in range(ord("A"), ord("Z") + 1)}
 
@@ -133,7 +127,7 @@ def is_storable_text(text: str) -> bool:
     return True
 
 
-# --- passwords (contract §6, API-spec E03) --------------------------------------------------------
+# Passwords (contract §6, API-spec E03).
 
 
 def password_byte_length(password: str) -> int:
@@ -162,8 +156,7 @@ def password_can_authenticate(password: str) -> bool:
     return password_byte_length(password) <= PASSWORD_MAX_BYTES
 
 
-# --- recovery codes and reset grants (contract §6) ------------------------------------------------
-
+# Recovery codes and reset grants (contract §6).
 _RECOVERY_NORMALIZE: Final = {
     **{0x0660 + i: ord("0") + i for i in range(10)},
     **{ord("A") + i: ord("a") + i for i in range(6)},
@@ -197,9 +190,6 @@ def new_reset_grant() -> str:
     return secrets.token_urlsafe(32)
 
 
-# --- time zones, client address -------------------------------------------------------------------
-
-
 # Files that live next to the IANA zones on some systems but are not IANA zone names.
 _SYSTEM_ZONE_ARTIFACTS: Final = frozenset({"localtime", "posixrules"})
 
@@ -227,15 +217,15 @@ def ip_prefix(address: str) -> str:
     return str(ipaddress.ip_network((ip, bits), strict=False))
 
 
-# --- auth throttle (A-03, API-spec §1.7) ---------------------------------------------------------
+# Auth throttle (A-03, API-spec §1.7).
 
 
 def throttle_delay_sec(failures: int) -> int:
     """The pause demanded after the ``failures``-th failure inside the 15-minute window.
 
     Nothing below 5 failures. From the 5th: 1, 2, 4 and 8 seconds, then 10 seconds more per
-    further failure (10, 20, 30, ...), never above 60 (A-03; the reading of "10 s per failure"
-    as a growing step is recorded in the B3 report)."""
+    further failure (10, 20, 30, ...), never above 60. The growing step is our reading of
+    "10 s per failure" (A-03)."""
     if failures < THROTTLE_FAILURES_BEFORE_DELAY:
         return 0
     step = failures - THROTTLE_FAILURES_BEFORE_DELAY
@@ -250,7 +240,7 @@ def throttle_locked(failures: int) -> bool:
     return failures >= THROTTLE_FAILURES_LOCK
 
 
-# --- terms (D52) ----------------------------------------------------------------------------------
+# Terms (D52).
 
 
 def terms_are_current(stored_version: str | None, required_version: str) -> bool:
@@ -259,7 +249,7 @@ def terms_are_current(stored_version: str | None, required_version: str) -> bool
     return stored_version == required_version
 
 
-# --- account settings (API-spec E11, E12; D57) ----------------------------------------------------
+# Account settings (API-spec E11, E12; D57).
 
 
 @dataclass(frozen=True, slots=True)

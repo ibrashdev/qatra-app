@@ -128,12 +128,15 @@ def test_blank_keys_are_missing() -> None:
     assert "QATRA_THROTTLE_HMAC_KEY" in str(raised.value)
 
 
-def test_outside_production_the_keys_are_not_checked_at_startup() -> None:
+def test_outside_production_validate_startup_does_not_check_the_keys() -> None:
     settings = make_settings(
         QATRA_SESSION_KEY="whatever", QATRA_SESSION_HMAC_KEY="whatever", APP_ENV="development"
     )
     validate_startup(settings)
-    assert create_app(settings) is not None
+    # create_app installs authentication, which refuses a key that is set but invalid.
+    with pytest.raises(StartupConfigError) as raised:
+        create_app(settings)
+    assert "QATRA_SESSION_KEY" in str(raised.value) and "whatever" not in str(raised.value)
 
 
 def test_the_production_check_runs_beside_the_other_production_checks() -> None:

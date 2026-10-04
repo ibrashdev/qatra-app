@@ -136,8 +136,6 @@ class HttpSupabaseAuth:
             **kwargs,
         )
 
-    # -- transport -----------------------------------------------------------------------------
-
     def _send(
         self,
         method: str,
@@ -189,8 +187,6 @@ class HttpSupabaseAuth:
         except AuthProviderUnavailable:
             self._sleep(RETRY_PAUSE_SEC)
         operation()
-
-    # -- operations ----------------------------------------------------------------------------
 
     def create_user(self, alias: str, password: str) -> UUID:
         response = self._send(
@@ -280,9 +276,6 @@ class HttpSupabaseAuth:
         self._idempotent(attempt)
 
 
-# --- memory mode ----------------------------------------------------------------------------------
-
-
 @dataclass
 class _FakeUser:
     user_id: UUID
@@ -312,8 +305,6 @@ class FakeSupabaseAuth:
     def __repr__(self) -> str:
         return "FakeSupabaseAuth(<redacted>)"
 
-    # -- test controls -------------------------------------------------------------------------
-
     def script_failure(self, operation: str, error: Exception, times: int = 1) -> None:
         self._scripted.setdefault(operation, []).extend([error] * times)
 
@@ -339,8 +330,6 @@ class FakeSupabaseAuth:
     def revoke_refresh_tokens(self) -> None:
         """Forget every refresh token (as if the provider had ended all sessions)."""
         self._refresh.clear()
-
-    # -- operations ----------------------------------------------------------------------------
 
     def _enter(self, operation: str) -> None:
         self.calls.append(operation)

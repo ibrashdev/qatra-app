@@ -19,6 +19,7 @@ from app.middleware import (
     OriginGuardMiddleware,
 )
 from app.routers import catalog, health, plan_chats, plans
+from app.routers.auth import install_auth
 from app.wiring import install_learning_core
 
 if TYPE_CHECKING:
@@ -33,7 +34,9 @@ def create_app(
 ) -> FastAPI:
     """Build the application. Raises ``StartupConfigError`` (names only) on invalid config.
 
-    ``clock`` and ``transport`` are test seams; production passes neither.
+    ``clock`` and ``transport`` are test seams; production passes neither. Authentication
+    (E03-E13) is installed here, so ``require_session`` resolves real sessions; tests that
+    need another identity override ``require_session``.
     """
     if settings is None:
         settings = load_settings()
@@ -52,6 +55,7 @@ def create_app(
     app.state.settings = settings
     app.state.ready_limiter = SlidingWindowLimiter(settings.QATRA_READY_RATE_PER_MIN)
     install_learning_core(app, settings, clock=clock, transport=transport)
+    install_auth(app, settings, clock=clock)
 
     install_error_handlers(app)
 

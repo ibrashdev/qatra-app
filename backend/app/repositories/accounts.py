@@ -12,9 +12,8 @@ Two boundaries (API-spec §1.4, Database-schema §5, §8):
   ``no_data_found``.
 - ``ProfileStore``: ``public.profiles`` reads and writes. In supabase mode they go through
   PostgREST with the learner's OWN access token, so row-level security applies and only the
-  five learner-updatable columns can change (Database-schema §5.2). ``PostgrestProfileStore`` is
-  a minimal private helper written for B3 because no shared PostgREST client exists yet; the
-  coordinator may unify it with the B4 client later.
+  five learner-updatable columns can change (Database-schema §5.2). ``PostgrestProfileStore``
+  makes its own small ``httpx`` calls; it does not use the shared ``PostgrestClient``.
 
 ``InMemoryAccounts`` implements both Protocols for memory mode (development and tests) with the
 same observable semantics as the SQL functions (uniqueness, atomic registration, the recovery
@@ -50,9 +49,7 @@ LEARNER_UPDATABLE_COLUMNS = frozenset(
 )
 
 
-# --- typed failures (no message, no cause) --------------------------------------------------------
-
-
+# Typed failures carry no message and no cause.
 class RepositoryUnavailable(Exception):
     """The restricted database cannot be reached or failed. Carries no connection detail."""
 
@@ -87,9 +84,6 @@ class ProfileMissing(Exception):
 
 class ProfileValueRejected(Exception):
     """The database rejected a profile value (an unknown time zone)."""
-
-
-# --- records --------------------------------------------------------------------------------------
 
 
 @dataclass(frozen=True, slots=True)
@@ -136,9 +130,6 @@ class ProfileRow:
     terms_accepted_at: datetime
     is_demo: bool
     created_at: datetime
-
-
-# --- ports ----------------------------------------------------------------------------------------
 
 
 class AccountRepository(Protocol):
@@ -220,9 +211,6 @@ class ProfileStore(Protocol):
     def update_profile(
         self, *, user_id: UUID, access_token: str | None, changes: Mapping[str, Any]
     ) -> ProfileRow: ...
-
-
-# --- PostgreSQL (restricted role) -----------------------------------------------------------------
 
 
 class PostgresAccountRepository:
@@ -449,9 +437,6 @@ class PostgresAccountRepository:
         )
 
 
-# --- PostgREST (learner token, RLS) ---------------------------------------------------------------
-
-
 def _parse_instant(value: Any) -> datetime:
     parsed = datetime.fromisoformat(str(value))
     return parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)
@@ -594,8 +579,6 @@ class PostgrestProfileStore:
         return _profile_from_json(rows[0])
 
 
-# --- memory mode ----------------------------------------------------------------------------------
-
 _ALIAS_RE = re.compile(
     r"^u\.[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}@qatra\.invalid$"
 )
@@ -648,9 +631,8 @@ class _SessionRec:
 class InMemoryAccounts:
     """Memory-mode twin of the restricted role and of the profile reads and writes.
 
-    Every method follows the SQL of ``0005_rls_functions.sql`` (see the class docstring of the
-    module). ``clock`` plays the database ``now()``; tests move it to expire sessions, grants and
-    throttle windows."""
+    Every method follows the SQL of ``0005_rls_functions.sql``. ``clock`` plays the database
+    ``now()``; tests move it to expire sessions, grants and throttle windows."""
 
     def __init__(self, *, clock: Callable[[], datetime] | None = None) -> None:
         self._clock = clock or (lambda: datetime.now(UTC))
@@ -668,8 +650,6 @@ class InMemoryAccounts:
 
     def _now(self) -> datetime:
         return self._clock()
-
-    # -- srv_find_handle, srv_register_account, srv_accept_terms --------------------------------
 
     def find_handle(self, username_normalized: str) -> Handle | None:
         with self._lock:
@@ -741,8 +721,6 @@ class InMemoryAccounts:
                 row, terms_version=terms_version, terms_accepted_at=now
             )
             return now
-
-    # -- recovery -------------------------------------------------------------------------------
 
     def recovery_active_code(self, user_id: UUID) -> ActiveRecoveryCode | None:
         with self._lock:
@@ -862,8 +840,6 @@ class InMemoryAccounts:
                 if grant.user_id == user_id and grant.status == "active":
                     grant.status = "cancelled"
 
-    # -- sessions -------------------------------------------------------------------------------
-
     def _revoke_all(self, user_id: UUID, now: datetime) -> None:
         for session in self._sessions.values():
             if session.user_id == user_id and session.revoked_at is None:
@@ -938,8 +914,6 @@ class InMemoryAccounts:
             self._revoke_all(user_id, self._now())
             return handle.epoch
 
-    # -- throttle -------------------------------------------------------------------------------
-
     def _minute(self) -> datetime:
         return self._now().replace(second=0, microsecond=0)
 
@@ -972,8 +946,6 @@ class InMemoryAccounts:
             for bucket in old:
                 del self._throttle[bucket]
 
-    # -- deletion -------------------------------------------------------------------------------
-
     def delete_personal_rows(self, user_id: UUID, username_throttle_key: bytes | None) -> None:
         with self._lock:
             handle = self._handles.pop(user_id, None)
@@ -986,8 +958,6 @@ class InMemoryAccounts:
             if username_throttle_key is not None:
                 for bucket in [b for b in self._throttle if b[0] == username_throttle_key]:
                     del self._throttle[bucket]
-
-    # -- ProfileStore ---------------------------------------------------------------------------
 
     def read_profile(self, *, user_id: UUID, access_token: str | None) -> ProfileRow:
         with self._lock:
@@ -1027,7 +997,7 @@ class InMemoryAccounts:
             self._profiles[user_id] = updated
             return updated
 
-    # -- introspection for tests (not part of any Protocol) ------------------------------------
+    # Test introspection, not part of any Protocol.
 
     def account_exists(self, user_id: UUID) -> bool:
         with self._lock:

@@ -10,9 +10,8 @@ row-level security applies (§1.3). While the account has not accepted the curre
 variants do not.
 
 The resolver itself (cookie decoding, cryptography, refresh, storage) is installed on
-``app.state.session_resolver`` by ``install_auth`` (B3). While none is installed the dependency
-keeps the B0 behaviour and always denies, so packages and tests that do not wire authentication
-stay valid.
+``app.state.session_resolver`` by ``install_auth``, which ``create_app`` calls. Without one the
+dependency always denies.
 """
 
 from __future__ import annotations
@@ -113,7 +112,7 @@ def _installed_resolver(request: Request) -> SessionResolver | None:
 def _resolve(request: Request, *, enforce_terms: bool) -> ResolvedSession:
     resolver = _installed_resolver(request)
     if resolver is None:
-        # B0 behaviour: no resolver, no session. Identity never comes from a header or query.
+        # No resolver, no session: identity never comes from a header or a query.
         raise AppError(ErrorCode.unauthenticated)
     return resolver.resolve(request.cookies.get(resolver.cookie_name), enforce_terms=enforce_terms)
 

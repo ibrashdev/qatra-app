@@ -16,7 +16,7 @@ import base64
 import binascii
 import os
 from pathlib import Path
-from typing import Literal
+from typing import Final, Literal
 from urllib.parse import urlsplit
 
 from pydantic import Field, SecretStr, ValidationError
@@ -54,6 +54,15 @@ _KEY_NAMES = (
     "QATRA_RECOVERY_HMAC_KEY",
     "QATRA_THROTTLE_HMAC_KEY",
 )
+
+
+# Per-client-IP request limits per minute (API-spec §1.7, §1.8): configuration defaults (A-12),
+# not approved numbers. They are the defaults of the ``QATRA_RATE_*`` settings below.
+DEFAULT_RATE_PUBLIC_READ_PER_MIN: Final = 60
+DEFAULT_RATE_ANONYMOUS_ENTRY_PER_MIN: Final = 10
+DEFAULT_RATE_SESSION_READ_PER_MIN: Final = 120
+DEFAULT_RATE_SESSION_WRITE_PER_MIN: Final = 60
+DEFAULT_RATE_CHAT_WRITE_PER_MIN: Final = 20
 
 
 def decode_key_material(value: str) -> bytes | None:
@@ -107,6 +116,20 @@ class Settings(BaseSettings):
     # Configuration defaults (A-12), not approved numbers.
     QATRA_READY_RATE_PER_MIN: int = 6
     QATRA_BODY_LIMIT_BYTES: int = 65536
+
+    # Per-client-IP limits per minute by class (API-spec §1.8). Readiness has its own setting above.
+    QATRA_RATE_PUBLIC_READ_PER_MIN: int = Field(default=DEFAULT_RATE_PUBLIC_READ_PER_MIN, ge=1)
+    QATRA_RATE_ANONYMOUS_ENTRY_PER_MIN: int = Field(
+        default=DEFAULT_RATE_ANONYMOUS_ENTRY_PER_MIN, ge=1
+    )
+    QATRA_RATE_SESSION_READ_PER_MIN: int = Field(default=DEFAULT_RATE_SESSION_READ_PER_MIN, ge=1)
+    QATRA_RATE_SESSION_WRITE_PER_MIN: int = Field(default=DEFAULT_RATE_SESSION_WRITE_PER_MIN, ge=1)
+    QATRA_RATE_CHAT_WRITE_PER_MIN: int = Field(default=DEFAULT_RATE_CHAT_WRITE_PER_MIN, ge=1)
+
+    # Proxies that append to X-Forwarded-For in front of the app: 0 uses the peer address, N >= 1
+    # the N-th entry from the right (``client_key``). A depth larger than the real chain lets a
+    # client choose its own address, so set it per deployment.
+    QATRA_TRUSTED_XFF_DEPTH: int = Field(default=0, ge=0)
 
     # Plan conversation (Plan-conversation.md §2.5; D75). Configuration defaults, not approved
     # numbers: caps follow OpenRouter's published free-tier limits, verified at provisioning.

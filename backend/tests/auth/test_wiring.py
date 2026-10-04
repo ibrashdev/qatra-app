@@ -58,14 +58,11 @@ def test_the_default_memory_application_works_end_to_end_in_real_time() -> None:
         assert login(client).status_code == 200
 
 
-def test_the_routes_of_e03_to_e13_are_added() -> None:
+def test_create_app_serves_the_routes_of_e03_to_e13_once() -> None:
     settings = make_settings()
     app = create_app(settings)
-    before = set(app.openapi()["paths"])
-    install_auth(app, settings)
-    app.openapi_schema = None
-    added = set(app.openapi()["paths"]) - before
-    assert added == {
+    paths = set(app.openapi()["paths"])
+    assert paths >= {
         "/api/auth/register",
         "/api/auth/login",
         "/api/auth/consent",
@@ -77,13 +74,14 @@ def test_the_routes_of_e03_to_e13_are_added() -> None:
         "/api/me",
         "/api/account/delete",
     }
+    routes = len(app.routes)
+    install_auth(app, settings)  # a second call replaces the services, never the routes
+    app.openapi_schema = None
+    assert len(app.routes) == routes and set(app.openapi()["paths"]) == paths
 
 
 def test_the_handler_that_clears_the_cookie_on_401_is_registered() -> None:
-    settings = make_settings()
-    app = create_app(settings)
-    assert SessionEndedError not in app.exception_handlers
-    install_auth(app, settings)
+    app = create_app(make_settings())
     assert SessionEndedError in app.exception_handlers
 
 
@@ -177,10 +175,11 @@ def test_production_names_missing_project_settings_never_their_values() -> None:
 
 def test_production_never_falls_back_to_a_half_installed_application() -> None:
     app, settings = broken_production(QATRA_SESSION_KEY=" ")
+    installed = app.state.session_resolver  # create_app installed it from the valid configuration
     with pytest.raises(StartupConfigError) as raised:
         install_auth(app, settings)
     assert "QATRA_SESSION_KEY" in str(raised.value)
-    assert not hasattr(app.state, "session_resolver")
+    assert app.state.session_resolver is installed
 
 
 def test_a_fully_configured_development_application_gets_the_real_components() -> None:

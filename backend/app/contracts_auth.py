@@ -39,9 +39,6 @@ class RequestModel(BaseModel):
     )
 
 
-# --- responses ------------------------------------------------------------------------------------
-
-
 class ReminderSettings(CamelModel):
     in_app: bool
 
@@ -99,9 +96,6 @@ class ResetGrantResponse(CamelModel):
 
 class RecoveryCodeResponse(CamelModel):
     recovery_code: str
-
-
-# --- requests (strict types; value rules are applied by the services) -----------------------------
 
 
 class RegisterRequest(RequestModel):

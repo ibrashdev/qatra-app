@@ -14,7 +14,6 @@ from fastapi.testclient import TestClient
 
 from app.dependencies import require_session
 from app.domain.rate_limit import SlidingWindowLimiter
-from app.routers import plans as plans_router
 from tests.plans.plans_support import (
     EXAMPLE_ALTERNATIVES,
     EXAMPLE_ESTIMATE,
@@ -35,6 +34,7 @@ from tests.plans.plans_support import (
     make_env,
     pid,
 )
+from tests.support import make_settings
 
 PLAN_KEYS = {
     "planId",
@@ -822,8 +822,9 @@ def test_e30_a_malformed_plan_id_is_a_validation_error(client: TestClient) -> No
 
 
 def test_the_documented_limits() -> None:
-    assert plans_router.SESSION_READ_RATE_PER_MIN == 120  # API-spec §1.8, E15
-    assert plans_router.SESSION_WRITE_RATE_PER_MIN == 60  # E16, E17, E30
+    settings = make_settings()
+    assert settings.QATRA_RATE_SESSION_READ_PER_MIN == 120  # API-spec §1.8, E15
+    assert settings.QATRA_RATE_SESSION_WRITE_PER_MIN == 60  # E16, E17, E30
 
 
 def test_e15_counts_against_the_session_read_class(client: TestClient, env: Env) -> None:

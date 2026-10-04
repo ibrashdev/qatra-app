@@ -11,8 +11,8 @@ The session cookie (contract §6): production ``__Host-qatra_session`` with ``Se
 
 ``install_auth(app, settings)`` builds the services (memory or supabase mode by
 ``QATRA_DATA_BACKEND``), stores the resolver and services on ``app.state``, registers the handler
-that clears the cookie on a ``401 unauthenticated``, and includes the routers of E03-E13. Call it
-once, after ``create_app``.
+that clears the cookie on a ``401 unauthenticated``, and includes the routers of E03-E13.
+``create_app`` calls it; a second call replaces the services and leaves the routes as they are.
 """
 
 from __future__ import annotations
@@ -27,7 +27,13 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, FastAPI, Request, Response
 from fastapi.responses import JSONResponse
 
-from app.config import Settings, StartupConfigError
+from app.config import (
+    DEFAULT_RATE_ANONYMOUS_ENTRY_PER_MIN,
+    DEFAULT_RATE_SESSION_READ_PER_MIN,
+    DEFAULT_RATE_SESSION_WRITE_PER_MIN,
+    Settings,
+    StartupConfigError,
+)
 from app.contracts import ErrorEnvelope
 from app.contracts_auth import (
     ChangePasswordRequest,
@@ -89,9 +95,6 @@ _ERRORS = {
 }
 
 
-# --- cookie ---------------------------------------------------------------------------------------
-
-
 def session_cookie_header(settings: Settings, value: str, max_age: int) -> str:
     """The ``Set-Cookie`` value: attributes in the order of the API-spec examples."""
     parts = [f"{cookie_name_for(settings)}={value}"]
@@ -111,17 +114,21 @@ def clear_session_cookie(response: Response, settings: Settings) -> None:
     response.headers.append("set-cookie", session_cookie_header(settings, "", 0))
 
 
-# --- dependencies ---------------------------------------------------------------------------------
-
-
 @dataclass(frozen=True, slots=True)
 class RateLimits:
-    """Per-client-IP classes of API-spec §1.8 (requests per minute). Configuration defaults
-    (A-12), not approved numbers."""
+    """Per-client-IP classes of API-spec §1.8, in requests per minute."""
 
-    anonymous_entry_per_min: int = 10
-    session_write_per_min: int = 60
-    session_read_per_min: int = 120
+    anonymous_entry_per_min: int = DEFAULT_RATE_ANONYMOUS_ENTRY_PER_MIN
+    session_write_per_min: int = DEFAULT_RATE_SESSION_WRITE_PER_MIN
+    session_read_per_min: int = DEFAULT_RATE_SESSION_READ_PER_MIN
+
+    @classmethod
+    def from_settings(cls, settings: Settings) -> RateLimits:
+        return cls(
+            anonymous_entry_per_min=settings.QATRA_RATE_ANONYMOUS_ENTRY_PER_MIN,
+            session_write_per_min=settings.QATRA_RATE_SESSION_WRITE_PER_MIN,
+            session_read_per_min=settings.QATRA_RATE_SESSION_READ_PER_MIN,
+        )
 
 
 def _enforce(request: Request, name: str) -> None:
@@ -136,17 +143,17 @@ def _enforce(request: Request, name: str) -> None:
 
 
 def limit_anonymous_entry(request: Request) -> None:
-    """Anonymous entry class: E03 (10 per client IP per minute)."""
+    """Anonymous entry class: E03 (``QATRA_RATE_ANONYMOUS_ENTRY_PER_MIN``)."""
     _enforce(request, "anonymous_entry")
 
 
 def limit_session_write(request: Request) -> None:
-    """Session write class: E05, E08, E09, E10, E12, E13 (60 per client IP per minute)."""
+    """Session write class: E05, E08, E09, E10, E12, E13 (``QATRA_RATE_SESSION_WRITE_PER_MIN``)."""
     _enforce(request, "session_write")
 
 
 def limit_session_read(request: Request) -> None:
-    """Session read class: E11 (120 per client IP per minute)."""
+    """Session read class: E11 (``QATRA_RATE_SESSION_READ_PER_MIN``)."""
     _enforce(request, "session_read")
 
 
@@ -165,7 +172,7 @@ def get_account_service(request: Request) -> AccountService:
 
 
 def client_prefix(request: Request) -> str:
-    """The throttle prefix of the caller (IPv4 /24, IPv6 /48) from the trusted-proxy address."""
+    """The throttle prefix of the caller (IPv4 /24, IPv6 /48), from ``client_key``."""
     return policy.ip_prefix(client_key(request))
 
 
@@ -183,9 +190,6 @@ _WRITE_LIMIT = Depends(limit_session_write)
 
 def _no_store(response: Response) -> None:
     response.headers["Cache-Control"] = _NO_STORE
-
-
-# --- E03 .. E10 -----------------------------------------------------------------------------------
 
 
 @router.post(
@@ -363,9 +367,6 @@ def logout(request: Request, service: Service, settings: SettingsDep) -> Respons
     return response
 
 
-# --- wiring ---------------------------------------------------------------------------------------
-
-
 _KEY_VARIABLES = (
     "QATRA_SESSION_KEY",
     "QATRA_SESSION_HMAC_KEY",
@@ -395,8 +396,11 @@ def _missing_configuration(
 def _include_routes(app: FastAPI) -> None:
     from app.routers import account  # local import: account.py imports helpers from this module
 
+    if getattr(app.state, "auth_routers_included", False):
+        return
     app.include_router(router)
     app.include_router(account.router)
+    app.state.auth_routers_included = True
 
 
 def install_auth(
@@ -410,7 +414,7 @@ def install_auth(
     monotonic: Callable[[], float] | None = None,
     rate_limits: RateLimits | None = None,
 ) -> None:
-    """Wire authentication into ``app`` (call once, after ``create_app``).
+    """Wire authentication into ``app``.
 
     ``QATRA_DATA_BACKEND=memory`` uses the in-memory store and the fake identity provider (and
     ephemeral keys when none are configured); ``supabase`` uses the restricted database role,
@@ -489,7 +493,7 @@ def install_auth(
         consent=consent,
         clock=now,
     )
-    limits = rate_limits or RateLimits()
+    limits = rate_limits or RateLimits.from_settings(settings)
 
     app.state.account_repository = repository
     app.state.profile_store = profiles

@@ -7,16 +7,13 @@ E16, E17 and E30). E16 and E30 are for learner accounts only: a demo account is 
 accepts a user id, a demo flag or a mode. Handlers are synchronous (database calls block), so they
 run in the framework's thread pool. Plan data, ids and estimates are never logged here.
 
-The per-IP numbers are the configuration defaults of A-12 (not approved numbers); they are module
-constants for now because ``app.config`` has no setting for them. The limiter classes are kept in
-``app.state`` by class name, so a later package that belongs to the same class can share them with
-``ip_rate_limit``.
+The per-IP numbers are the ``QATRA_RATE_*`` settings (configuration defaults of A-12, not approved
+numbers). The limiters are kept in ``app.state`` by class name, so a package of the same class
+shares one with ``ip_rate_limit``.
 """
 
 from __future__ import annotations
 
-import threading
-from collections.abc import Callable
 from typing import Annotated
 from uuid import UUID
 
@@ -26,18 +23,13 @@ from app.contracts import ErrorEnvelope
 from app.contracts_plan_chat import EstimateResult, Plan
 from app.contracts_plans import CreatePlanRequest, EstimateRequest, RevisePlanRequest
 from app.dependencies import SessionContext, require_session, require_valid_origin
-from app.domain.rate_limit import SlidingWindowLimiter
 from app.errors import AppError, ErrorCode
-from app.routers.health import client_key
+from app.routers.health import ip_rate_limit
 from app.services.plans import PlanService
 
 router = APIRouter(prefix="/api", tags=["plans"])
 
-PUBLIC_READ_RATE_PER_MIN = 60  # E14 (A-12 configuration default, API-spec §1.8)
-SESSION_READ_RATE_PER_MIN = 120  # E15 (and the other session reads)
-SESSION_WRITE_RATE_PER_MIN = 60  # E16, E17, E30 (and the other session writes)
 _NO_STORE = "no-store"
-_limiter_lock = threading.Lock()
 
 _ERRORS = {
     401: {"model": ErrorEnvelope, "description": "unauthenticated"},
@@ -50,27 +42,12 @@ _ERRORS = {
 }
 
 
-def ip_rate_limit(state_attr: str, per_minute: int) -> Callable[[Request], None]:
-    """A dependency that counts requests per client IP in the limiter ``app.state.<state_attr>``
-    (created on first use). The address is used in memory only and never logged or returned."""
-
-    def enforce(request: Request) -> None:
-        limiter: SlidingWindowLimiter | None = getattr(request.app.state, state_attr, None)
-        if limiter is None:
-            with _limiter_lock:
-                limiter = getattr(request.app.state, state_attr, None)
-                if limiter is None:
-                    limiter = SlidingWindowLimiter(per_minute)
-                    setattr(request.app.state, state_attr, limiter)
-        decision = limiter.check(client_key(request))
-        if not decision.allowed:
-            raise AppError(ErrorCode.throttled, retry_after=decision.retry_after_sec)
-
-    return enforce
-
-
-enforce_session_read_limit = ip_rate_limit("session_read_limiter", SESSION_READ_RATE_PER_MIN)
-enforce_session_write_limit = ip_rate_limit("session_write_limiter", SESSION_WRITE_RATE_PER_MIN)
+enforce_session_read_limit = ip_rate_limit(
+    "session_read_limiter", "QATRA_RATE_SESSION_READ_PER_MIN"
+)
+enforce_session_write_limit = ip_rate_limit(
+    "session_write_limiter", "QATRA_RATE_SESSION_WRITE_PER_MIN"
+)
 
 Session = Annotated[SessionContext, Depends(require_session)]
 

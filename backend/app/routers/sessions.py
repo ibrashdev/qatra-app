@@ -1,7 +1,7 @@
 """Session endpoints: E20 ``POST /api/sessions`` (package B5; API-spec §4.7).
 
 The route lists ``require_valid_origin`` before ``require_session`` and then the per-IP "Session
-write" limiter (60 per client IP per minute, API-spec §1.8, a configuration default). The body is
+write" limiter (``QATRA_RATE_SESSION_WRITE_PER_MIN``, API-spec §1.8). The body is
 read as a plain JSON object and validated by ``SessionService.parse_request``: a ``kind`` union
 with strict bodies and the rule names of API-spec E20 (``kind_invalid``, ``forbidden_field``,
 ``game_type_invalid``, ``self_rating_invalid``, ``scope_invalid``). The response is ``201`` for a
@@ -22,7 +22,6 @@ Request E20 (all other properties are refused):
 
 from __future__ import annotations
 
-import threading
 from collections.abc import Callable
 from datetime import datetime
 from typing import Annotated, Any
@@ -34,12 +33,11 @@ from app.config import Settings
 from app.contracts import ErrorEnvelope
 from app.contracts_sessions import SessionSnapshot
 from app.dependencies import SessionContext, require_session, require_valid_origin
-from app.domain.rate_limit import SlidingWindowLimiter
 from app.errors import AppError, ErrorCode
 from app.providers.postgrest import PostgrestClient
 from app.repositories.bank import BankRepository
 from app.repositories.learning import LearningRepository
-from app.routers.health import client_key
+from app.routers.health import ip_rate_limit
 from app.services.sessions import (
     LearningCalendar,
     PlanAccess,
@@ -49,9 +47,7 @@ from app.services.sessions import (
 
 router = APIRouter(prefix="/api", tags=["sessions"])
 
-SESSION_WRITE_RATE_PER_MIN = 60  # configuration default (API-spec §1.8), not an approved number
 _NO_STORE = "no-store"
-_limiter_lock = threading.Lock()
 
 _ERRORS = {
     401: {"model": ErrorEnvelope, "description": "unauthenticated"},
@@ -71,20 +67,10 @@ def get_sessions_service(request: Request) -> SessionService:
     return service
 
 
-def enforce_session_write_limit(request: Request) -> None:
-    """Session write class, per client IP (the address is never logged). The limiter lives on
-    ``app.state.session_write_limiter``: a package that owns another operation of the class can
-    share the instance by using the same name."""
-    limiter: SlidingWindowLimiter | None = getattr(request.app.state, "session_write_limiter", None)
-    if limiter is None:
-        with _limiter_lock:
-            limiter = getattr(request.app.state, "session_write_limiter", None)
-            if limiter is None:
-                limiter = SlidingWindowLimiter(SESSION_WRITE_RATE_PER_MIN)
-                request.app.state.session_write_limiter = limiter
-    decision = limiter.check(client_key(request))
-    if not decision.allowed:
-        raise AppError(ErrorCode.throttled, retry_after=decision.retry_after_sec)
+# Shared by name with the other Session write operations (``session_write_limiter``).
+enforce_session_write_limit = ip_rate_limit(
+    "session_write_limiter", "QATRA_RATE_SESSION_WRITE_PER_MIN"
+)
 
 
 Service = Annotated[SessionService, Depends(get_sessions_service)]

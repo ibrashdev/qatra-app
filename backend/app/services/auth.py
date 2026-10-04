@@ -1,19 +1,11 @@
 """Authentication services: the session resolver, the auth throttle and the flows of E03-E10.
 
-Layout
-- ``ConsentCache``: remembers, per account, that the stored terms version is the current one.
-- ``AuthThrottle``: the auth throttle of API-spec §1.7/§1.8 (A-03).
-- ``SessionService``: resolves a cookie to a live session (``require_session``), refreshes the
-  Supabase tokens, enforces the re-consent gate, issues and revokes app sessions.
-- ``AuthService``: register (E03), login (E04), consent (E05), recovery verify/reset/rotate
-  (E06-E08), password change (E09), logout (E10) and the shared current-password check.
+Rules that hold throughout:
 
-Rules that hold throughout
 - Identity comes from the server-side session only. The browser never receives a Supabase token.
-- Failures that reveal nothing: an unknown username, a wrong password, a wrong or used recovery
-  code and a lost reservation all raise the same ``invalid_credentials``; the throttle is
-  checked BEFORE credentials; an unknown account costs the same provider/database calls as a
-  known one.
+- An unknown username, a wrong password, a wrong or used recovery code and a lost reservation all
+  raise the same ``invalid_credentials``. The throttle is checked BEFORE credentials, and an
+  unknown account costs the same provider and database calls as a known one.
 - Nothing personal is logged: only event names of failed cleanups, never ids, names or values.
 - A storage failure is ``503 unavailable``; the services never leak a library message.
 """
@@ -95,9 +87,6 @@ def _terms_required(required_version: str) -> AppError:
     return AppError(ErrorCode.terms_required, details={"requiredVersion": required_version})
 
 
-# --- results --------------------------------------------------------------------------------------
-
-
 @dataclass(frozen=True, slots=True)
 class Registration:
     profile: Profile
@@ -124,18 +113,15 @@ class PasswordChange:
     cookie_value: str = field(repr=False)
 
 
-# --- terms memo -----------------------------------------------------------------------------------
-
-
 class ConsentCache:
     """Accounts known to have accepted the CURRENT terms version.
 
     The re-consent gate (O-10) needs ``profiles.terms_version`` on every Session request, but no
-    ``srv_*`` function returns it and ``app_sessions`` does not hold it. A stored version can
-    only move forward (registration, ``srv_accept_terms``) and the required version is fixed for
-    the life of the process, so "current" is a permanent fact: it is read once per account and
-    process, and observed for free whenever a profile row is read anyway (login, E05, E11, E12).
-    An account that is not current is re-checked on every request until it consents."""
+    ``srv_*`` function returns it and ``app_sessions`` does not hold it. A stored version only
+    moves forward and the required version is fixed for the life of the process, so "current" is
+    permanent: it is read once per account and process, or observed whenever a profile row is
+    read anyway. An account that is not current is re-checked on every request until it
+    consents."""
 
     def __init__(self, required_version: str, *, max_entries: int = 10_000) -> None:
         self._required = required_version
@@ -159,9 +145,6 @@ class ConsentCache:
     def forget(self, user_id: UUID) -> None:
         with self._lock:
             self._current.pop(user_id, None)
-
-
-# --- throttle -------------------------------------------------------------------------------------
 
 
 class AuthThrottle:
@@ -243,9 +226,6 @@ class AuthThrottle:
             log_event(logger, "throttle_clear_failed")
 
 
-# --- sessions -------------------------------------------------------------------------------------
-
-
 class SessionService:
     """Resolves cookies to sessions and issues, refreshes and revokes them.
 
@@ -282,8 +262,6 @@ class SessionService:
         self._expose = expose_access_token
         self._locks = [threading.Lock() for _ in range(_REFRESH_LOCK_STRIPES)]
         self.cookie_name = cookie_name_for(settings)
-
-    # -- resolve --------------------------------------------------------------------------------
 
     def resolve(self, cookie_value: str | None, *, enforce_terms: bool) -> ResolvedSession:
         token = self._crypto.decode_cookie_value(cookie_value)
@@ -364,8 +342,6 @@ class SessionService:
         if not policy.terms_are_current(stored, self._required_terms):
             raise _terms_required(self._required_terms)
 
-    # -- issue and revoke -----------------------------------------------------------------------
-
     def issue(self, *, user_id: UUID, auth_epoch: int, tokens: TokenBundle) -> str:
         """Create an app session bound to ``auth_epoch`` and return its cookie value (30 days,
         no sliding renewal). ``EpochMismatchError`` is left to the caller."""
@@ -394,8 +370,6 @@ class SessionService:
         except RepositoryUnavailable:
             log_event(logger, "session_revoke_failed")
 
-    # -- profile rows ---------------------------------------------------------------------------
-
     def load_profile_row(self, user_id: UUID, access_token: str | None) -> ProfileRow:
         try:
             row = self._profiles.read_profile(user_id=user_id, access_token=access_token)
@@ -403,9 +377,6 @@ class SessionService:
             raise AppError(ErrorCode.unavailable) from None
         self._consent.observe(user_id, row.terms_version)
         return row
-
-
-# --- the flows ------------------------------------------------------------------------------------
 
 
 class AuthService:
@@ -433,8 +404,6 @@ class AuthService:
         self._throttle = throttle
         self._consent = consent
         self._clock = clock
-
-    # -- shared helpers -------------------------------------------------------------------------
 
     def _fail(self, username: str | None, ip_prefix: str) -> NoReturn:
         """The generic failure: counted against the throttle, revealing nothing."""
@@ -488,8 +457,6 @@ class AuthService:
         self._throttle.check(username=username, ip_prefix=ip_prefix)
         if self._check_password(session.internal_alias, password) is None:
             self._fail(username, ip_prefix)
-
-    # -- E03 register ---------------------------------------------------------------------------
 
     def register_account(
         self,
@@ -594,8 +561,6 @@ class AuthService:
             log_event(logger, "registration_rollback_failed")
         self._delete_identity(user_id)
 
-    # -- E04 login ------------------------------------------------------------------------------
-
     def authenticate(
         self, *, username: str, password: str, ip_prefix: str, previous_cookie: str | None
     ) -> LoginResult:
@@ -646,8 +611,6 @@ class AuthService:
                 epoch = renewed.auth_epoch
         raise AppError(ErrorCode.unavailable)
 
-    # -- E05 consent ----------------------------------------------------------------------------
-
     def accept_terms(self, session: ResolvedSession, terms_version: str) -> Profile:
         """Record acceptance of the current terms (E05). Idempotent: a stored version that
         already equals ``terms_version`` returns the unchanged profile without a write."""
@@ -662,8 +625,6 @@ class AuthService:
                 raise AppError(ErrorCode.unavailable) from None
             row = self._sessions.load_profile_row(user_id, token)
         return profile_from_row(session.username, row, self._clock())
-
-    # -- E06 recovery verify --------------------------------------------------------------------
 
     def verify_recovery(
         self, *, username: str, recovery_code: str, ip_prefix: str
@@ -703,8 +664,6 @@ class AuthService:
         if not reserved:
             self._fail(normalized, ip_prefix)
         return ResetGrantIssue(reset_grant=grant, expires_in_sec=policy.RESET_GRANT_LIFETIME_SEC)
-
-    # -- E07 recovery reset ---------------------------------------------------------------------
 
     def reset_password(self, *, reset_grant: str, new_password: str, ip_prefix: str) -> str:
         """Set a new password with a reset grant and return the new recovery code (E07).
@@ -749,9 +708,8 @@ class AuthService:
             except RepositoryUnavailable:
                 unconfirmed = True
                 if attempt + 1 == _COMMIT_ATTEMPTS:
-                    # Give up, but do not leave the grant ``executing``: no function can reopen
-                    # it and it would block this account's recovery for good. Releasing is safe
-                    # whatever happened: it does nothing to a grant that was in fact consumed.
+                    # Do not leave the grant ``executing``: nothing can reopen it and it would
+                    # block recovery for good. Releasing is safe: a consumed grant is untouched.
                     self._release_quietly(ticket.grant_id)
                     raise AppError(ErrorCode.unavailable) from None
         return policy.format_recovery_code(new_code)
@@ -769,8 +727,6 @@ class AuthService:
         except RepositoryUnavailable:
             log_event(logger, "recovery_release_failed")
 
-    # -- E08 recovery rotate --------------------------------------------------------------------
-
     def rotate_recovery(self, session: ResolvedSession, *, password: str, ip_prefix: str) -> str:
         """Replace the recovery code from settings (E08). Needs the current password; the old
         code is invalidated and the new one is shown once. Sessions and the epoch are unchanged."""
@@ -782,8 +738,6 @@ class AuthService:
             self._crypto.recovery_fingerprint(code),
         )
         return policy.format_recovery_code(code)
-
-    # -- E09 password change --------------------------------------------------------------------
 
     def change_password(
         self, session: ResolvedSession, *, current_password: str, new_password: str, ip_prefix: str
@@ -821,8 +775,6 @@ class AuthService:
             profile=profile_from_row(session.username, row, self._clock()),
             cookie_value=cookie_value,
         )
-
-    # -- E10 logout -----------------------------------------------------------------------------
 
     def logout(self, cookie_value: str | None) -> None:
         """End the session behind the cookie. Tolerant (O-14): no cookie, a malformed cookie, an

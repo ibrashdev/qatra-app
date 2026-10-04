@@ -119,13 +119,9 @@ class AccountService:
         self._consent = consent
         self._clock = clock
 
-    # -- E11 ------------------------------------------------------------------------------------
-
     def read_profile(self, session: ResolvedSession) -> Profile:
         row = self._sessions.load_profile_row(session.context.user_id, session.tokens.access)
         return profile_from_row(session.username, row, self._clock())
-
-    # -- E12 ------------------------------------------------------------------------------------
 
     @staticmethod
     def _patch_problems(body: ProfilePatchRequest) -> list[dict[str, str]]:
@@ -179,8 +175,6 @@ class AccountService:
             raise AppError(ErrorCode.internal) from None
         except (ProfileUnavailable, ProfileMissing):
             raise AppError(ErrorCode.unavailable) from None
-
-    # -- E13 ------------------------------------------------------------------------------------
 
     def delete_account(
         self, session: ResolvedSession, *, password: str, confirm: str, ip_prefix: str

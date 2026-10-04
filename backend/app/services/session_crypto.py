@@ -150,8 +150,6 @@ class SessionCrypto:
             throttle_hmac_key=keys["QATRA_THROTTLE_HMAC_KEY"],
         )
 
-    # -- session cookie ------------------------------------------------------------------------
-
     @staticmethod
     def new_session_token() -> bytes:
         return secrets.token_bytes(SESSION_TOKEN_BYTES)
@@ -174,8 +172,6 @@ class SessionCrypto:
     def session_hash(self, token: bytes) -> bytes:
         """``HMAC-SHA-256(QATRA_SESSION_HMAC_KEY, token)``: the only form that is stored."""
         return hmac.new(self._session_hmac_key, token, hashlib.sha256).digest()
-
-    # -- Supabase tokens at rest (AES-256-GCM) -------------------------------------------------
 
     @staticmethod
     def _associated_data(user_id: UUID) -> bytes:
@@ -213,8 +209,6 @@ class SessionCrypto:
             raise TokenDecryptionError()
         return TokenBundle(access=access, refresh=refresh, exp=exp)
 
-    # -- recovery code and reset grant ---------------------------------------------------------
-
     def recovery_fingerprint(self, normalized_code: str) -> bytes:
         """``HMAC-SHA-256(QATRA_RECOVERY_HMAC_KEY, code)`` over the normalized 32-character
         code. The raw code is never stored."""
@@ -234,8 +228,6 @@ class SessionCrypto:
     def fingerprints_match(stored: bytes, candidate: bytes) -> bool:
         """Constant-time comparison of two fingerprints."""
         return hmac.compare_digest(stored, candidate)
-
-    # -- throttle keys -------------------------------------------------------------------------
 
     def throttle_key_username(self, normalized_username: str) -> bytes:
         """``HMAC(QATRA_THROTTLE_HMAC_KEY, normalized username)``; the name is never stored."""
