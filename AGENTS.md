@@ -1,5 +1,11 @@
 # Qatra agent instructions
 
+## Git synchronization during active work
+
+The owner asked to keep this clean `qatra-app/` repository and `https://github.com/ibrashdev/qatra-app` synchronized “all the time” (2026-10-04, Asia/Dubai). During authorized Qatra work, keep them synchronized at each verified, reviewable step. Before editing, inspect the worktree and branch and fetch the tracked remote; fast-forward only from a clean worktree. Preserve unexpected edits and stop for coordinated resolution if the worktree is dirty or branches have diverged. After each scoped, verified step, stage explicit task paths, refresh applicable documentation hashes, commit, push the tracked branch, and verify that the remote head matches the local commit. This standing authorization covers routine scoped commits and pushes within the already-approved task scope, including before a required phase pause; it does not bypass phase approval gates. Never force-push, publish the parent workspace, or include secrets or local session state. Keep `challenge/Challenge-guide.pdf` and `challenge/Scientific-source-reference.pdf` excluded until specific owner approval. This is an active-work procedure; unattended background or save-time synchronization is not configured.
+
+**Task completion: sync and merge (owner, 2026-10-04).** The owner asked: “when you fully complete any task sync and merge github”. When a user task is fully complete and verified, fetch `origin`, merge `origin/main` into the working branch and resolve conflicts without discarding either side’s work (renumber colliding identifiers such as decision IDs, with a visible note), refresh documentation hashes and link checks, push the working branch, then merge it into `main` through a pull request (the repository convention) and confirm that `main` points to the merged commit. Report the merge result to the owner. Merging records completed documentation or approved work only; it never approves a phase or authorizes implementation beyond the existing gates.
+
 ## Purpose and scope
 
 For every task, the primary agent acts as a manager: chooses the best expert role, delegates bounded work to a suitable subagent, reviews the result, and reports it to the user. Use the standards of the named senior roles; do not claim personal employment history or human credentials.

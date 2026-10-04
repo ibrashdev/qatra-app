@@ -1,0 +1,62 @@
+{
+  "evidence_type": "non-content service documentation and bounded access result",
+  "service_home": "https://mcp.islamiccontent.org/",
+  "developer_documentation": "https://mcp.islamiccontent.org/",
+  "terms": "https://mcp.islamiccontent.org/terms.html",
+  "endpoint": "https://mcp.islamiccontent.org/mcp",
+  "public_documentation_claims": {
+    "free": true,
+    "read_only": true,
+    "authentication_required": false,
+    "transport": "Streamable HTTP",
+    "advertised_tools": [
+      "search",
+      "fetch",
+      "list_languages",
+      "get_quran_verses",
+      "list_quran_translations",
+      "get_quran_audio",
+      "get_hadith",
+      "browse_hadith_categories",
+      "browse_library",
+      "get_library_item",
+      "list_library_categories"
+    ],
+    "advertised_source_branches": [
+      "QuranEnc",
+      "HadeethEnc",
+      "IslamHouse"
+    ]
+  },
+  "bounded_probe": {
+    "request": "JSON-RPC 2.0 initialize POST using the documented content and accept headers",
+    "result": "blocked_before_MCP_initialization",
+    "http_status": 403,
+    "provider": "Cloudflare",
+    "error_code": 1010,
+    "error_name": "browser_signature_banned",
+    "retryable": false,
+    "sanitized_provider_message": "The site owner blocked access based on the browser signature and instructed not to retry.",
+    "follow_up": "Do not retry or evade the block. No tools/list schemas or source lookups were received.",
+    "access_resolution_required": "Provider-supported permitted access is required before further requests; Qatra user approval does not remove the provider block."
+  },
+  "mcp_tools_connected_in_this_task": false,
+  "source_item_lookup_performed": false,
+  "religious_source_text_saved": false,
+  "rights_or_source_edition_approval_inferred": false,
+  "local_codex_registration": {
+    "checked_on": "2026-10-04",
+    "user_authorized": true,
+    "registered": true,
+    "enabled": true,
+    "server_name": "islamic_content",
+    "transport": "streamable_http",
+    "url": "https://mcp.islamiccontent.org/mcp",
+    "credentials_or_custom_headers_added": false,
+    "native_configuration_readback_passed": true,
+    "restart_pending": true,
+    "live_initialization_verified": false,
+    "prior_denied_probe_repeated": false,
+    "user_configuration_published": false
+  }
+}

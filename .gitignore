@@ -1,6 +1,9 @@
 # Public redistribution pending specific owner approval: originals stay local
 /challenge/Challenge-guide.pdf
 /challenge/Scientific-source-reference.pdf
+/challenge/Scientific-source-reference new.pdf
+# Acquired source originals and extraction evidence: local until reuse is cleared
+/references/source-acquisition/local/
 # Repository metadata and secrets
 .git/
 
@@ -30,6 +33,7 @@ Desktop.ini
 .history/
 *.swp
 *.swo
+.~lock.*#
 
 # Generated application and test artifacts
 **/node_modules/

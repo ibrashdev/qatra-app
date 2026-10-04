@@ -4,18 +4,20 @@
 
 | ابدأ بالوثيقة | الغرض |
 |---|---|
-| [Decision-register.md](Decision-register.md) | القرارات الثابتة D01–D72 وأثر القرارات الأحدث |
+| [Decision-register.md](Decision-register.md) | القرارات الثابتة D01–D73 وأثر القرارات الأحدث |
 | [Readiness.tracker.md](Readiness.tracker.md) | حالات الاعتماد والأسئلة المتبقية والإجراء التالي |
 | [Programming-guide.md](Programming-guide.md) | خريطة المهمة إلى الوثائق والملفات المخططة؛ بداية أي مهمة برمجية |
 | [PRD.md](PRD.md) | النطاق والمتطلبات ومعايير القبول |
 | [UX.md](UX.md) | الشاشات والرحلات والحالات |
 | [Design-system.md](Design-system.md) | الهوية والألوان وقواعد الوضوح والصور المرجعية |
+| [Figma-prototype.md](Figma-prototype.md) | مسودة نموذج Figma المصرح بها ونطاقها ومعايير مراجعتها؛ Needs Review |
 | [Architecture-and-data.md](Architecture-and-data.md) | البيانات والحدود والخطط وعقود API |
 | [Database-schema.md](Database-schema.md) | المخطط الفيزيائي لقاعدة البيانات: ERD بالمفاتيح والجداول والأدوار والمنح وترتيب الترحيلات (الإصدار ١، Needs Review — بانتظار اعتماد المالك) |
 | [API-spec.md](API-spec.md) | واجهات REST الكاملة: المسارات والمصادقة والصلاحيات والمخططات والحدود والأخطاء (الإصدار ١، Needs Review — بانتظار اعتماد المالك) |
 | [Implementation-contract.md](Implementation-contract.md) | عقد الواجهات المشتركة v1.3: حزمة المحتوى والجداول وواجهات API وقواعد الإتقان والجلسات والتخطيط والمصادقة والإعداد؛ قرارات D66–D72 معتمدة والمخرجات المعمارية المتبقية Needs Review؛ لا يأذن بالتنفيذ |
 | [Authentication-and-privacy.md](Authentication-and-privacy.md) | الحساب والاسترجاع والبيانات وشروط الاستخدام |
 | [Content-and-sources.md](Content-and-sources.md) | النص والطبعات والصفحات والحقوق وسير الإعداد |
+| [Source-acquisition.md](Source-acquisition.md) | مراجعة المرجعية الموسعة وخادم MCP، ومرشحو جزء عم والأربعين، وأدلة الاتصال والحقوق والصفحات قبل الاستيراد |
 | [Question-bank-rules.proposal.md](Question-bank-rules.proposal.md) | قواعد القرآن والحديث والفقه والعبادات ودور AI ومراجعة مدير المحتوى، الإصدار ٢، معتمدة في D69؛ QBR-04 إلى QBR-06 بلا أثر في هذا البناء (جزء عم والأربعون فقط) |
 | [AI-agent.md](AI-agent.md) | المخطط المقيد والمجاني ومحرك القواعد |
 | [PWA-design.md](PWA-design.md) | التثبيت والخطة المحملة والمزامنة والتحديث |

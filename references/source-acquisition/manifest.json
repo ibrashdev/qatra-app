@@ -1,0 +1,182 @@
+{
+  "schema_version": 1,
+  "task_date": "2026-10-04",
+  "status": "preparation_blocked_pending_source_access_and_rights",
+  "approval_scope": {
+    "user_authorized": "Prepare sources for proof of concept; subsequent explicit request on 2026-10-04 authorizes adding the Islamic Content MCP connection to local Codex settings.",
+    "does_not_authorize": [
+      "application implementation or application MCP integration",
+      "publication or redistribution of source text",
+      "inference that source presence proves rights, edition approval, or completeness"
+    ],
+    "connection_request": "create the needed connection with the MCP https://mcp.islamiccontent.org/"
+  },
+  "authority": {
+    "reference_document": "Expanded scientific source reference supplied 2026-10-04; review only, replacement approval unresolved",
+    "reference_sha256": "446911252f2012d36afe52db3e9afaf0dae52615da34e134aa4e95a199cd65bf",
+    "policy": "qatra-app/docs/Content-and-sources.md",
+    "decisions": [
+      "D19",
+      "D24",
+      "D25",
+      "D27",
+      "D49",
+      "D50",
+      "D53",
+      "D62"
+    ],
+    "expanded_reference_review_status": "review registered in challenge/README.md and Content-and-sources.md; not treated as owner-approved replacement; exact source selection remains Needs Review"
+  },
+  "service": {
+    "name": "Islamic Content MCP",
+    "public_docs_url": "https://mcp.islamiccontent.org/",
+    "endpoint": "https://mcp.islamiccontent.org/mcp",
+    "transport_advertised": "Streamable HTTP",
+    "auth_advertised": "none",
+    "terms_url": "https://mcp.islamiccontent.org/terms.html",
+    "service_terms_content": "read-only service access, free of charge; no source-content reuse grant was found in the reviewed service terms; item-specific rights remain unverified",
+    "service_landing_claimed_sources": [
+      "QuranEnc",
+      "HadeethEnc",
+      "IslamHouse"
+    ],
+    "reference_document_also_lists": [
+      "QuranEnc",
+      "HadeethEnc",
+      "Byenah",
+      "IslamHouse",
+      "IslamEnc",
+      "TerminologyEnc"
+    ],
+    "source_coverage_difference": "Public service page advertises three source branches; the expanded reference names additional sites. Their availability through this service was not verified.",
+    "advertised_read_only": true,
+    "advertised_tool_names": [
+      "search",
+      "fetch",
+      "list_languages",
+      "get_quran_verses",
+      "list_quran_translations",
+      "get_quran_audio",
+      "get_hadith",
+      "browse_hadith_categories",
+      "browse_library",
+      "get_library_item",
+      "list_library_categories"
+    ],
+    "actual_tools_list_received": false,
+    "mcp_license_or_source_content_license_inferred": false,
+    "probe_evidence": "qatra-app/references/source-acquisition/mcp-evidence.json",
+    "codex_configuration": {
+      "server_name": "islamic_content",
+      "scope": "local Codex user settings; not included in the repository",
+      "registered": true,
+      "enabled": true,
+      "transport": "streamable_http",
+      "endpoint": "https://mcp.islamiccontent.org/mcp",
+      "authentication_configured": false,
+      "custom_headers_configured": false,
+      "verified_by": "codex mcp get --json islamic_content",
+      "activation_status": "restart_pending",
+      "live_connection_verified": false,
+      "next_action": "Settings > MCP servers > Restart, then inspect /mcp; respect the recorded provider access denial."
+    }
+  },
+  "sources": [
+    {
+      "id": "juz-amma",
+      "kind": "quran",
+      "status": "not_acquired",
+      "planned_scope": "Arabic text from Surah 78 An-Naba through Surah 114 An-Nas, no translation for challenge scope",
+      "item_id": null,
+      "source_url": null,
+      "edition_or_transmission_metadata": null,
+      "printed_page_map": null,
+      "completeness_check": "not performed; no source text acquired",
+      "rights": "pending exact source/item terms and proof for storage, display, and processing",
+      "local_file": null,
+      "sha256": null,
+      "evidence_record": "qatra-app/references/source-acquisition/quran-evidence.json",
+      "candidate_provider": "QuranEnc via Islamic Content MCP or its directly documented source interface",
+      "metadata_limitations": "Arabic-original route, King Fahd edition lineage and printed-page metadata were not established. Direct documentation access returned HTTP 429; indexed translation API excerpts are not proof for the Arabic original."
+    },
+    {
+      "id": "nawawi-forty",
+      "kind": "hadith_book",
+      "status": "metadata_candidate_only",
+      "title": "الأربعون النووية",
+      "author": "أبو زكريا محيي الدين يحيى بن شرف النووي (ت 676هـ)",
+      "edition_caretakers": [
+        "قصي محمد نورس الحلاق",
+        "أنور بن أبي بكر الشيخي"
+      ],
+      "publisher": "دار المنهاج للنشر والتوزيع، بيروت",
+      "edition": "الطبعة الأولى، 1430هـ/2009م",
+      "printed_pages": 115,
+      "shamela_item_url": "https://shamela.ws/book/12836",
+      "printed_numbering_claim": "ترقيم الكتاب موافق للمطبوع",
+      "toc_count_claim": 42,
+      "first_hadith_source_url": "https://shamela.ws/book/12836/12",
+      "first_hadith_printed_page_claim": 46,
+      "last_hadith_source_urls": [
+        "https://shamela.ws/book/12836/80",
+        "https://shamela.ws/book/12836/81"
+      ],
+      "last_hadith_printed_page_claim": 114,
+      "full_text_acquired": false,
+      "printed_page_map_complete": false,
+      "mcp_library_item_match": null,
+      "rights": "pending; official Shamela MCP terms do not grant reuse rights for books or editions",
+      "local_file": null,
+      "sha256": null,
+      "selection_status": "Needs Review; candidate metadata verified, full text, edition match, page mapping and rights remain pending"
+    },
+    {
+      "id": "nawawi-islamhouse-5271-alternative",
+      "kind": "hadith_book_candidate",
+      "status": "metadata_candidate_only_not_selected",
+      "item_id": "5271",
+      "item_url": "https://islamhouse.com/ar/books/5271/",
+      "title": "الأربعون النووية عربي",
+      "author_as_listed": "أبو زكريا النووي",
+      "item_description_count_claim": 42,
+      "attachments_as_listed": [
+        {
+          "format": "DOC",
+          "title": "الأربعون النووية",
+          "acquired": false
+        },
+        {
+          "format": "PDF",
+          "title": "الأربعون النووية مع زيادات ابن رجب",
+          "caretaker_as_listed": "الشيخ عبد المحسن القاسم",
+          "acquired": false
+        },
+        {
+          "format": "PDF",
+          "title": "نسخة مصورة pdf من إصدار دار السلام",
+          "rights_note": "Attachment itself was not opened in this review; edition-specific rights remain unverified.",
+          "acquired": false
+        },
+        {
+          "format": "audio_link",
+          "title": "الأربعون النووية [قراءة صوتية]",
+          "acquired": false
+        }
+      ],
+      "html_item_risks": "Page contents include headings through 50 and an observed display-symbol issue; do not ingest the HTML wholesale.",
+      "rights": "pending exact attachment terms and proof for storage, display, and processing",
+      "selection_relationship": "Separate alternative to the Shamela item; not the selected edition",
+      "source_text_saved": false
+    }
+  ],
+  "unverified": [
+    "MCP tools/list schemas and parameter shapes",
+    "whether the Islamic Content MCP corpus has a full Nawawi book item rather than hadith records only",
+    "whether MCP supports complete item export or only source-page reads",
+    "Quran verse item IDs, edition and exact source pages",
+    "full text completeness and printed page mapping for either source",
+    "rights to locally store, display, process, and redistribute each selected edition"
+  ],
+  "packet_scope": "Coordinator-reviewed source preparation for Juz Amma and Forty Nawawi Hadith; service documentation, candidate metadata and sanitized access evidence only.",
+  "no_source_text_stored": true
+}
