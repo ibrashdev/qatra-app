@@ -168,3 +168,308 @@ end;
 $$;
 
 grant execute on all functions in schema qa to public;
+
+-- ---------------------------------------------------------------------------
+-- Added for checks_0002 .. checks_0005 (work package B2): users, roles, plan and session
+-- fixtures, and catalog comparison helpers. Functions are plpgsql (or catalog-only SQL) so
+-- that they can name tables of later migrations.
+-- ---------------------------------------------------------------------------
+
+-- Synthetic accounts: A = 901, B = 902, C = 903 (rows of auth.users only).
+create function qa.make_users()
+returns void
+language plpgsql
+as $$
+begin
+  insert into auth.users (id, email) values
+    (qa.id(901), 'a@example.invalid'),
+    (qa.id(902), 'b@example.invalid'),
+    (qa.id(903), 'c@example.invalid');
+end;
+$$;
+
+-- Role switches for the rest of the transaction. as_user also sets the JWT subject that
+-- auth.uid() reads; as_none is the authenticated role without a subject.
+create function qa.as_user(p_user uuid)
+returns void
+language plpgsql
+as $$
+begin
+  perform set_config('request.jwt.claim.sub', p_user::text, true);
+  execute 'set local role authenticated';
+end;
+$$;
+
+create function qa.as_none()
+returns void
+language plpgsql
+as $$
+begin
+  perform set_config('request.jwt.claim.sub', '', true);
+  execute 'set local role authenticated';
+end;
+$$;
+
+create function qa.as_anon() returns void language plpgsql as $$ begin execute 'set local role anon'; end; $$;
+create function qa.as_service() returns void language plpgsql as $$ begin execute 'set local role service_role'; end; $$;
+create function qa.as_server() returns void language plpgsql as $$ begin execute 'set local role qatra_server'; end; $$;
+create function qa.as_owner() returns void language plpgsql as $$ begin execute 'reset role'; end; $$;
+
+-- Publishes the fixture edition (id 5) and its lesson (11) and question (12), so that the
+-- published-content policies show them to authenticated.
+create function qa.publish_fixture()
+returns void
+language plpgsql
+as $$
+begin
+  perform qa.set_edition_status('published');
+  update public.lessons set status = 'published' where id = qa.id(11);
+  update public.question_items set status = 'published' where id = qa.id(12);
+end;
+$$;
+
+-- A second passage with a part and a question in the fixture edition (ids 31, 32, 33), for
+-- tests that must tell two passages of one edition apart.
+create function qa.make_passage2()
+returns void
+language plpgsql
+as $$
+begin
+  insert into public.passages
+    (id, edition_id, bank_version, section_id, ordinal, path, start_ref, end_ref, word_count, reference)
+  values (qa.id(31), qa.id(5), 1, qa.id(7), 2, 'quran', '1:1', '1:1', 1, '1:2');
+  insert into public.passage_parts (id, passage_id, edition_id, ordinal, start_ref, end_ref, word_count)
+  values (qa.id(32), qa.id(31), qa.id(5), 1, '1:1', '1:1', 1);
+  insert into public.question_items
+    (id, edition_id, bank_version, passage_id, lesson_id, unit_id, type, variant,
+     covered_part_ids, token_refs, option_refs, correct_ref, reference)
+  values (qa.id(33), qa.id(5), 1, qa.id(31), null, qa.id(8), 'word_choice', 'word',
+          array[qa.id(32)], '["1:1"]', '[["1:1"],["1:1"]]', '["1:1"]', '1:2');
+end;
+$$;
+
+-- A hadith book (20) with a draft edition (21), for the plan-order guard.
+create function qa.make_hadith_edition()
+returns void
+language plpgsql
+as $$
+begin
+  insert into public.books (id, category_id, title_ar, author, content_format)
+  values (qa.id(20), qa.id(1), 'test', 'test', 'hadith_collection');
+  insert into public.book_editions
+    (id, book_id, source_id, edition_key, edition_label, language, version, bank_version)
+  values (qa.id(21), qa.id(20), qa.id(3), 'test-hadith-edition', 'test', 'ar', 1, 1);
+end;
+$$;
+
+-- A plan of p_user over the fixture edition with its version 1 (inserted together, because
+-- master_plans.current_version is a deferred key to plan_versions).
+create function qa.make_plan(p_plan uuid, p_user uuid, p_status text default 'active')
+returns void
+language plpgsql
+as $$
+begin
+  insert into public.master_plans
+    (id, user_id, edition_id, target_scope, paths, plan_order, session_minutes,
+     agreed_estimate, current_version, status)
+  values (p_plan, p_user, qa.id(5), '{"sectionOrdinals":[1]}', array['quran'], 'book', 10,
+          '{}', 1, p_status);
+  insert into public.plan_versions (plan_id, user_id, version_no, reason_code, effective_learning_date)
+  values (p_plan, p_user, 1, 'test', date '2026-10-05');
+end;
+$$;
+
+-- A session of a plan (version 1 in force).
+create function qa.make_session(
+  p_session uuid, p_user uuid, p_plan uuid, p_kind text default 'daily',
+  p_date date default date '2026-10-05', p_status text default 'open', p_snapshot uuid default null)
+returns void
+language plpgsql
+as $$
+begin
+  insert into public.learning_sessions
+    (id, user_id, plan_id, plan_version_id, edition_id, kind, learning_date, steps,
+     bank_version, status, offline_snapshot_id)
+  values (p_session, p_user, p_plan,
+          (select pv.id from public.plan_versions pv where pv.plan_id = p_plan and pv.version_no = 1),
+          qa.id(5), p_kind, p_date, '[]', 1, p_status, p_snapshot);
+end;
+$$;
+
+-- Catalog comparison helpers. columns_of: "name|type|NULL or NOT NULL|default" in column order.
+create function qa.columns_of(p_rel regclass)
+returns text[]
+language sql
+stable
+as $$
+  select array_agg(
+           a.attname || '|' || format_type(a.atttypid, a.atttypmod) || '|'
+           || case when a.attnotnull then 'NOT NULL' else 'NULL' end || '|'
+           || coalesce(pg_get_expr(d.adbin, d.adrelid), '')
+           order by a.attnum)
+  from pg_attribute a
+  left join pg_attrdef d on d.adrelid = a.attrelid and d.adnum = a.attnum
+  where a.attrelid = p_rel and a.attnum > 0 and not a.attisdropped
+$$;
+
+create function qa.assert_columns(p_rel regclass, p_expected text[])
+returns void
+language plpgsql
+as $$
+declare
+  v_actual text[] := qa.columns_of(p_rel);
+begin
+  if v_actual is distinct from p_expected then
+    raise exception 'columns of % differ; expected only: %; actual only: %',
+      p_rel,
+      (select array_agg(e) from unnest(p_expected) e where e <> all (coalesce(v_actual, '{}'))),
+      (select array_agg(a) from unnest(v_actual) a where a <> all (coalesce(p_expected, '{}')));
+  end if;
+end;
+$$;
+
+-- key_defs: definitions (without names) of the primary key, unique and foreign-key
+-- constraints of a table, sorted. Unique indexes that are not constraints come from index_defs.
+create function qa.key_defs(p_rel regclass)
+returns text[]
+language sql
+stable
+as $$
+  select coalesce(array_agg(pg_get_constraintdef(c.oid) order by pg_get_constraintdef(c.oid)), '{}')
+  from pg_constraint c
+  where c.conrelid = p_rel and c.contype in ('p', 'u', 'f')
+$$;
+
+-- index_defs: every index that is not backed by a constraint, name removed, sorted.
+create function qa.index_defs(p_rel regclass)
+returns text[]
+language sql
+stable
+as $$
+  select coalesce(array_agg(
+           regexp_replace(pg_get_indexdef(i.indexrelid), '^CREATE (UNIQUE )?INDEX \S+ ON ', 'CREATE \1INDEX ON ')
+           order by regexp_replace(pg_get_indexdef(i.indexrelid), '^CREATE (UNIQUE )?INDEX \S+ ON ', 'CREATE \1INDEX ON ')),
+         '{}')
+  from pg_index i
+  where i.indrelid = p_rel
+    and not exists (select 1 from pg_constraint c where c.conindid = i.indexrelid and c.conrelid = p_rel)
+$$;
+
+create function qa.assert_same_set(p_label text, p_actual text[], p_expected text[])
+returns void
+language plpgsql
+as $$
+declare
+  v_missing text[];
+  v_extra   text[];
+begin
+  select array_agg(e) into v_missing from unnest(p_expected) e where e <> all (p_actual);
+  select array_agg(a) into v_extra from unnest(p_actual) a where a <> all (p_expected);
+  if v_missing is not null or v_extra is not null then
+    raise exception '%: missing %, unexpected %', p_label, v_missing, v_extra;
+  end if;
+end;
+$$;
+
+-- The 25 learner and server functions of 0005 (public schema), by identity arguments.
+create function qa.srv_functions()
+returns text[]
+language sql
+immutable
+as $$
+  select array[
+    'srv_find_handle(text)',
+    'srv_register_account(uuid,text,text,text,boolean,text,text,text,bytea)',
+    'srv_accept_terms(uuid,text)',
+    'srv_recovery_active_code(uuid)',
+    'srv_recovery_reserve(uuid,uuid,uuid,bytea,timestamp with time zone)',
+    'srv_recovery_begin(bytea)',
+    'srv_recovery_release(uuid)',
+    'srv_recovery_consume(uuid,bytea)',
+    'srv_recovery_rotate(uuid,bytea)',
+    'srv_create_app_session(uuid,bytea,bytea,integer,timestamp with time zone)',
+    'srv_read_app_session(bytea)',
+    'srv_update_app_session_tokens(uuid,bytea)',
+    'srv_revoke_app_session(bytea)',
+    'srv_bump_auth_epoch(uuid)',
+    'srv_throttle_check(bytea[])',
+    'srv_throttle_record(bytea[],text)',
+    'srv_delete_personal_rows(uuid,bytea)',
+    'srv_record_ai_usage(text,text,text,integer,integer,numeric,text,jsonb)'
+  ]
+$$;
+
+create function qa.app_functions()
+returns text[]
+language sql
+immutable
+as $$
+  select array[
+    'app_create_plan(uuid,jsonb,text[],text,smallint,date,jsonb,text,jsonb,date,jsonb,jsonb,uuid)',
+    'app_revise_plan(uuid,integer,jsonb,text[],text,smallint,date,jsonb,text,jsonb,date,jsonb)',
+    'app_open_session(text,uuid,uuid,uuid,uuid,date,uuid[],uuid[],jsonb,integer,text,uuid)',
+    'app_apply_events(uuid,jsonb,jsonb,boolean)',
+    'app_complete_session(uuid,bigint)',
+    'app_create_offline_snapshot(uuid,integer,integer,uuid,jsonb,integer,integer,jsonb,jsonb,uuid)'
+  ]
+$$;
+
+-- Number of rows an INSERT, UPDATE or DELETE touched (0 for a statement that RLS filtered out).
+create function qa.rowcount(p_sql text)
+returns bigint
+language plpgsql
+as $$
+declare
+  n bigint;
+begin
+  execute p_sql;
+  get diagnostics n = row_count;
+  return n;
+end;
+$$;
+
+-- A full set of personal rows for one account (fixture edition 5 must exist, published or not;
+-- qa.make_users must have created the Auth user). p_n (1..99) keeps every unique value apart:
+-- handle, profile, recovery code, reset grant, app session, plan with version 1, daily session,
+-- offline snapshot, attempt, interval, mastery, part evidence, daily progress and completion.
+-- Ids: plan 1000+n, session 2000+n, snapshot 3000+n, attempt 4000+n.
+create function qa.populate_user(p_user uuid, p_n integer)
+returns void
+language plpgsql
+as $$
+declare
+  v_hash bytea := decode(lpad(to_hex(p_n), 64, '0'), 'hex');
+begin
+  insert into private.account_handles (user_id, username_display, username_normalized, internal_auth_alias)
+  values (p_user, 'user' || p_n, 'user' || p_n,
+          'u.00000000-0000-4000-8000-' || lpad(p_n::text, 12, '0') || '@qatra.invalid');
+  insert into public.profiles (user_id, time_zone, terms_version, terms_accepted_at)
+  values (p_user, 'UTC', '2026-10-04', now());
+  insert into private.recovery_codes (user_id, code_hash) values (p_user, v_hash);
+  insert into private.password_reset_grants (user_id, grant_hash, expires_at)
+  values (p_user, v_hash, now() + interval '10 minutes');
+  insert into private.app_sessions (user_id, session_hash, auth_epoch, encrypted_auth_tokens, expires_at)
+  values (p_user, v_hash, 0, '\x01', now() + interval '30 days');
+  perform qa.make_plan(qa.id(1000 + p_n), p_user, 'active');
+  perform qa.make_session(qa.id(2000 + p_n), p_user, qa.id(1000 + p_n));
+  insert into public.offline_snapshots
+    (id, user_id, plan_id, plan_version, edition_id, bank_version, client_operation_id,
+     download_target_refs, schema_version, protocol_version, payload)
+  values (qa.id(3000 + p_n), p_user, qa.id(1000 + p_n), 1, qa.id(5), 1, qa.id(5000 + p_n), '[]', 1, 1, '{}');
+  insert into public.attempts
+    (id, user_id, session_id, edition_id, client_event_id, question_id, passage_id, correct, duration_ms, occurred_at)
+  values (qa.id(4000 + p_n), p_user, qa.id(2000 + p_n), qa.id(5), qa.id(6000 + p_n), qa.id(12), qa.id(9), true, 10, now());
+  insert into public.session_activity_intervals
+    (user_id, session_id, client_event_id, started_at, ended_at, active_ms, learning_date)
+  values (p_user, qa.id(2000 + p_n), qa.id(7000 + p_n), now() - interval '1 minute', now(), 1000, date '2026-10-05');
+  insert into public.target_mastery (user_id, plan_id, passage_id, edition_id)
+  values (p_user, qa.id(1000 + p_n), qa.id(9), qa.id(5));
+  insert into public.target_part_evidence (user_id, plan_id, passage_id, part_id, attempt_id, learning_date)
+  values (p_user, qa.id(1000 + p_n), qa.id(9), qa.id(10), qa.id(4000 + p_n), date '2026-10-05');
+  insert into public.daily_progress (user_id, learning_date, goal_ms) values (p_user, date '2026-10-05', 600000);
+  insert into public.daily_completions (user_id, learning_date, reached_in_plan_id)
+  values (p_user, date '2026-10-05', qa.id(1000 + p_n));
+end;
+$$;
+
+grant execute on all functions in schema qa to public;

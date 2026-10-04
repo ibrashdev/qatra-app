@@ -16,15 +16,17 @@ migrations to a throwaway PostgreSQL 16 database and runs assertions against the
 | File | Purpose |
 |---|---|
 | `00_supabase_shim.sql` | Stand-ins for what a Supabase project already provides: roles `anon`, `authenticated`, `service_role`; schemas `auth` (users, `auth.uid()`), `storage` (buckets, objects with RLS and no policy) and `extensions`; and the platform default privileges on new `public` objects that the migrations must revoke. |
-| `01_check_helpers.sql` | Helper functions in a scratch schema `qa` (expected-error assertions, a synthetic row graph `qa.make_fixture()`). |
+| `01_check_helpers.sql` | Helper functions in a scratch schema `qa`: expected-error assertions, a synthetic content row graph `qa.make_fixture()` (plus `make_passage2`, `make_hadith_edition`, `publish_fixture`), synthetic accounts and plans (`make_users`, `make_plan`, `make_session`, `populate_user`), role switches for the API roles (`as_user`, `as_none`, `as_anon`, `as_service`, `as_server`, `as_owner`) and catalog comparison helpers (`columns_of`, `key_defs`, `index_defs`, `assert_columns`, `assert_same_set`). |
 | `run_local.sh` | The runner. |
-| `checks_NNNN.sql` | Assertions for migration `NNNN_*.sql`; run right after that migration is applied. `checks_0001.sql` covers `0001_content`. |
+| `checks_NNNN.sql` | Assertions for migration `NNNN_*.sql`; run right after that migration is applied. `checks_0001.sql` covers `0001_content`, `checks_0002.sql` `0002_identity`, `checks_0003.sql` `0003_plans_sessions`, `checks_0004.sql` `0004_progress`, `checks_0005.sql` `0005_rls_functions`. |
 
 ## Run
 
 Requirements: PostgreSQL 16 (15 or later is required by the schema), the `pgvector` package
-(`apt-get install -y postgresql-16-pgvector`), and either root (the script uses
-`runuser -u postgres`) or `PG*` variables that reach a superuser.
+(`apt-get install -y postgresql-16-pgvector`), the contrib module `dblink` (part of the
+`postgresql-16` package on Debian and Ubuntu; only the last check of `checks_0005.sql`, the
+concurrency check, needs it), and either root (the script uses `runuser -u postgres`) or `PG*`
+variables that reach a superuser.
 
 ```bash
 cd qatra-app
@@ -52,9 +54,11 @@ Options (environment variables):
 | `UPTO=0001` | Stop after the migration with this prefix and its checks. |
 | `PGVER`, `PGCLUSTER` | Cluster started when it is down (default `16` / `main`). |
 
-The roles `anon`, `authenticated` and `service_role` are cluster-wide and stay after the scratch
-database is dropped (the shim creates them only if absent). Drop them by hand if the cluster should
-be left as it was.
+The roles `anon`, `authenticated` and `service_role` (created by the shim, only if absent) and
+`qatra_server` (created by `0002_identity`, only if absent, without a password) are cluster-wide and
+stay after the scratch database is dropped. Drop them by hand if the cluster should be left as it
+was. `0002_identity` restores the attributes of `qatra_server` if an existing role differs, and
+never sets a password.
 
 ## What `checks_0001.sql` covers
 
@@ -70,13 +74,36 @@ constraint; composite keys that keep children inside one edition and bank versio
 catalog parents; `guard_edition_delete` and `guard_unit_text` behaviour for every edition status;
 `updated_at` maintenance; runtime behaviour of the three API roles; and no seed rows.
 
+## What `checks_0002.sql` to `checks_0005.sql` cover
+
+Each file compares the result with the approved text (`Database-schema.md` v1.1), not with the
+migration. Column lists, primary, unique and foreign keys (with their delete actions, the
+column-list `SET NULL` and the deferred cyclic key), partial and secondary indexes are compared as
+sets of catalog definitions; `CHECK` rules are tested by behaviour (a good value is accepted, each
+bad value is refused by exactly the intended constraint).
+
+| File | Covers |
+|---|---|
+| `checks_0002.sql` | The five `private.*` tables and `public.profiles`; row level security on and no policy; no privilege for `anon`, `authenticated`, `service_role` (with controls that prove the check can see a grant); role `qatra_server` (attributes, no password, no membership, no privilege yet); username, alias, epoch, grant status set, one live grant and one active code per account, reservation rules; `private.validate_profile` (time zones, `pending_settings.timeZone`, minutes 5/10/15, languages, terms fields); class A cascades; `updated_at`; no seed rows. |
+| `checks_0003.sql` | `master_plans`, `plan_versions`, `plan_phases`, `offline_snapshots`, `learning_sessions`, `attempts`, `session_activity_intervals`: columns, keys and composite parent-ownership keys, delete classes A, B, C, F, G; one active plan per account; the daily-session partial unique index (A-01); the deferred cyclic key, including a real `COMMIT` that refuses a plan without a version; `private.guard_plan_order`; value sets and the four memorization paths; couplings; idempotency keys; activity-interval bounds. |
+| `checks_0004.sql` | `daily_progress`, `daily_completions`, `target_mastery`, `target_part_evidence`, `ai_usage`: columns, keys, the due-review index, no `reviews` table, every `target_mastery` state-consistency combination, evidence that refuses a part or attempt of another passage, no learner or text column in `ai_usage`, delete classes. |
+| `checks_0005.sql` | The 42 policies by name and command and their predicates; the grant matrix of every role (`anon`, `authenticated` by table and column, `service_role`, `qatra_server`); the 19 `srv_*` and 6 `app_*` functions (owner, definer/invoker, empty `search_path`, EXECUTE per role, nothing for PUBLIC); default function privileges; the two catalog views (columns, owner, barrier, rows only for published, visible, unarchived editions, per-path counts of the current bank); anon and learner reads of published content; the two-account isolation test; every `app_*` function including atomic rollback; every `srv_*` function including recovery reservation, epoch, sessions, throttle buckets and purge, personal-row deletion, redaction; storage with no policy; `qatra_server` at run time; and a concurrency check over `dblink` (parallel recovery reservations, daily get-or-create, revisions, plan creations, throttle increments). |
+
 ## Known limits
 
 - Locally the migrations run as the cluster superuser. A hosted project's `postgres` role is not a
   superuser, so permission problems of that kind would not show here.
 - The default privileges of the shim are an assumption about the Supabase platform
-  (`Database-schema.md` OPEN-15 asks to confirm them on the real project). The `service_role` check
-  relies on them.
-- No Data API (PostgREST), Auth or Storage service runs: roles are tested with `SET ROLE`.
-- Row level security policies, grants for `authenticated`, the `catalog_*` views and the `srv_*` and
-  `app_*` functions belong to `0005_rls_functions` and are not covered by `checks_0001.sql`.
+  (`Database-schema.md` OPEN-15 asks to confirm them on the real project). The `service_role` checks
+  rely on them, and on the shim's `service_role` bypassing row level security as the platform's does.
+- No Data API (PostgREST), Auth or Storage service runs: roles are tested with `SET ROLE`, and the
+  JWT subject is set with `request.jwt.claim.sub`.
+- `ALTER DEFAULT PRIVILEGES ... IN SCHEMA public` cannot remove the built-in default `EXECUTE` for
+  `PUBLIC`; every function therefore revokes it explicitly, and `checks_0005.sql` fails if a function
+  of schema `public` is executable by `PUBLIC` or by a role other than the one the schema names.
+- The negative branch of the storage guard inside `0005_rls_functions.sql` (a policy that names the
+  bucket `sources` makes the migration fail) is not exercised; `checks_0005.sql` asserts that no
+  `storage.objects` policy exists after the migration.
+- The `srv_throttle_record` function returns nothing: the checks assert the per-key counts that the
+  service turns into the progressive delay (1, 2, 4, 8 seconds, then 10 seconds per failure) and
+  the 429 threshold; the delay itself is service logic.
