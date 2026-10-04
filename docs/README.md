@@ -1,6 +1,6 @@
 # قطرة غيث — الوثائق الجارية
 
-الإصدار ١٣ · ٤ أكتوبر ٢٠٢٦ · Asia/Dubai. الجذر qatra-app؛ وثائق ومراجع ضرورية فقط. القرارات المعتمدة تتقدم على التصميم المقترح والصور. الحالات: Approved للقرار المحدد، Needs Input للمتطلب غير المحسوم، Needs Review للتصميم المعد، Implemented/Verified لا تستعملان دون العمل ودليله.
+الإصدار ١٤ · ٤ أكتوبر ٢٠٢٦ · Asia/Dubai. الجذر qatra-app؛ وثائق ومراجع ضرورية فقط. القرارات المعتمدة تتقدم على التصميم المقترح والصور. الحالات: Approved للقرار المحدد، Needs Input للمتطلب غير المحسوم، Needs Review للتصميم المعد، Implemented/Verified لا تستعملان دون العمل ودليله.
 
 | ابدأ بالوثيقة | الغرض |
 |---|---|
@@ -10,6 +10,7 @@
 | [PRD.md](PRD.md) | النطاق والمتطلبات ومعايير القبول |
 | [UX.md](UX.md) | الشاشات والرحلات والحالات |
 | [Design-system.md](Design-system.md) | الهوية والألوان وقواعد الوضوح والصور المرجعية |
+| [Figma-prototype.md](Figma-prototype.md) | مسودة نموذج Figma المصرح بها ونطاقها ومعايير مراجعتها؛ Needs Review |
 | [Architecture-and-data.md](Architecture-and-data.md) | البيانات والحدود والخطط وعقود API |
 | [Authentication-and-privacy.md](Authentication-and-privacy.md) | الحساب والاسترجاع والبيانات وشروط الاستخدام |
 | [Content-and-sources.md](Content-and-sources.md) | النص والطبعات والصفحات والحقوق وسير الإعداد |
