@@ -3,8 +3,9 @@
 It serves exactly what B4 uses: the two public catalog views (anon ``apikey`` only), the learner
 tables ``passages``, ``profiles``, ``learning_sessions``, ``attempts``, ``master_plans`` and
 ``plan_versions`` (a known bearer token is required and only the token owner's rows are served,
-like row-level security) and the functions ``app_create_plan``, ``app_revise_plan`` and
-``app_resume_plan`` with the semantics of migrations 0005 and 0006. The function parameter names
+like row-level security; ``plan_versions`` also answers ``lte`` filters, ``order`` and ``limit``)
+and the functions ``app_create_plan``, ``app_revise_plan`` and ``app_resume_plan`` with the
+semantics of migrations 0005 and 0006. The function parameter names
 are checked against the migrations' signatures, so a misspelt argument fails like the real
 PostgREST would (``PGRST202``).
 
@@ -73,6 +74,13 @@ class Call:
     body: Any
 
 
+def _number_or_text(value: Any) -> Any:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return str(value)
+
+
 def db_error(status: int, code: str, message: str = SECRET_TEXT) -> httpx.Response:
     """A PostgREST error body; message and details carry text that must never leak."""
     return httpx.Response(
@@ -102,6 +110,7 @@ class FakePostgrest:
         self.plans: dict[str, dict[str, Any]] = {}
         self.versions: list[dict[str, Any]] = []
         self.phases: list[dict[str, Any]] = []
+        self.unreadable_editions: set[str] = set()  # row-level security hides these (revoked)
         self.calls: list[Call] = []
         # one-shot answers by name ("catalog_editions", "rpc/app_create_plan", ...)
         self.faults: dict[str, list[httpx.Response | Exception | Callable[[], httpx.Response]]] = {}
@@ -204,9 +213,26 @@ class FakePostgrest:
         for key, value in request.url.params.multi_items():
             if key in {"select", "order", "limit"}:
                 continue
-            assert value.startswith("eq."), f"the fake supports eq filters only, got {key}={value}"
-            wanted = value.removeprefix("eq.").lower()
-            rows = [row for row in rows if str(row.get(key)).lower() == wanted]
+            operator, _, wanted = value.partition(".")
+            assert operator in {"eq", "lte"}, (
+                f"the fake supports eq and lte only, got {key}={value}"
+            )
+            if operator == "eq":
+                rows = [row for row in rows if str(row.get(key)).lower() == wanted.lower()]
+            else:  # dates compare as ISO text, numbers as numbers
+                rows = [
+                    row for row in rows if _number_or_text(row.get(key)) <= _number_or_text(wanted)
+                ]
+        return rows
+
+    @staticmethod
+    def _ordered(rows: list[dict[str, Any]], request: httpx.Request) -> list[dict[str, Any]]:
+        if order := request.url.params.get("order"):
+            for spec in reversed(order.split(",")):
+                column, _, direction = spec.partition(".")
+                rows = sorted(rows, key=lambda row, c=column: row[c], reverse=direction == "desc")
+        if "limit" in request.url.params:
+            rows = rows[: int(request.url.params["limit"])]
         return rows
 
     def _catalog(self, name: str, request: httpx.Request) -> httpx.Response:
@@ -290,16 +316,20 @@ class FakePostgrest:
             rows = [self._plan_row(row) for row in self.plans.values() if row["user_id"] == mine]
         elif name == "plan_versions":
             rows = [row for row in self.versions if row["user_id"] == mine]
+            return httpx.Response(200, json=self._ordered(self._filtered(rows, request), request))
         else:
             return db_error(404, "42P01")
         return httpx.Response(200, json=self._filtered(rows, request))
 
     def _plan_row(self, row: dict[str, Any]) -> dict[str, Any]:
         edition = next(e for e, _ in self.entries if str(e.edition_id) == row["edition_id"])
+        if row["edition_id"] in self.unreadable_editions:
+            return {**row, "book_editions": None}
         return {
             **row,
             "book_editions": {
-                "books": {"title_ar": edition.title_ar, "title_en": edition.title_en}
+                "bank_version": edition.catalog_version,
+                "books": {"title_ar": edition.title_ar, "title_en": edition.title_en},
             },
         }
 
@@ -345,6 +375,8 @@ class FakePostgrest:
             plan = self.plans.get(str(args["p_plan_id"]))
             if plan is None or plan["user_id"] != mine:
                 return db_error(500, "P0002", "plan_not_found")
+            if plan["status"] == "completed":  # the migration tests the status before the version
+                return db_error(400, "QT003", "plan_not_active")
             if plan["current_version"] != args["p_expected_version"]:
                 return db_error(400, "QT002", "version_conflict")
             plan.update(

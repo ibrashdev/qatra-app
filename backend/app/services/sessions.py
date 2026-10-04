@@ -5,8 +5,9 @@ composes the session with the pure policies in ``domain/session_policy.py``, ren
 DTOs of ``contracts_sessions`` (verbatim text with its canonical URL, every ``answerKey``) and
 persists it as an immutable snapshot through ``repositories/learning.py``. No model is called.
 
-Plans and dates come through two ports that package B4 (plans) and B3 (accounts) bind later; this
-package imports neither:
+Plans and dates come through two ports; this package imports neither B4 (plans) nor B3
+(accounts). ``services/plan_access.py`` binds both to B4's plan service and ``app/wiring.py``
+installs them:
 
 - ``PlanAccess.load_for_session(ctx, plan_id) -> PlanSnapshot`` (raises ``not_found`` for an
   unknown or foreign plan);
@@ -91,6 +92,7 @@ from app.domain.session_policy import (
     stable_hash,
 )
 from app.errors import AppError, ErrorCode
+from app.providers.postgrest import PostgrestClient
 from app.repositories.bank import (
     BankPassage,
     BankQuestion,
@@ -784,24 +786,28 @@ def build_sessions_service(
     calendar: LearningCalendar | None = None,
     bank: BankRepository | None = None,
     learning: LearningRepository | None = None,
+    client: PostgrestClient | None = None,
     clock: Callable[[], datetime] | None = None,
     new_id: Callable[[], UUID] | None = None,
-) -> SessionService:
-    """The service over the repositories of the configured data backend. Unbound ports answer
+) -> SessionService | None:
+    """The service over the repositories of the configured data backend. ``None`` in supabase mode
+    without a ``client`` or repositories (the endpoint answers ``503``). Unbound ports answer
     ``503 unavailable`` (nothing is faked)."""
     memory = settings.QATRA_DATA_BACKEND == "memory"
     if bank is None:
-        bank = (
-            InMemoryBankRepository.from_settings(settings)
-            if memory
-            else PostgrestBankRepository.from_settings(settings)
-        )
+        if memory:
+            bank = InMemoryBankRepository.from_settings(settings)
+        elif client is not None:
+            bank = PostgrestBankRepository(client)
+        else:
+            return None
     if learning is None:
-        learning = (
-            InMemoryLearningStore()
-            if memory
-            else PostgrestLearningRepository.from_settings(settings)
-        )
+        if memory:
+            learning = InMemoryLearningStore()
+        elif client is not None:
+            learning = PostgrestLearningRepository(client)
+        else:
+            return None
     return SessionService(
         bank=bank,
         learning=learning,

@@ -13,11 +13,10 @@ from uuid import UUID
 
 import httpx
 import pytest
-from pydantic import SecretStr
 
 from app.domain.learning_state import AttemptRecord, PartEvidence
 from app.errors import AppError, ErrorCode
-from app.repositories.bank import PostgrestBankRepository, PostgrestGateway
+from app.repositories.bank import PostgrestBankRepository
 from app.repositories.learning import PostgrestLearningRepository
 from app.services.sessions import PlanSnapshot, SessionService
 from tests.sessions.ss_learning_support import Harness, mastery
@@ -57,11 +56,9 @@ class PgEnv:
 
     def __init__(self, *, in_chunk: int = 40) -> None:
         self.fake = FakePostgrest()
-        gateway = PostgrestGateway(
-            "https://project.example", SecretStr(ANON), client=self.fake.client()
-        )
-        self.bank = PostgrestBankRepository(gateway, in_chunk=in_chunk)
-        self.learning = PostgrestLearningRepository(gateway, in_chunk=in_chunk)
+        client = self.fake.client()
+        self.bank = PostgrestBankRepository(client, in_chunk=in_chunk)
+        self.learning = PostgrestLearningRepository(client, in_chunk=in_chunk)
         self.plans = FakePlanAccess()
         self.plans.add(quran_plan())
         self.plans.add(hadith_plan())

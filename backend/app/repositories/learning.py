@@ -7,11 +7,13 @@ mastery, coverage evidence, attempt history and activity that composition needs.
   activity intervals, mastery, part evidence and daily progress. It mirrors ``app_open_session``
   (an atomic get-or-create for the daily session) and is written so that package B6 can add its
   ``apply_events`` to the same store: the row types and the ``put_*`` helpers are the shapes of
-  ``app_apply_events``.
-- ``PostgrestLearningRepository`` (supabase mode): PostgREST as the learner (the access token as
-  ``Authorization: Bearer``, so row-level security applies). A new session is committed through the
-  ``app_open_session`` function (Database-schema §8.3); everything else is a read, except
-  ``mark_completed``, which sets ``status`` (a column the learner may update, §5.2 item 5).
+  ``app_apply_events``. The same instance is package B4's placement reader
+  (``known_passage_ids``), so E15 and E16 count the attempts of the placement sessions E20 opened.
+- ``PostgrestLearningRepository`` (supabase mode): the shared ``PostgrestClient`` as the learner
+  (the access token as ``Authorization: Bearer``, so row-level security applies). A new session is
+  committed through the ``app_open_session`` function (Database-schema §8.3); everything else is a
+  read, except ``mark_completed``, which sets ``status`` (a column the learner may update, §5.2
+  item 5).
 
 Every method takes the caller's ``SessionContext`` and returns only the caller's rows. Errors are
 mapped as in ``repositories/bank.py`` (``unavailable``, ``unauthenticated``, ``not_found``, and
@@ -31,9 +33,6 @@ from datetime import date, datetime
 from typing import Any, Final, Protocol
 from uuid import UUID
 
-import httpx
-
-from app.config import Settings
 from app.dependencies import SessionContext
 from app.domain.learning_state import (
     ActivityInterval,
@@ -44,8 +43,10 @@ from app.domain.learning_state import (
     require_date,
     require_datetime,
 )
+from app.domain.planning_port import PlacementNotFound
 from app.errors import AppError, ErrorCode
-from app.repositories.bank import PostgrestGateway, chunks, in_filter, parse_or_internal
+from app.providers.postgrest import PostgrestClient
+from app.repositories.bank import LearnerClient, chunks, in_filter, parse_or_internal
 
 # The newest attempts of a set of passages that composition looks at (recency and last type).
 ATTEMPT_LIMIT: Final = 500
@@ -176,6 +177,30 @@ class InMemoryLearningStore:
         with self._lock:
             self.daily_progress[(row.user_id, row.learning_date)] = row
 
+    def known_passage_ids(
+        self, ctx: SessionContext, placement_session_id: UUID, edition_id: UUID
+    ) -> frozenset[UUID]:
+        """Passages answered correctly and unassisted in the caller's placement session of this
+        edition (the supabase reader's rule, [O-17]). Raises ``PlacementNotFound`` for an unknown,
+        foreign, other-edition or non-placement session."""
+        with self._lock:
+            session = self.sessions.get(placement_session_id)
+            if (
+                session is None
+                or session.user_id != ctx.user_id
+                or session.kind != "placement"
+                or session.edition_id != edition_id
+            ):
+                raise PlacementNotFound
+            return frozenset(
+                attempt.passage_id
+                for attempt in self.attempts
+                if attempt.session_id == placement_session_id
+                and attempt.user_id == ctx.user_id
+                and attempt.correct
+                and not attempt.assisted
+            )
+
     # -- LearningRepository ------------------------------------------------------------------
 
     def open_session(self, ctx: SessionContext, new: NewSession) -> OpenedSession:
@@ -298,15 +323,9 @@ def _uuid_or_none(value: Any) -> UUID | None:
 class PostgrestLearningRepository:
     """Supabase-mode learner state through PostgREST as the learner (row-level security)."""
 
-    def __init__(self, gateway: PostgrestGateway, *, in_chunk: int = 40) -> None:
-        self._rest = gateway
+    def __init__(self, client: PostgrestClient, *, in_chunk: int = 40) -> None:
+        self._rest = LearnerClient(client)
         self._chunk = max(1, in_chunk)  # ids per ``in.(...)`` filter
-
-    @classmethod
-    def from_settings(
-        cls, settings: Settings, *, client: httpx.Client | None = None
-    ) -> PostgrestLearningRepository:
-        return cls(PostgrestGateway.from_settings(settings, client=client))
 
     def __repr__(self) -> str:
         return "PostgrestLearningRepository(<redacted>)"
@@ -343,10 +362,11 @@ class PostgrestLearningRepository:
     def _session(self, ctx: SessionContext, row: dict[str, Any]) -> StoredSession:
         plan_version: int | None = None
         if row.get("plan_version_id") is not None:
-            versions = self._rest.get(
+            versions = self._rest.select(
                 ctx,
                 "plan_versions",
-                {"id": f"eq.{row['plan_version_id']}", "select": "version_no"},
+                columns="version_no",
+                filters={"id": f"eq.{row['plan_version_id']}"},
             )
             plan_version = (
                 parse_or_internal(lambda: int(versions[0]["version_no"])) if versions else None
@@ -381,31 +401,28 @@ class PostgrestLearningRepository:
         return parse_or_internal(build)
 
     def read_session(self, ctx: SessionContext, session_id: UUID) -> StoredSession | None:
-        rows = self._rest.get(
+        rows = self._rest.select(
             ctx,
             "learning_sessions",
-            {
-                "id": f"eq.{session_id}",
-                "user_id": f"eq.{ctx.user_id}",
-                "select": _SESSION_COLUMNS,
-            },
+            columns=_SESSION_COLUMNS,
+            filters={"id": f"eq.{session_id}", "user_id": f"eq.{ctx.user_id}"},
         )
         return self._session(ctx, rows[0]) if rows else None
 
     def find_open_daily(self, ctx: SessionContext, learning_date: date) -> StoredSession | None:
-        rows = self._rest.get(
+        rows = self._rest.select(
             ctx,
             "learning_sessions",
-            {
+            columns=_SESSION_COLUMNS,
+            filters={
                 "user_id": f"eq.{ctx.user_id}",
                 "kind": "eq.daily",
                 "learning_date": f"eq.{learning_date.isoformat()}",
                 "status": in_filter(OPEN_STATUSES),
                 "offline_snapshot_id": "is.null",
-                "order": "created_at.desc",
-                "limit": "1",
-                "select": _SESSION_COLUMNS,
             },
+            order="created_at.desc",
+            limit=1,
         )
         return self._session(ctx, rows[0]) if rows else None
 
@@ -413,28 +430,32 @@ class PostgrestLearningRepository:
         self._rest.patch(
             ctx,
             "learning_sessions",
-            {
+            filters={
                 "id": f"eq.{session_id}",
                 "user_id": f"eq.{ctx.user_id}",
                 "status": in_filter(OPEN_STATUSES),
             },
-            {"status": "completed"},
+            values={"status": "completed"},
         )
 
     def mastery_for_plan(self, ctx: SessionContext, plan_id: UUID) -> dict[UUID, PassageMastery]:
-        rows = self._rest.get_all(
+        rows = self._rest.select_all(
             ctx,
             "target_mastery",
-            {"plan_id": f"eq.{plan_id}", "select": _MASTERY_COLUMNS, "order": "passage_id.asc"},
+            columns=_MASTERY_COLUMNS,
+            filters={"plan_id": f"eq.{plan_id}"},
+            order="passage_id.asc",
         )
         found = [parse_or_internal(lambda row=row: PassageMastery.from_row(row)) for row in rows]
         return {row.passage_id: row for row in found}
 
     def covered_parts(self, ctx: SessionContext, plan_id: UUID) -> frozenset[UUID]:
-        rows = self._rest.get_all(
+        rows = self._rest.select_all(
             ctx,
             "target_part_evidence",
-            {"plan_id": f"eq.{plan_id}", "select": "part_id", "order": "part_id.asc"},
+            columns="part_id",
+            filters={"plan_id": f"eq.{plan_id}"},
+            order="part_id.asc",
         )
         return frozenset(
             parse_or_internal(lambda row=row: UUID(str(row["part_id"]))) for row in rows
@@ -445,15 +466,13 @@ class PostgrestLearningRepository:
     ) -> list[AttemptRecord]:
         found: list[AttemptRecord] = []
         for chunk in chunks(list(passage_ids), self._chunk):
-            rows = self._rest.get(
+            rows = self._rest.select(
                 ctx,
                 "attempts",
-                {
-                    "passage_id": in_filter(chunk),
-                    "select": _ATTEMPT_COLUMNS,
-                    "order": "created_at.desc",
-                    "limit": str(ATTEMPT_LIMIT),
-                },
+                columns=_ATTEMPT_COLUMNS,
+                filters={"passage_id": in_filter(chunk)},
+                order="created_at.desc",
+                limit=ATTEMPT_LIMIT,
             )
             found.extend(
                 parse_or_internal(lambda row=row: AttemptRecord.from_row(row, user_id=ctx.user_id))
@@ -462,16 +481,13 @@ class PostgrestLearningRepository:
         return sorted(found, key=lambda a: a.created_at, reverse=True)[:ATTEMPT_LIMIT]
 
     def last_active_date(self, ctx: SessionContext, on_or_before: date) -> date | None:
-        rows = self._rest.get(
+        rows = self._rest.select(
             ctx,
             "daily_progress",
-            {
-                "active_ms": "gt.0",
-                "learning_date": f"lte.{on_or_before.isoformat()}",
-                "order": "learning_date.desc",
-                "limit": "1",
-                "select": "learning_date",
-            },
+            columns="learning_date",
+            filters={"active_ms": "gt.0", "learning_date": f"lte.{on_or_before.isoformat()}"},
+            order="learning_date.desc",
+            limit=1,
         )
         if not rows:
             return None

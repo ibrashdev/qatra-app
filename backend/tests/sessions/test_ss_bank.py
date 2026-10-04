@@ -8,7 +8,6 @@ from pathlib import Path
 from uuid import UUID
 
 import pytest
-from pydantic import SecretStr
 
 from app.config import StartupConfigError
 from app.errors import AppError, ErrorCode
@@ -17,9 +16,8 @@ from app.repositories.bank import (
     EditionInfo,
     InMemoryBankRepository,
     PostgrestBankRepository,
-    PostgrestGateway,
 )
-from tests.sessions.ss_postgrest import ANON, TOKEN, FakePostgrest
+from tests.sessions.ss_postgrest import TOKEN, FakePostgrest
 from tests.sessions.ss_support import (
     DATA,
     HADITH,
@@ -36,9 +34,8 @@ LEARNER = ctx(token=TOKEN)
 
 def make_pair(*, in_chunk: int = 3):
     fake = FakePostgrest()
-    gateway = PostgrestGateway("https://project.example", SecretStr(ANON), client=fake.client())
     memory = InMemoryBankRepository((QURAN, HADITH))
-    return memory, PostgrestBankRepository(gateway, in_chunk=in_chunk), fake
+    return memory, PostgrestBankRepository(fake.client(), in_chunk=in_chunk), fake
 
 
 def by_id(items):

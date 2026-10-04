@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+from datetime import datetime
+from typing import TYPE_CHECKING
+
 from fastapi import FastAPI
 
 from app.config import Settings, load_settings, validate_startup
@@ -15,11 +19,22 @@ from app.middleware import (
     OriginGuardMiddleware,
 )
 from app.routers import catalog, health, plan_chats, plans
-from app.services.plans import build_planning_services
+from app.wiring import install_learning_core
+
+if TYPE_CHECKING:
+    import httpx
 
 
-def create_app(settings: Settings | None = None) -> FastAPI:
-    """Build the application. Raises ``StartupConfigError`` (names only) on invalid config."""
+def create_app(
+    settings: Settings | None = None,
+    *,
+    clock: Callable[[], datetime] | None = None,
+    transport: httpx.BaseTransport | None = None,
+) -> FastAPI:
+    """Build the application. Raises ``StartupConfigError`` (names only) on invalid config.
+
+    ``clock`` and ``transport`` are test seams; production passes neither.
+    """
     if settings is None:
         settings = load_settings()
     validate_startup(settings)
@@ -36,10 +51,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
     app.state.settings = settings
     app.state.ready_limiter = SlidingWindowLimiter(settings.QATRA_READY_RATE_PER_MIN)
-    # B4: the public catalog and the plan service (memory or supabase, by QATRA_DATA_BACKEND).
-    planning = build_planning_services(settings)
-    app.state.catalog_service = planning.catalog
-    app.state.plan_service = planning.plans
+    install_learning_core(app, settings, clock=clock, transport=transport)
 
     install_error_handlers(app)
 

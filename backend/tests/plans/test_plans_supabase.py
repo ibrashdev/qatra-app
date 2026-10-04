@@ -18,8 +18,11 @@ import httpx
 import pytest
 from fastapi.testclient import TestClient
 
+from app.domain.planning_port import PlanNotActive
 from app.main import create_app
+from app.providers.postgrest import PostgrestClient
 from app.repositories.catalog import MemoryContent
+from app.repositories.plans import PostgrestPlanRepository
 from app.services.plans import PlanningServices, build_planning_services
 from tests.plans.fake_postgrest import (
     ACTIVE_KEY_MESSAGE,
@@ -49,6 +52,7 @@ from tests.plans.plans_support import (
     make_env,
     pid,
     quran_bundle,
+    session_context,
 )
 from tests.support import make_settings
 
@@ -457,6 +461,40 @@ def test_e17_a_completed_plan_is_409_before_the_database(supa: Supa) -> None:
     assert (response.status_code, code(response)) == (409, "version_conflict")
     assert details(response) == {"reason": "plan_not_active"}
     assert supa.fake.calls_to("/rpc/app_revise_plan") == []
+
+
+def test_e17_a_plan_completed_between_read_and_write_is_409_from_the_function(supa: Supa) -> None:
+    client = supa.client()
+    plan = post_plan(client)
+
+    def another_request_completed_the_plan() -> httpx.Response:
+        supa.fake.plans[plan["planId"]]["status"] = "completed"  # between our read and our write
+        return db_error(400, "QT003", "plan_not_active")
+
+    supa.fake.fail("rpc/app_revise_plan", another_request_completed_the_plan)
+    response = client.post(
+        f"/api/plans/{plan['planId']}/revise", json={"expectedVersion": 1, "sessionMinutes": 10}
+    )
+    assert (response.status_code, code(response)) == (409, "version_conflict")
+    assert details(response) == {"reason": "plan_not_active"}
+    assert SECRET_TEXT not in response.text
+    assert len(supa.fake.calls_to("/rpc/app_revise_plan")) == 1  # never retried
+
+
+def test_the_repository_maps_the_functions_completed_plan_signal(supa: Supa) -> None:
+    plan = post_plan(supa.client())
+    ctx = session_context(token=TOKEN)
+    commit = supa.services.plans.prepare_revision(
+        ctx, UUID(plan["planId"]), expected_version=1, session_minutes=10
+    )
+    supa.fake.plans[plan["planId"]]["status"] = "completed"
+    repository = PostgrestPlanRepository(
+        PostgrestClient(PROJECT, ANON_KEY, transport=supa.fake.transport())
+    )
+    for expected_version in (1, 9):  # the function tests the status before the version
+        with pytest.raises(PlanNotActive):
+            repository.revise_plan(ctx, UUID(plan["planId"]), expected_version, commit)
+    assert len(supa.fake.versions) == 1  # nothing was written
 
 
 def test_e17_unknown_and_foreign_plans_are_404_without_a_write(supa: Supa) -> None:

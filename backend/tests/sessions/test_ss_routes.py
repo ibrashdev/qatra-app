@@ -333,7 +333,7 @@ def test_the_limiter_is_shared_by_name_with_other_session_write_operations() -> 
 
 def test_without_the_service_the_endpoint_is_unavailable() -> None:
     app = create_app(make_settings())
-    app.include_router(router)  # no install_sessions: nothing built
+    app.state.sessions_service = None  # create_app builds it; the router stays installed
     login_as(app)
     client = TestClient(app, headers={"Origin": FRONTEND_ORIGIN})
     response = post(client, DAILY)

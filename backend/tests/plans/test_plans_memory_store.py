@@ -116,6 +116,17 @@ def test_revise_checks_ownership_and_version(repo: MemoryPlanRepository) -> None
     assert exc.value.current_version == 1
 
 
+def test_a_completed_plan_is_not_revised_and_the_status_is_tested_before_the_version(
+    repo: MemoryPlanRepository,
+) -> None:
+    plan_id = repo.create_plan(CTX, make_commit())
+    repo.complete_plan(plan_id)
+    for expected_version in (1, 9):
+        with pytest.raises(PlanNotActive):
+            repo.revise_plan(CTX, plan_id, expected_version, make_commit(minutes=10))
+    assert len(repo.versions_of(plan_id)) == 1
+
+
 def test_resume_semantics(repo: MemoryPlanRepository) -> None:
     first = repo.create_plan(CTX, make_commit())
     second = repo.create_plan(CTX, make_commit((3,)))

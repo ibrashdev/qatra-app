@@ -14,10 +14,16 @@ never from the client) and typed ids. Two implementations behind each protocol:
 
 Database signals are mapped to the exception types of ``app.domain.planning_port``: ``QT002``
 (stale version) -> ``PlanVersionConflict`` with the current version read afterwards, ``QT003``
-(completed plan) -> ``PlanNotActive``, ``P0002`` (unknown or foreign row) -> ``PlanNotFound``,
-``23505`` on ``master_plans_user_id_active_key`` (a race on the one-active-plan rule) ->
-``ActivePlanConflict``. ``app_revise_plan`` does not check the plan status (the service reads it
-first), so a plan that completes between that read and the write is still revised.
+(completed plan; ``app_resume_plan`` and ``app_revise_plan``) -> ``PlanNotActive``, ``P0002``
+(unknown or foreign row) -> ``PlanNotFound``, ``23505`` on ``master_plans_user_id_active_key`` (a
+race on the one-active-plan rule) -> ``ActivePlanConflict``. The service reads the plan status
+before a revision and ``app_revise_plan`` tests it again under its row lock, so a plan that
+completes in between is still refused.
+
+``read_in_force`` serves E20 (package B5). A revision applies from the next learning day (D57), so
+the session values come from the newest ``plan_versions`` row whose ``effective_learning_date`` has
+arrived (its ``policy_json`` snapshot, Database-schema OPEN-09), while ``app_open_session`` needs
+the row id of the CURRENT version; both are returned.
 """
 
 from __future__ import annotations
@@ -31,9 +37,11 @@ from datetime import UTC, date, datetime
 from typing import Any, Protocol
 from uuid import UUID
 
-from app.contracts_plan_chat import Estimate
+from pydantic import SecretStr
+
+from app.contracts_plan_chat import PATH_ORDER, SESSION_MINUTES_OPTIONS, Estimate
 from app.dependencies import SessionContext
-from app.domain.plan_policy import PlanCommit
+from app.domain.plan_policy import PlanCommit, canonical_paths, known_from_policy
 from app.domain.planning_port import (
     ActivePlanConflict,
     PlacementNotFound,
@@ -53,6 +61,8 @@ PLAN_COLUMNS = (
     "id,edition_id,target_scope,paths,plan_order,session_minutes,preferred_date,agreed_estimate,"
     "current_version,status,created_at,book_editions(books(title_ar,title_en))"
 )
+IN_FORCE_PLAN_COLUMNS = "id,edition_id,status,current_version,book_editions(bank_version)"
+IN_FORCE_VERSION_COLUMNS = "id,version_no,policy_json"
 
 
 @dataclass(frozen=True, slots=True)
@@ -85,9 +95,36 @@ class LearningZone:
     pending_effective: date | None = None
 
 
+@dataclass(frozen=True, slots=True)
+class PlanInForce:
+    """A plan on one learning date, as E20 needs it.
+
+    ``current_version_id`` is the row ``app_open_session`` accepts. Scope, paths, order, minutes and
+    known passages are those of ``version_in_force`` (D57). ``bank_version`` is the edition's, since
+    the schema stores none on a plan (A-02); ``None`` once the edition is no longer readable.
+    """
+
+    plan_id: UUID
+    edition_id: UUID
+    status: str  # active | paused | completed
+    current_version: int
+    current_version_id: UUID
+    version_in_force: int
+    bank_version: int | None
+    target_scope: tuple[int, ...]
+    paths: tuple[str, ...]
+    order: str
+    session_minutes: int
+    known_passage_ids: frozenset[UUID]
+
+
 class PlanRepository(Protocol):
     def read_plan(self, ctx: SessionContext, plan_id: UUID) -> StoredPlan | None:
         """The caller's plan, or ``None`` when unknown or not owned (indistinguishable)."""
+
+    def read_in_force(self, ctx: SessionContext, plan_id: UUID, on: date) -> PlanInForce | None:
+        """The caller's plan with the values in force on the learning date ``on``, or ``None`` when
+        unknown or not owned. The status is not judged here."""
 
     def create_plan(self, ctx: SessionContext, commit: PlanCommit) -> UUID:
         """Pause the caller's active plan, insert plan, version 1 and phases. Raises
@@ -96,8 +133,9 @@ class PlanRepository(Protocol):
     def revise_plan(
         self, ctx: SessionContext, plan_id: UUID, expected_version: int, commit: PlanCommit
     ) -> int:
-        """Append a version; returns the new version number. Raises ``PlanNotFound`` and
-        ``PlanVersionConflict``. The plan status is not changed."""
+        """Append a version; returns the new version number. Raises ``PlanNotFound``,
+        ``PlanNotActive`` (completed; tested before the version) and ``PlanVersionConflict``. The
+        plan status is not changed."""
 
     def resume_plan(self, ctx: SessionContext, plan_id: UUID) -> int:
         """Make a paused plan active and pause the current one; an active plan is unchanged.
@@ -118,11 +156,50 @@ class ProfileReader(Protocol):
         """The caller's time zone (and a pending change) for the learning date."""
 
 
+@dataclass(frozen=True, slots=True)
+class _Snapshot:
+    scope: tuple[int, ...]
+    paths: tuple[str, ...]
+    order: str
+    session_minutes: int
+    known: frozenset[UUID]
+
+
+def _snapshot_of(policy: Mapping[str, Any]) -> _Snapshot:
+    """The values one plan version put in force, read from its ``policy_json``. A snapshot that is
+    incomplete or out of range raises ``KeyError``, ``TypeError`` or ``ValueError``."""
+    scope = policy["scope"]["sectionOrdinals"]
+    paths = policy["paths"]
+    minutes = policy["sessionMinutes"]
+    order = policy["order"]
+    if (
+        not isinstance(scope, list)
+        or not scope
+        or any(isinstance(n, bool) or not isinstance(n, int) or n < 0 for n in scope)
+        or not isinstance(paths, list)
+        or not paths
+        or any(path not in PATH_ORDER for path in paths)
+        or order not in ("book", "reverse")
+        or isinstance(minutes, bool)
+        or not isinstance(minutes, int)
+        or minutes not in SESSION_MINUTES_OPTIONS
+    ):
+        raise ValueError("policy snapshot")
+    return _Snapshot(
+        tuple(sorted(set(scope))),
+        canonical_paths(paths),
+        order,
+        minutes,
+        frozenset(known_from_policy(policy).passage_ids),
+    )
+
+
 # --- memory mode ---------------------------------------------------------------------------------
 
 
 @dataclass
 class _Version:
+    version_id: UUID
     version_no: int
     reason_code: str
     policy: dict[str, Any]
@@ -154,9 +231,11 @@ class MemoryPlanRepository:
         self,
         *,
         titles: Callable[[UUID], tuple[str, str]] | None = None,
+        bank_version: Callable[[UUID], int | None] | None = None,
         clock: Callable[[], datetime] | None = None,
     ) -> None:
         self._titles = titles or (lambda edition_id: ("", ""))
+        self._bank_version = bank_version or (lambda edition_id: None)
         self._clock = clock or (lambda: datetime.now(UTC))
         self._plans: dict[UUID, _Plan] = {}
         self._lock = threading.RLock()
@@ -188,6 +267,34 @@ class MemoryPlanRepository:
         with self._lock:
             plan = self._owned(ctx.user_id, plan_id)
             return self._stored(plan) if plan is not None else None
+
+    def read_in_force(self, ctx: SessionContext, plan_id: UUID, on: date) -> PlanInForce | None:
+        with self._lock:
+            plan = self._owned(ctx.user_id, plan_id)
+            if plan is None:
+                return None
+            arrived = [v for v in plan.versions if v.effective_learning_date <= on]
+            # A zone moved west can put the date before version 1's: version 1 applies then.
+            in_force = max(arrived, key=lambda v: v.version_no) if arrived else plan.versions[0]
+            current = plan.versions[plan.current_version - 1]
+            try:
+                snapshot = _snapshot_of(in_force.policy)
+            except (KeyError, TypeError, ValueError):
+                raise _bad_row("policy_snapshot") from None
+            return PlanInForce(
+                plan_id=plan.plan_id,
+                edition_id=plan.edition_id,
+                status=plan.status,
+                current_version=plan.current_version,
+                current_version_id=current.version_id,
+                version_in_force=in_force.version_no,
+                bank_version=self._bank_version(plan.edition_id),
+                target_scope=snapshot.scope,
+                paths=snapshot.paths,
+                order=snapshot.order,
+                session_minutes=snapshot.session_minutes,
+                known_passage_ids=snapshot.known,
+            )
 
     def create_plan(self, ctx: SessionContext, commit: PlanCommit) -> UUID:
         values = commit.values
@@ -221,6 +328,8 @@ class MemoryPlanRepository:
             plan = self._owned(ctx.user_id, plan_id)
             if plan is None:
                 raise PlanNotFound
+            if plan.status == "completed":  # the function tests the status before the version
+                raise PlanNotActive
             if plan.current_version != expected_version:
                 raise PlanVersionConflict(plan.current_version)
             plan.target_scope = values.scope
@@ -262,6 +371,7 @@ class MemoryPlanRepository:
                 return []
             return [
                 {
+                    "versionId": v.version_id,
                     "versionNo": v.version_no,
                     "reasonCode": v.reason_code,
                     "effectiveLearningDate": v.effective_learning_date,
@@ -279,6 +389,7 @@ class MemoryPlanRepository:
 
 def _version_of(version_no: int, commit: PlanCommit) -> _Version:
     return _Version(
+        version_id=uuid.uuid4(),
         version_no=version_no,
         reason_code=commit.reason_code,
         policy=dict(commit.policy_json),
@@ -367,6 +478,17 @@ def _book_titles(row: Mapping[str, Any]) -> tuple[str, str]:
     return title_ar, str(book.get("title_en") or title_ar)
 
 
+def _embedded_bank_version(row: Mapping[str, Any]) -> int | None:
+    """``book_editions(bank_version)`` of a plan row; ``None`` when the edition is not readable."""
+    edition: Any = row.get("book_editions")
+    if isinstance(edition, list):
+        edition = edition[0] if edition else None
+    value: Any = edition.get("bank_version") if isinstance(edition, dict) else None
+    if isinstance(value, bool) or not isinstance(value, int) or value < 1:
+        return None
+    return value
+
+
 def _plan_from_row(row: Mapping[str, Any], policy: Mapping[str, Any]) -> StoredPlan:
     scope = row["target_scope"]["sectionOrdinals"]
     title_ar, title_en = _book_titles(row)
@@ -438,6 +560,65 @@ class PostgrestPlanRepository:
         except (KeyError, TypeError, ValueError, AttributeError):
             raise _bad_row("plan_shape") from None
 
+    def read_in_force(self, ctx: SessionContext, plan_id: UUID, on: date) -> PlanInForce | None:
+        token = require_token(ctx.access_token)
+        rows = self._client.select(
+            "master_plans",
+            columns=IN_FORCE_PLAN_COLUMNS,
+            filters={"id": f"eq.{plan_id}", "user_id": f"eq.{ctx.user_id}"},
+            token=token,
+        )
+        if not rows:
+            return None
+        row = rows[0]
+        own = {"plan_id": f"eq.{plan_id}", "user_id": f"eq.{ctx.user_id}"}
+        # The newest version whose date has arrived, else the first.
+        in_force = self._first_version(
+            {**own, "effective_learning_date": f"lte.{on.isoformat()}"}, "version_no.desc", token
+        ) or self._first_version(own, "version_no.asc", token)
+        try:
+            current = int(row["current_version"])
+            if in_force is None:
+                raise ValueError("a plan without a version")
+            snapshot = _snapshot_of(in_force["policy_json"])
+            in_force_id = UUID(str(in_force["id"]))
+            if int(in_force["version_no"]) == current:
+                current_id = in_force_id
+            else:  # a revision is waiting for its day, and app_open_session wants that row
+                latest = self._first_version({**own, "version_no": f"eq.{current}"}, None, token)
+                if latest is None:
+                    raise ValueError("the current version row")
+                current_id = UUID(str(latest["id"]))
+            return PlanInForce(
+                plan_id=UUID(str(row["id"])),
+                edition_id=UUID(str(row["edition_id"])),
+                status=str(row["status"]),
+                current_version=current,
+                current_version_id=current_id,
+                version_in_force=int(in_force["version_no"]),
+                bank_version=_embedded_bank_version(row),
+                target_scope=snapshot.scope,
+                paths=snapshot.paths,
+                order=snapshot.order,
+                session_minutes=snapshot.session_minutes,
+                known_passage_ids=snapshot.known,
+            )
+        except (KeyError, TypeError, ValueError, AttributeError):
+            raise _bad_row("plan_in_force") from None
+
+    def _first_version(
+        self, filters: Mapping[str, str], order: str | None, token: SecretStr
+    ) -> dict[str, Any] | None:
+        rows = self._client.select(
+            "plan_versions",
+            columns=IN_FORCE_VERSION_COLUMNS,
+            filters=filters,
+            order=order,
+            limit=1,
+            token=token,
+        )
+        return rows[0] if rows else None
+
     def create_plan(self, ctx: SessionContext, commit: PlanCommit) -> UUID:
         arguments = {
             "p_edition_id": str(commit.values.edition_id),
@@ -478,6 +659,8 @@ class PostgrestPlanRepository:
                 raise PlanVersionConflict(current.current_version) from None
             if signal.sqlstate == "P0002":
                 raise PlanNotFound from None
+            if signal.sqlstate == "QT003":  # completed after the service read the status
+                raise PlanNotActive from None
             raise _unexpected(signal) from None
         return _rpc_int(result)
 

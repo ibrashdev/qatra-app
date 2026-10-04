@@ -22,10 +22,12 @@ from uuid import UUID
 
 import httpx
 
+from app.providers.postgrest import PostgrestClient
 from tests.sessions.ss_support import HADITH, NOW, PLAN_ID, PLAN_VERSION_ID, QURAN, USER
 
 TOKEN = "learner-access-token-0001"
 ANON = "anon-publishable-key-0001"
+BASE = "https://project.example"
 UNREADABLE = ("raw_storage_path", "review_record")
 RESERVED = {"select", "order", "limit", "offset"}
 
@@ -185,7 +187,7 @@ def tables_of(bundle: Mapping[str, Any]) -> dict[str, list[dict[str, Any]]]:
 
 
 class FakePostgrest:
-    """The server side of the adapter tests. ``client()`` is an ``httpx.Client`` wired to it."""
+    """The server side of the adapter tests. ``client()`` is a ``PostgrestClient`` wired to it."""
 
     def __init__(
         self,
@@ -220,8 +222,8 @@ class FakePostgrest:
 
     # -- wiring ------------------------------------------------------------------------------
 
-    def client(self) -> httpx.Client:
-        return httpx.Client(transport=httpx.MockTransport(self.handle), timeout=5)
+    def client(self) -> PostgrestClient:
+        return PostgrestClient(BASE, self.anon, transport=httpx.MockTransport(self.handle))
 
     def fail(self, fragment: str, response: Callable[[httpx.Request], httpx.Response]) -> None:
         """Answer the next request whose URL contains ``fragment`` with ``response(request)``."""

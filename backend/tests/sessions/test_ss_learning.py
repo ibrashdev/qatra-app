@@ -7,11 +7,9 @@ from datetime import timedelta
 from uuid import UUID
 
 import pytest
-from pydantic import SecretStr
 
 from app.domain.learning_state import PartEvidence
 from app.errors import AppError, ErrorCode
-from app.repositories.bank import PostgrestGateway
 from app.repositories.learning import (
     ATTEMPT_LIMIT,
     InMemoryLearningStore,
@@ -28,7 +26,7 @@ from tests.sessions.ss_learning_support import (
     mastery,
     new_session,
 )
-from tests.sessions.ss_postgrest import ANON, FakePostgrest
+from tests.sessions.ss_postgrest import FakePostgrest
 from tests.sessions.ss_support import (
     NOW,
     OTHER_USER,
@@ -47,8 +45,7 @@ def harness(request: pytest.FixtureRequest) -> Harness:
         store = InMemoryLearningStore()
         return Harness("memory", store, store=store)
     fake = FakePostgrest()
-    gateway = PostgrestGateway("https://project.example", SecretStr(ANON), client=fake.client())
-    return Harness("postgrest", PostgrestLearningRepository(gateway, in_chunk=2), fake=fake)
+    return Harness("postgrest", PostgrestLearningRepository(fake.client(), in_chunk=2), fake=fake)
 
 
 # --- sessions ------------------------------------------------------------------------------------
@@ -279,8 +276,7 @@ APP_OPEN_SESSION_PARAMETERS = {
 
 def pg() -> tuple[PostgrestLearningRepository, FakePostgrest]:
     fake = FakePostgrest()
-    gateway = PostgrestGateway("https://project.example", SecretStr(ANON), client=fake.client())
-    return PostgrestLearningRepository(gateway), fake
+    return PostgrestLearningRepository(fake.client()), fake
 
 
 def test_the_rpc_payload_matches_the_migrations_function_signature() -> None:
@@ -374,7 +370,7 @@ def test_mark_completed_writes_only_the_status_under_the_owners_filters() -> Non
 
 def test_attempt_reads_are_chunked_and_merged_newest_first() -> None:
     repo, fake = pg()
-    repo_small = PostgrestLearningRepository(repo._rest, in_chunk=2)
+    repo_small = PostgrestLearningRepository(fake.client(), in_chunk=2)
     passages = [UUID(int=1000 + n) for n in range(5)]
     harness = Harness("postgrest", repo_small, fake=fake)
     for n, passage in enumerate(passages, start=1):

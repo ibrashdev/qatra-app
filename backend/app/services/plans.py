@@ -82,6 +82,7 @@ from app.repositories.plans import (
     MemoryPlanRepository,
     MemoryProfileReader,
     PlacementReader,
+    PlanInForce,
     PlanRepository,
     PostgrestPlacementReader,
     PostgrestPlanRepository,
@@ -238,6 +239,10 @@ class PlanService:
     def read_plan(self, ctx: SessionContext, plan_id: UUID) -> StoredPlan | None:
         """The caller's own plan, or ``None`` (unknown and foreign plans look the same)."""
         return self._plans.read_plan(ctx, plan_id)
+
+    def plan_in_force(self, ctx: SessionContext, plan_id: UUID) -> PlanInForce | None:
+        """The caller's plan with the values in force on today's learning date (D57), for E20."""
+        return self._plans.read_in_force(ctx, plan_id, self.learning_date(ctx))
 
     def ports_for(self, ctx: SessionContext) -> PlanPorts:
         """``PlanningRules`` and ``PlanWriter`` of the plan conversation, bound to this request's
@@ -760,8 +765,10 @@ def _first_rule(exc: PlanInputError) -> PlanningRuleError:
 class PlanningServices:
     """The services built at startup. The memory-mode parts are exposed so that tests (and the
     session package later) can seed placement sessions and profiles; they are ``None`` in
-    supabase mode. ``catalog`` and ``plans`` are ``None`` when supabase mode is selected without
-    ``SUPABASE_URL`` and ``SUPABASE_ANON_KEY`` (the endpoints then answer ``503 unavailable``)."""
+    supabase mode, and ``placements`` is also ``None`` when a reader was injected. ``catalog`` and
+    ``plans`` are ``None`` when supabase mode is selected without ``SUPABASE_URL`` and
+    ``SUPABASE_ANON_KEY`` (the endpoints then answer ``503 unavailable``). ``client`` is the
+    PostgREST client of supabase mode, shared with package B5."""
 
     catalog: CatalogService | None
     plans: PlanService | None
@@ -769,6 +776,15 @@ class PlanningServices:
     placements: MemoryPlacementReader | None = None
     profiles: MemoryProfileReader | None = None
     repository: MemoryPlanRepository | None = None
+    client: PostgrestClient | None = None
+
+
+def _bank_version_of(content: MemoryContent) -> Callable[[UUID], int | None]:
+    def bank_version(edition_id: UUID) -> int | None:
+        edition = content.edition(edition_id)
+        return None if edition is None else edition.catalog_version
+
+    return bank_version
 
 
 def build_planning_services(
@@ -776,10 +792,12 @@ def build_planning_services(
     *,
     clock: Callable[[], datetime] | None = None,
     transport: httpx.BaseTransport | None = None,
+    placements: PlacementReader | None = None,
 ) -> PlanningServices:
     """Memory or supabase wiring, chosen by ``QATRA_DATA_BACKEND``.
 
-    Errors name the variable only, never a value (``StartupConfigError``).
+    ``placements`` replaces the seedable placement reader in memory mode. Errors name the
+    variable only, never a value (``StartupConfigError``).
     """
     if settings.QATRA_DATA_BACKEND == "memory":
         try:
@@ -788,19 +806,26 @@ def build_planning_services(
             raise StartupConfigError(
                 ["invalid values for variables: QATRA_CONTENT_BUNDLES"]
             ) from None
-        repository = MemoryPlanRepository(titles=content.titles, clock=clock)
-        placements = MemoryPlacementReader()
+        repository = MemoryPlanRepository(
+            titles=content.titles, bank_version=_bank_version_of(content), clock=clock
+        )
+        reader: PlacementReader
+        seedable: MemoryPlacementReader | None = None
+        if placements is None:
+            seedable = reader = MemoryPlacementReader()
+        else:
+            reader = placements
         profiles = MemoryProfileReader()
         catalog = CatalogService(MemoryCatalogRepository(content))
         plans = PlanService(
             catalog=catalog,
             plans=repository,
-            placements=placements,
+            placements=reader,
             profiles=profiles,
             passages=MemoryPassageReader(content),
             clock=clock,
         )
-        return PlanningServices(catalog, plans, content, placements, profiles, repository)
+        return PlanningServices(catalog, plans, content, seedable, profiles, repository)
 
     if settings.is_missing("SUPABASE_URL") or settings.is_missing("SUPABASE_ANON_KEY"):
         return PlanningServices(None, None)
@@ -822,4 +847,4 @@ def build_planning_services(
         passages=PostgrestPassageReader(client),
         clock=clock,
     )
-    return PlanningServices(catalog, plans)
+    return PlanningServices(catalog, plans, client=client)

@@ -142,7 +142,12 @@ def make_bundle(
             "author": "«اسم المؤلف»",
             "contentFormat": content_format,
         },
-        "source": {},
+        # create_app also loads the bundle for the session bank, which reads these three keys.
+        "source": {
+            "title": "Source title placeholder",
+            "provider": "Provider placeholder",
+            "sourceUrl": "https://example.invalid/source-url-must-not-leak",
+        },
         "edition": {"id": str(edition_id), "editionLabel": "«تسمية الطبعة»"},
         "pages": [],
         "sections": [

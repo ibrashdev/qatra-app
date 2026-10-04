@@ -17,7 +17,12 @@ import pytest
 
 from app.providers.postgrest import SIGNAL_CODES
 from app.repositories.catalog import EDITION_COLUMNS, PASSAGE_COLUMNS, SECTION_COLUMNS
-from app.repositories.plans import ACTIVE_PLAN_CONSTRAINT, PLAN_COLUMNS
+from app.repositories.plans import (
+    ACTIVE_PLAN_CONSTRAINT,
+    IN_FORCE_PLAN_COLUMNS,
+    IN_FORCE_VERSION_COLUMNS,
+    PLAN_COLUMNS,
+)
 from tests.plans.fake_postgrest import CREATE_OPTIONAL, CREATE_REQUIRED, REVISE_ARGS
 
 MIGRATIONS = Path(__file__).resolve().parents[3] / "supabase" / "migrations"
@@ -123,6 +128,15 @@ def test_the_catalog_view_columns_exist(sql: str) -> None:
             PLAN_COLUMNS.split(",book_editions(")[0].split(",") + ["user_id"],
         ),
         ("public.plan_versions", ["policy_json", "plan_id", "user_id", "version_no"]),
+        (
+            "public.master_plans",
+            IN_FORCE_PLAN_COLUMNS.split(",book_editions(")[0].split(",") + ["user_id"],
+        ),
+        (
+            "public.plan_versions",
+            IN_FORCE_VERSION_COLUMNS.split(",") + ["plan_id", "user_id", "effective_learning_date"],
+        ),
+        ("public.book_editions", ["bank_version"]),
         ("public.books", ["title_ar", "title_en"]),
         ("public.profiles", ["user_id", "time_zone", "pending_settings"]),
         ("public.learning_sessions", ["id", "edition_id", "user_id", "kind"]),
@@ -156,3 +170,10 @@ def test_the_learner_may_read_what_the_repositories_select(sql: str) -> None:
     ):
         assert table in grants, f"authenticated has no select grant on {table}"
     assert "grant select (" in grants and "id, book_id" in grants  # book_editions columns
+    assert "bank_version" in grants.split("public.book_editions")[0].rsplit("grant select (", 1)[1]
+
+
+def test_the_in_force_read_embeds_the_edition_through_one_foreign_key(sql: str) -> None:
+    """``book_editions(bank_version)`` needs no hint: master_plans has a single key to it."""
+    assert IN_FORCE_PLAN_COLUMNS.endswith("book_editions(bank_version)")
+    assert sql.count("foreign key (edition_id) references public.book_editions (id)") >= 1

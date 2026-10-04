@@ -15,6 +15,7 @@ from app.providers.postgrest import (
     DEFAULT_TIMEOUT,
     DbSignal,
     PostgrestClient,
+    TokenRefused,
     require_token,
 )
 
@@ -313,3 +314,188 @@ def test_table_and_function_names_are_checked(name: str) -> None:
         client.select(name, columns="*")
     with pytest.raises(ValueError):
         client.rpc(name, {}, token=TOKEN)
+
+
+def test_select_sends_limit_and_offset_only_when_given() -> None:
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(200, json=[])
+
+    client = make_client(handler)
+    client.select("learning_sessions", columns="id", limit=1, offset=0, token=TOKEN)
+    client.select("learning_sessions", columns="id", token=TOKEN)
+    assert dict(seen[0].url.params) == {"select": "id", "limit": "1", "offset": "0"}
+    assert dict(seen[1].url.params) == {"select": "id"}
+
+
+def paged_client(total: int, page: int) -> tuple[PostgrestClient, list[httpx.Request]]:
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        start = int(request.url.params["offset"])
+        size = min(int(request.url.params["limit"]), page)
+        return httpx.Response(200, json=[{"n": n} for n in range(start, min(start + size, total))])
+
+    return make_client(handler), seen
+
+
+def test_select_all_pages_until_a_short_page(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(PostgrestClient, "PAGE_SIZE", 3)
+    client, seen = paged_client(total=7, page=3)
+    rows = client.select_all("units", columns="n", filters={"edition_id": "eq.1"}, order="n.asc")
+    assert [row["n"] for row in rows] == list(range(7))
+    assert [r.url.params["offset"] for r in seen] == ["0", "3", "6"]
+    assert {r.url.params["limit"] for r in seen} == {"3"}
+    assert {r.url.params["order"] for r in seen} == {"n.asc"}
+    assert all(r.url.params["edition_id"] == "eq.1" for r in seen)
+
+
+def test_select_all_reads_one_more_page_after_an_exact_multiple(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(PostgrestClient, "PAGE_SIZE", 3)
+    client, seen = paged_client(total=6, page=3)
+    assert len(client.select_all("units", columns="n", order="n.asc")) == 6
+    assert [r.url.params["offset"] for r in seen] == ["0", "3", "6"]
+
+
+def test_select_all_judges_a_short_page_before_non_rows_are_dropped(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(PostgrestClient, "PAGE_SIZE", 2)
+    answers = iter([[{"n": 1}, "not a row"], [{"n": 2}]])
+    client = make_client(lambda request: httpx.Response(200, json=next(answers)))
+    assert client.select_all("units", columns="n", order="n.asc") == [{"n": 1}, {"n": 2}]
+
+
+def test_select_all_stops_a_listing_that_never_ends(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(PostgrestClient, "PAGE_SIZE", 1)
+    monkeypatch.setattr(PostgrestClient, "MAX_PAGES", 5)
+    calls: list[int] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(1)
+        return httpx.Response(200, json=[{"n": 1}])
+
+    with pytest.raises(AppError) as exc:
+        make_client(handler).select_all("units", columns="n", order="n.asc")
+    assert exc.value.code is INTERNAL and len(calls) == 5
+
+
+def test_select_all_maps_failures_like_select() -> None:
+    client = make_client(lambda request: httpx.Response(503, text="x"))
+    with pytest.raises(AppError) as exc:
+        client.select_all("units", columns="n", order="n.asc", token=TOKEN)
+    assert exc.value.code is UNAVAILABLE
+
+
+def test_patch_sends_filters_in_the_query_the_values_as_json_and_asks_for_the_rows() -> None:
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(200, json=[{"id": "1"}, "not a row"])
+
+    rows = make_client(handler).patch(
+        "learning_sessions",
+        filters={"id": "eq.1", "status": "in.(prepared,open)"},
+        values={"status": "completed"},
+        token=TOKEN,
+    )
+    assert rows == [{"id": "1"}]
+    [request] = seen
+    assert (request.method, request.url.path) == ("PATCH", "/rest/v1/learning_sessions")
+    assert dict(request.url.params) == {"id": "eq.1", "status": "in.(prepared,open)"}
+    assert request.read() == b'{"status":"completed"}'
+    assert request.headers["prefer"] == "return=representation"
+    assert request.headers["authorization"] == f"Bearer {TOKEN.get_secret_value()}"
+    assert request.headers["apikey"] == ANON
+
+
+def test_patch_answers_an_empty_list_when_nothing_comes_back() -> None:
+    client = make_client(lambda request: httpx.Response(204))
+    assert client.patch("t", filters={"id": "eq.1"}, values={"a": 1}, token=TOKEN) == []
+
+
+@pytest.mark.parametrize("token", [None, SecretStr("")])
+def test_patch_without_a_token_sends_nothing(token) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise AssertionError("no request may be sent without a token")
+
+    with pytest.raises(AppError) as exc:
+        make_client(handler).patch("t", filters={"id": "eq.1"}, values={"a": 1}, token=token)
+    assert exc.value.code is UNAUTH
+
+
+@pytest.mark.parametrize(
+    "filters,values", [({}, {"a": 1}), ({"id": "eq.1"}, {})], ids=["no filter", "no values"]
+)
+def test_patch_needs_a_filter_and_values(filters: dict[str, str], values: dict[str, int]) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        raise AssertionError("an unfiltered PATCH must never be sent")
+
+    with pytest.raises(ValueError):
+        make_client(handler).patch("t", filters=filters, values=values, token=TOKEN)
+
+
+def test_patch_failures_are_mapped_like_every_other_call() -> None:
+    cases = [
+        (httpx.Response(500, json={"code": "XX000", "message": LEAK}), UNAVAILABLE),
+        (httpx.Response(404, json={"code": "PGRST205", "message": LEAK}), INTERNAL),
+        (httpx.Response(401, json={"code": "PGRST301", "message": LEAK}), UNAUTH),
+    ]
+    for answer, expected in cases:
+        client = make_client(lambda request, answer=answer: answer)
+        with pytest.raises(AppError) as exc:
+            client.patch("t", filters={"id": "eq.1"}, values={"a": 1}, token=TOKEN)
+        assert exc.value.code is expected and LEAK not in exc.value.message
+
+
+def test_a_check_violation_of_a_patch_is_a_signal() -> None:
+    client = make_client(lambda request: db_error(400, "23514"))
+    with pytest.raises(DbSignal) as exc:
+        client.patch("t", filters={"id": "eq.1"}, values={"a": 1}, token=TOKEN)
+    assert exc.value.sqlstate == "23514"
+
+
+@pytest.mark.parametrize("name", ["", "a/b", "Table", "x;drop"])
+def test_the_new_calls_check_table_names(name: str) -> None:
+    client = make_client(lambda request: httpx.Response(200, json=[]))
+    with pytest.raises(ValueError):
+        client.select_all(name, columns="*", order="id.asc")
+    with pytest.raises(ValueError):
+        client.patch(name, filters={"id": "eq.1"}, values={"a": 1}, token=TOKEN)
+
+
+@pytest.mark.parametrize(
+    "answer,privilege",
+    [
+        (httpx.Response(401, json={"code": "PGRST301", "message": "JWT expired"}), False),
+        (httpx.Response(401, text="nope"), False),
+        (httpx.Response(400, json={"code": "PGRST303", "message": LEAK}), False),
+        (httpx.Response(400, json={"code": "42501", "message": "not authenticated"}), False),
+        (httpx.Response(401, json={"code": "42501", "message": "permission denied"}), False),
+        (
+            httpx.Response(403, json={"code": "42501", "message": "permission denied for table x"}),
+            True,
+        ),
+        (httpx.Response(403, json={"code": "42501", "message": LEAK}), True),
+    ],
+)
+def test_a_refused_token_says_whether_it_was_a_missing_privilege(
+    answer: httpx.Response, privilege: bool
+) -> None:
+    client = make_client(lambda request: answer)
+    with pytest.raises(TokenRefused) as exc:
+        client.rpc("app_x", {}, token=TOKEN)
+    assert exc.value.privilege is privilege
+    assert exc.value.code is UNAUTH and exc.value.message == UNAUTH.default_message
+    assert LEAK not in str(exc.value) and exc.value.details == {}
+
+
+def test_a_refused_token_is_an_ordinary_unauthenticated_error_for_other_callers() -> None:
+    assert isinstance(TokenRefused(), AppError)
+    assert TokenRefused().code is UNAUTH and TokenRefused().privilege is False

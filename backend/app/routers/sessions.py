@@ -9,9 +9,9 @@ new session and ``200`` when the open daily session of the learning date is retu
 carries ``Cache-Control: no-store`` and no body, question or answer is ever logged.
 
 The service is created by ``install_sessions`` and stored on ``app.state.sessions_service``;
-without it the endpoint answers ``503 unavailable`` (nothing is faked). ``install_sessions`` is
-called by ``create_app`` once the plan and calendar ports of packages B4 and B3 exist (they may
-also be left on ``app.state.plan_access`` and ``app.state.learning_calendar``).
+without it the endpoint answers ``503 unavailable`` (nothing is faked).
+``app.wiring.install_learning_core`` calls it for ``create_app`` and binds the ports to B4's plan
+service; they may also be left on ``app.state.plan_access`` and ``app.state.learning_calendar``.
 
 Request E20 (all other properties are refused):
 
@@ -36,6 +36,7 @@ from app.contracts_sessions import SessionSnapshot
 from app.dependencies import SessionContext, require_session, require_valid_origin
 from app.domain.rate_limit import SlidingWindowLimiter
 from app.errors import AppError, ErrorCode
+from app.providers.postgrest import PostgrestClient
 from app.repositories.bank import BankRepository
 from app.repositories.learning import LearningRepository
 from app.routers.health import client_key
@@ -125,18 +126,22 @@ def install_sessions(
     calendar: LearningCalendar | None = None,
     bank: BankRepository | None = None,
     learning: LearningRepository | None = None,
+    client: PostgrestClient | None = None,
     clock: Callable[[], datetime] | None = None,
     new_id: Callable[[], UUID] | None = None,
 ) -> None:
-    """Include the E20 router and build the services on ``app.state``.
+    """Include the E20 router once and build the services on ``app.state``.
 
     ``plans`` and ``calendar`` are the ports of package B4 and B3; when omitted, the ones left on
     ``app.state.plan_access`` and ``app.state.learning_calendar`` are used, and when there are none
     the endpoint answers ``503`` rather than guessing. ``bank`` and ``learning`` default to the
-    repositories of the configured data backend. Besides ``sessions_service`` this sets
+    repositories of the configured data backend (supabase mode builds them over ``client``; with
+    neither the endpoint answers ``503``). Besides ``sessions_service`` this sets
     ``bank_repository`` and ``learning_repository`` so that later packages (B6, B9) share them.
     """
-    app.include_router(router)
+    if not getattr(app.state, "sessions_router_included", False):
+        app.include_router(router)
+        app.state.sessions_router_included = True
     service = build_sessions_service(
         settings,
         plans=plans if plans is not None else getattr(app.state, "plan_access", None),
@@ -145,9 +150,11 @@ def install_sessions(
         else getattr(app.state, "learning_calendar", None),
         bank=bank,
         learning=learning,
+        client=client,
         clock=clock,
         new_id=new_id,
     )
     app.state.sessions_service = service
-    app.state.bank_repository = service.bank
-    app.state.learning_repository = service.learning
+    if service is not None:
+        app.state.bank_repository = service.bank
+        app.state.learning_repository = service.learning

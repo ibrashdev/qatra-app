@@ -11,16 +11,16 @@ Two implementations of ``BankRepository``:
   version of the edition, and published questions; a ``revoked`` edition is never readable (A-02,
   D44). Without a token (``ctx.access_token is None``) every call is ``unauthenticated``.
 
-Both return the same immutable value objects. ``PostgrestGateway`` below is a deliberately small,
-private-by-convention PostgREST client shared with ``repositories/learning.py``; another package
-owns ``app/providers/postgrest.py``, and once it lands the gateway should be replaced by it (the
-two repositories only use ``get``, ``get_all``, ``rpc`` and ``patch``).
+Both return the same immutable value objects. ``LearnerClient`` below puts the error mapping of
+the session endpoints on the shared ``PostgrestClient`` (``app/providers/postgrest.py``), which does
+all the HTTP; ``repositories/learning.py`` uses it too.
 
-Error mapping (the same for every call): a transport failure, a 5xx or anything unexpected is
-``unavailable``; ``401`` or an expired token is ``unauthenticated``; PostgREST code ``QT002`` (the
-migration's version conflict) is ``version_conflict`` with ``details.reason = "plan_version"``;
-``P0002`` (no data found) is ``not_found``. The token, request bodies and response bodies are never
-logged: only the HTTP status and the PostgREST error code.
+Error mapping (the same for every call): a transport failure, a 5xx, an unexpected answer or a
+privilege fault of the deployment is ``unavailable``; ``401`` or an expired token is
+``unauthenticated``; ``QT002`` (the migration's version conflict) is ``version_conflict`` with
+``details.reason = "plan_version"``; ``P0002`` (no data found) is ``not_found``; any other database
+signal is ``unavailable``. The token, request bodies and response bodies are never logged: only the
+HTTP status and the PostgREST error code.
 """
 
 from __future__ import annotations
@@ -32,14 +32,12 @@ from pathlib import Path
 from typing import Any, Final, Protocol, TypeVar
 from uuid import UUID
 
-import httpx
-from pydantic import SecretStr
-
 from app.config import Settings, StartupConfigError
 from app.dependencies import SessionContext
 from app.domain.session_policy import PartInfo, PassageInfo, QuestionInfo
 from app.errors import AppError, ErrorCode
 from app.logging_config import log_event
+from app.providers.postgrest import DbSignal, PostgrestClient, TokenRefused, require_token
 from app.workflow.bundle import loads_bundle
 from app.workflow.bundle_index import parse_ref
 from app.workflow.errors import WorkflowError
@@ -481,144 +479,100 @@ class InMemoryBankRepository:
 
 # --- PostgREST ------------------------------------------------------------------------------------
 
-_AUTH_CODES: Final = frozenset({"PGRST301", "PGRST302", "PGRST303"})
 
-
-def _error_for(response: httpx.Response) -> AppError:
-    """Map a failed PostgREST answer. Only the status and the error code are ever logged."""
-    code: str | None = None
-    message: str | None = None
-    try:
-        body = response.json()
-    except ValueError:
-        body = None
-    if isinstance(body, dict):
-        raw_code, raw_message = body.get("code"), body.get("message")
-        code = raw_code if isinstance(raw_code, str) and len(raw_code) <= 16 else None
-        message = raw_message if isinstance(raw_message, str) else None
-    status = response.status_code
-    if status == 401 or code in _AUTH_CODES or (code == "42501" and message == "not authenticated"):
-        return AppError(ErrorCode.unauthenticated)
-    if code == "QT002":
+def _signal_error(signal: DbSignal) -> AppError:
+    """Only QT002 and P0002 are known here; any other signal is logged by code and answered 503."""
+    if signal.sqlstate == "QT002":
         return AppError(ErrorCode.version_conflict, details={"reason": "plan_version"})
-    if code == "P0002":
+    if signal.sqlstate == "P0002":
         return AppError(ErrorCode.not_found)
-    log_event(logger, "postgrest_failure", level=logging.WARNING, status=status, code=code)
+    log_event(logger, "db_signal_unexpected", level=logging.WARNING, sqlstate=signal.sqlstate)
     return AppError(ErrorCode.unavailable)
 
 
-class PostgrestGateway:
-    """A small PostgREST client acting as the learner (see the module docstring).
+class LearnerClient:
+    """The shared client acting as the learner: the token comes from the caller's context (without
+    one nothing is sent) and failures are answered as the module docstring says."""
 
-    ``get_all`` pages with ``limit`` and ``offset`` until a short page, so a result larger than
-    the server's row cap is complete; give it a stable ``order``.
-    """
-
-    PAGE_SIZE = 1000
-
-    def __init__(
-        self,
-        base_url: str | None,
-        anon_key: SecretStr | None,
-        *,
-        client: httpx.Client | None = None,
-        timeout: float = 10.0,
-    ) -> None:
-        self._base = (base_url or "").rstrip("/")
-        self._anon_key = anon_key
-        self._client = client or httpx.Client(timeout=httpx.Timeout(timeout))
-
-    @classmethod
-    def from_settings(
-        cls, settings: Settings, *, client: httpx.Client | None = None
-    ) -> PostgrestGateway:
-        return cls(settings.SUPABASE_URL, settings.SUPABASE_ANON_KEY, client=client)
+    def __init__(self, client: PostgrestClient) -> None:
+        self._client = client
 
     def __repr__(self) -> str:
-        return "PostgrestGateway(<redacted>)"
+        return "LearnerClient(<redacted>)"
 
-    def close(self) -> None:
-        self._client.close()
-
-    def _headers(self, ctx: SessionContext) -> dict[str, str]:
-        if ctx.access_token is None:
-            raise AppError(ErrorCode.unauthenticated)
-        key = None if self._anon_key is None else self._anon_key.get_secret_value()
-        if not self._base or not key:
-            raise AppError(ErrorCode.unavailable)
-        return {
-            "apikey": key,
-            "Authorization": f"Bearer {ctx.access_token.get_secret_value()}",
-            "Accept": "application/json",
-        }
-
-    def _send(
+    def select(
         self,
         ctx: SessionContext,
-        method: str,
-        path: str,
+        table: str,
         *,
-        params: Mapping[str, str] | None = None,
-        body: Any = None,
-        prefer: str | None = None,
-    ) -> Any:
-        headers = self._headers(ctx)
-        if prefer is not None:
-            headers["Prefer"] = prefer
-        try:
-            response = self._client.request(
-                method,
-                f"{self._base}/rest/v1/{path}",
-                params=dict(params) if params else None,
-                json=body,
-                headers=headers,
-            )
-        except httpx.HTTPError:
-            log_event(logger, "postgrest_unreachable", level=logging.WARNING)
-            raise AppError(ErrorCode.unavailable) from None
-        if response.status_code >= 400:
-            raise _error_for(response)
-        if not response.content:
-            return None
-        try:
-            return response.json()
-        except ValueError:
-            raise AppError(ErrorCode.unavailable) from None
-
-    def get(
-        self, ctx: SessionContext, table: str, params: Mapping[str, str]
+        columns: str,
+        filters: Mapping[str, str] | None = None,
+        order: str | None = None,
+        limit: int | None = None,
     ) -> list[dict[str, Any]]:
-        rows = self._send(ctx, "GET", table, params=params)
-        if not isinstance(rows, list):
-            raise AppError(ErrorCode.unavailable)
-        return rows
-
-    def get_all(
-        self, ctx: SessionContext, table: str, params: Mapping[str, str]
-    ) -> list[dict[str, Any]]:
-        rows: list[dict[str, Any]] = []
-        while True:
-            page = self.get(
-                ctx, table, {**params, "limit": str(self.PAGE_SIZE), "offset": str(len(rows))}
+        return self._run(
+            lambda: self._client.select(
+                table,
+                columns=columns,
+                filters=filters,
+                order=order,
+                limit=limit,
+                token=require_token(ctx.access_token),
             )
-            rows.extend(page)
-            if len(page) < self.PAGE_SIZE:
-                return rows
+        )
 
-    def rpc(self, ctx: SessionContext, function: str, args: Mapping[str, Any]) -> Any:
-        return self._send(ctx, "POST", f"rpc/{function}", body=dict(args))
+    def select_all(
+        self,
+        ctx: SessionContext,
+        table: str,
+        *,
+        columns: str,
+        filters: Mapping[str, str] | None = None,
+        order: str,
+    ) -> list[dict[str, Any]]:
+        return self._run(
+            lambda: self._client.select_all(
+                table,
+                columns=columns,
+                filters=filters,
+                order=order,
+                token=require_token(ctx.access_token),
+            )
+        )
+
+    def rpc(self, ctx: SessionContext, function: str, arguments: Mapping[str, Any]) -> Any:
+        return self._run(
+            lambda: self._client.rpc(function, arguments, token=require_token(ctx.access_token))
+        )
 
     def patch(
         self,
         ctx: SessionContext,
         table: str,
-        params: Mapping[str, str],
-        body: Mapping[str, Any],
+        *,
+        filters: Mapping[str, str],
+        values: Mapping[str, Any],
     ) -> list[dict[str, Any]]:
-        rows = self._send(
-            ctx, "PATCH", table, params=params, body=dict(body), prefer="return=representation"
+        return self._run(
+            lambda: self._client.patch(
+                table, filters=filters, values=values, token=require_token(ctx.access_token)
+            )
         )
-        return rows if isinstance(rows, list) else []
+
+    @staticmethod
+    def _run(call: Callable[[], T]) -> T:
+        try:
+            return call()
+        except DbSignal as signal:
+            raise _signal_error(signal) from None
+        except TokenRefused as refused:
+            if refused.privilege:  # a missing grant is no reason to end the learner's session
+                raise AppError(ErrorCode.unavailable) from None
+            raise
+        except AppError as error:
+            if error.code is ErrorCode.internal:  # an answer the client could not make sense of
+                raise AppError(ErrorCode.unavailable) from None
+            raise
 
 
 def in_filter(values: Iterable[Any]) -> str:
@@ -642,44 +596,38 @@ class PostgrestBankRepository:
     """Supabase-mode bank reads as the learner (row-level security applies). ``in_chunk`` is how
     many ids one ``in.(...)`` filter carries, so that a URL stays short."""
 
-    def __init__(self, gateway: PostgrestGateway, *, in_chunk: int = _IN_CHUNK) -> None:
-        self._rest = gateway
+    def __init__(self, client: PostgrestClient, *, in_chunk: int = _IN_CHUNK) -> None:
+        self._rest = LearnerClient(client)
         self._chunk = max(1, in_chunk)
-
-    @classmethod
-    def from_settings(
-        cls, settings: Settings, *, client: httpx.Client | None = None
-    ) -> PostgrestBankRepository:
-        return cls(PostgrestGateway.from_settings(settings, client=client))
 
     def __repr__(self) -> str:
         return "PostgrestBankRepository(<redacted>)"
 
     def edition(self, ctx: SessionContext, edition_id: UUID) -> EditionInfo | None:
         # Explicit columns: raw_storage_path and review_record are not readable (§5.2 item 4).
-        rows = self._rest.get(
+        rows = self._rest.select(
             ctx,
             "book_editions",
-            {
-                "id": f"eq.{edition_id}",
-                "select": (
-                    "id,book_id,source_id,edition_key,edition_label,bank_version,status,"
-                    "catalog_hidden,archived_at"
-                ),
-            },
+            columns=(
+                "id,book_id,source_id,edition_key,edition_label,bank_version,status,"
+                "catalog_hidden,archived_at"
+            ),
+            filters={"id": f"eq.{edition_id}"},
         )
         if not rows or rows[0].get("status") not in READABLE_STATUSES:
             return None
         row = rows[0]
-        books = self._rest.get(
+        books = self._rest.select(
             ctx,
             "books",
-            {"id": f"eq.{row['book_id']}", "select": "id,title_ar,content_format"},
+            columns="id,title_ar,content_format",
+            filters={"id": f"eq.{row['book_id']}"},
         )
-        sources = self._rest.get(
+        sources = self._rest.select(
             ctx,
             "sources",
-            {"id": f"eq.{row['source_id']}", "select": "id,title,provider,source_url"},
+            columns="id,title,provider,source_url",
+            filters={"id": f"eq.{row['source_id']}"},
         )
         if not books or not sources:  # visible edition with unreadable parents: a data problem
             raise AppError(ErrorCode.unavailable)
@@ -705,15 +653,15 @@ class PostgrestBankRepository:
     ) -> list[dict[str, Any]]:
         if not ordinals:
             return []
-        return self._rest.get_all(
+        return self._rest.select_all(
             ctx,
             "book_sections",
-            {
+            columns=select,
+            filters={
                 "edition_id": f"eq.{edition_id}",
                 "ordinal": in_filter(sorted(set(ordinals))),
-                "select": select,
-                "order": "ordinal.asc",
             },
+            order="ordinal.asc",
         )
 
     def passages(
@@ -729,29 +677,27 @@ class PostgrestBankRepository:
         if not section_rows or not paths:
             return []
         ordinal_of = {str(r["id"]): int(r["ordinal"]) for r in section_rows}
-        rows = self._rest.get_all(
+        rows = self._rest.select_all(
             ctx,
             "passages",
-            {
+            columns="id,ordinal,section_id,path,start_ref,end_ref,word_count,reference",
+            filters={
                 "edition_id": f"eq.{edition_id}",
                 "bank_version": f"eq.{bank_version}",
                 "section_id": in_filter(ordinal_of),
                 "path": in_filter(paths),
-                "select": "id,ordinal,section_id,path,start_ref,end_ref,word_count,reference",
-                "order": "id.asc",
             },
+            order="id.asc",
         )
         parts: dict[str, list[BankPart]] = {}
         ids = [str(r["id"]) for r in rows]
         for chunk in chunks(ids, self._chunk):
-            for part in self._rest.get_all(
+            for part in self._rest.select_all(
                 ctx,
                 "passage_parts",
-                {
-                    "passage_id": in_filter(chunk),
-                    "select": "id,passage_id,ordinal,start_ref,end_ref,word_count",
-                    "order": "passage_id.asc,ordinal.asc",
-                },
+                columns="id,passage_id,ordinal,start_ref,end_ref,word_count",
+                filters={"passage_id": in_filter(chunk)},
+                order="passage_id.asc,ordinal.asc",
             ):
                 parts.setdefault(str(part["passage_id"]), []).append(
                     parse_or_internal(
@@ -791,20 +737,20 @@ class PostgrestBankRepository:
     ) -> list[BankQuestion]:
         found: list[BankQuestion] = []
         for chunk in chunks(list(passage_ids), self._chunk):
-            for row in self._rest.get_all(
+            for row in self._rest.select_all(
                 ctx,
                 "question_items",
-                {
+                columns=(
+                    "id,passage_id,type,variant,covered_part_ids,token_refs,option_refs,"
+                    "correct_ref,context_refs,reference"
+                ),
+                filters={
                     "edition_id": f"eq.{edition_id}",
                     "bank_version": f"eq.{bank_version}",
                     "status": "eq.published",
                     "passage_id": in_filter(chunk),
-                    "select": (
-                        "id,passage_id,type,variant,covered_part_ids,token_refs,option_refs,"
-                        "correct_ref,context_refs,reference"
-                    ),
-                    "order": "id.asc",
                 },
+                order="id.asc",
             ):
                 found.append(
                     parse_or_internal(
@@ -882,15 +828,12 @@ class PostgrestBankRepository:
     ) -> dict[int, BankUnit]:
         found: dict[int, BankUnit] = {}
         for chunk in chunks(sorted(set(ordinals)), self._chunk):
-            for row in self._rest.get_all(
+            for row in self._rest.select_all(
                 ctx,
                 "units",
-                {
-                    "edition_id": f"eq.{edition_id}",
-                    "ordinal": in_filter(chunk),
-                    "select": self._UNIT_COLUMNS,
-                    "order": "ordinal.asc",
-                },
+                columns=self._UNIT_COLUMNS,
+                filters={"edition_id": f"eq.{edition_id}", "ordinal": in_filter(chunk)},
+                order="ordinal.asc",
             ):
                 unit = self._unit(row, None)
                 found[unit.ordinal] = unit
@@ -903,15 +846,12 @@ class PostgrestBankRepository:
         if not section_rows:
             return []
         ordinal_of = {str(r["id"]): int(r["ordinal"]) for r in section_rows}
-        rows = self._rest.get_all(
+        rows = self._rest.select_all(
             ctx,
             "units",
-            {
-                "edition_id": f"eq.{edition_id}",
-                "section_id": in_filter(ordinal_of),
-                "select": self._UNIT_COLUMNS,
-                "order": "ordinal.asc",
-            },
+            columns=self._UNIT_COLUMNS,
+            filters={"edition_id": f"eq.{edition_id}", "section_id": in_filter(ordinal_of)},
+            order="ordinal.asc",
         )
         return [self._unit(row, ordinal_of.get(str(row["section_id"]))) for row in rows]
 
@@ -925,17 +865,17 @@ class PostgrestBankRepository:
     ) -> dict[UUID, UUID]:
         found: dict[UUID, UUID] = {}
         for chunk in chunks(list(passage_ids), self._chunk):
-            for row in self._rest.get_all(
+            for row in self._rest.select_all(
                 ctx,
                 "lessons",
-                {
+                columns="id,passage_id",
+                filters={
                     "edition_id": f"eq.{edition_id}",
                     "bank_version": f"eq.{bank_version}",
                     "status": "eq.published",
                     "passage_id": in_filter(chunk),
-                    "select": "id,passage_id",
-                    "order": "id.asc",
                 },
+                order="id.asc",
             ):
                 found[UUID(str(row["passage_id"]))] = UUID(str(row["id"]))
         return found
