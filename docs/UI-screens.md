@@ -1,6 +1,8 @@
 # Qatra — UI screen specifications (six dimensions)
 
-> Version 1.1 · 4 October 2026 (Asia/Dubai) · Status: **Approved — D78** (G1, owner, 4 October 2026, about 19:12 Asia/Dubai), with the S-08 cascade adjustment; 27 of the 34 inventory screens are specified (parts A, B, C) and approved; S-10 is superseded by S-34 and S-28…S-33 are deferred to option C and are not approved. Prepared by the Senior Product Designer role (Role 4); companion of UI-design.md (inventory) and UI-tokens.md (tokens); nothing here is implemented.
+> Version 1.2 · 4 October 2026 (Asia/Dubai) · Status: **Approved, D78** (G1, owner, 4 October 2026, about 19:12 Asia/Dubai), with the S-08 cascade adjustment; 27 of the 34 inventory screens are specified (parts A, B, C) and approved; S-10 is superseded by S-34 and S-28…S-33 are deferred to option C and are not approved. Prepared by the Senior Product Designer role (Role 4); companion of UI-design.md (inventory) and UI-tokens.md (tokens); nothing here is implemented.
+
+**Change note (v1.2).** Version 1.2 adds a Needs Review amendment note to S-19 for FEAT-QURAN-AUDIO-01; the approved content and the D78 status are unchanged.
 
 **Change note (v1.1, D78).** The owner granted G1 with one adjustment: on S-08 «ما هي خطتك؟» what to memorize is chosen with **cascading select lists** («الباب»; then for the Quran «حسب السورة» or «حسب الجزء», or for hadith, later fiqh, the list of books; then a **multi-select** of surahs, juz' or the sections inside the book). S-08 is rewritten below, [UI-tokens.md](UI-tokens.md) v1.2 adds the component (§6.26), and UA-12 is reversed for its scope part ([UI-design.md](UI-design.md) §9.1). No API or database change: the choices map to `editionId` and `targetScope.sectionOrdinals`. No other screen changes except its status. New open points: O-55 to O-60.
 
@@ -1131,6 +1133,8 @@ Work package U2, part C. **S-14** (the hub, an app-shell screen) and **S-15 to S
 
 **6. Colour and typography**
 - Page `--q-color-bg`; text block, tiles and answer area `--q-color-surface`; highlight `--q-color-selection` (with the legend, not colour alone); correct feedback success tokens; **needs-review feedback warning tokens, not error** (UI-tokens A4); assisted marker an info chip (`--q-color-info-bg`, `--q-color-info-text`); notices `--q-color-text-secondary` with an info icon. Original text: Quran `--q-text-quran` in `--q-font-quran`, hadith `--q-text-hadith` in `--q-font-hadith`, words in questions and feedback `--q-text-token`. UI text: H1 `--q-text-title`; step headings and the feedback phrase `--q-text-section`; prompts `--q-text-body`; counters, source, notices `--q-text-small`; stage labels, chips `--q-text-caption`; buttons `--q-text-button`.
+
+**Amendment note (FEAT-QURAN-AUDIO-01, Needs Review, not part of D78).** An optional recitation player is proposed for the learn step of Quran passages only, placed below the original-text block and its source line (c8, c9) and above the hide toggle (c12). It never appears on question steps, in the games, in placement or on hadith passages. The full specification is in [Quran-audio-streaming.addendum.md](Quran-audio-streaming.addendum.md) §3.6 to §3.9. Nothing in S-19 changes until the owner approves it.
 
 ### S-20 Session result — النتائج والتقدم (بعد الجلسة)
 
