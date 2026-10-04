@@ -7,7 +7,8 @@ migrations to a throwaway PostgreSQL 16 database and runs assertions against the
   cloud service. Do not point it at production or at any shared database.
 - It is **not** the security review that `Database-schema.md` §11 item 7 requires before production
   use. It checks that the migration builds what the approved schema (`docs/Database-schema.md`
-  v1.1, approved by D74) describes, on a stand-in for a Supabase project.
+  v1.1, approved by D74; v1.2, D75, for `0006_plan_chats`) describes, on a stand-in for a Supabase
+  project.
 - It uses synthetic placeholder rows only (for example the word `test`). No source text, secret or
   personal data belongs here.
 
@@ -18,15 +19,15 @@ migrations to a throwaway PostgreSQL 16 database and runs assertions against the
 | `00_supabase_shim.sql` | Stand-ins for what a Supabase project already provides: roles `anon`, `authenticated`, `service_role`; schemas `auth` (users, `auth.uid()`), `storage` (buckets, objects with RLS and no policy) and `extensions`; and the platform default privileges on new `public` objects that the migrations must revoke. |
 | `01_check_helpers.sql` | Helper functions in a scratch schema `qa`: expected-error assertions, a synthetic content row graph `qa.make_fixture()` (plus `make_passage2`, `make_hadith_edition`, `publish_fixture`), synthetic accounts and plans (`make_users`, `make_plan`, `make_session`, `populate_user`), role switches for the API roles (`as_user`, `as_none`, `as_anon`, `as_service`, `as_server`, `as_owner`) and catalog comparison helpers (`columns_of`, `key_defs`, `index_defs`, `assert_columns`, `assert_same_set`). |
 | `run_local.sh` | The runner. |
-| `checks_NNNN.sql` | Assertions for migration `NNNN_*.sql`; run right after that migration is applied. `checks_0001.sql` covers `0001_content`, `checks_0002.sql` `0002_identity`, `checks_0003.sql` `0003_plans_sessions`, `checks_0004.sql` `0004_progress`, `checks_0005.sql` `0005_rls_functions`. |
+| `checks_NNNN.sql` | Assertions for migration `NNNN_*.sql`; run right after that migration is applied. `checks_0001.sql` covers `0001_content`, `checks_0002.sql` `0002_identity`, `checks_0003.sql` `0003_plans_sessions`, `checks_0004.sql` `0004_progress`, `checks_0005.sql` `0005_rls_functions`, `checks_0006.sql` `0006_plan_chats`. |
 
 ## Run
 
 Requirements: PostgreSQL 16 (15 or later is required by the schema), the `pgvector` package
 (`apt-get install -y postgresql-16-pgvector`), the contrib module `dblink` (part of the
-`postgresql-16` package on Debian and Ubuntu; only the last check of `checks_0005.sql`, the
-concurrency check, needs it), and either root (the script uses `runuser -u postgres`) or `PG*`
-variables that reach a superuser.
+`postgresql-16` package on Debian and Ubuntu; only the concurrency checks need it: chunk 27 of
+`checks_0005.sql` and chunks 27 and 30 of `checks_0006.sql`), and either root (the script uses
+`runuser -u postgres`) or `PG*` variables that reach a superuser.
 
 ```bash
 cd qatra-app
@@ -74,20 +75,22 @@ constraint; composite keys that keep children inside one edition and bank versio
 catalog parents; `guard_edition_delete` and `guard_unit_text` behaviour for every edition status;
 `updated_at` maintenance; runtime behaviour of the three API roles; and no seed rows.
 
-## What `checks_0002.sql` to `checks_0005.sql` cover
+## What `checks_0002.sql` to `checks_0006.sql` cover
 
-Each file compares the result with the approved text (`Database-schema.md` v1.1), not with the
-migration. Column lists, primary, unique and foreign keys (with their delete actions, the
-column-list `SET NULL` and the deferred cyclic key), partial and secondary indexes are compared as
-sets of catalog definitions; `CHECK` rules are tested by behaviour (a good value is accepted, each
-bad value is refused by exactly the intended constraint).
+Each file compares the result with the approved text (`Database-schema.md` v1.1; v1.2 for
+`checks_0006.sql`), not with the migration. Column lists, primary, unique and foreign keys (with
+their delete actions, the column-list `SET NULL` and the deferred cyclic key), partial and
+secondary indexes are compared as sets of catalog definitions; `CHECK` rules are tested by
+behaviour (a good value is accepted, each bad value is refused by exactly the intended
+constraint).
 
 | File | Covers |
 |---|---|
 | `checks_0002.sql` | The five `private.*` tables and `public.profiles`; row level security on and no policy; no privilege for `anon`, `authenticated`, `service_role` (with controls that prove the check can see a grant); role `qatra_server` (attributes, no password, no membership, no privilege yet); username, alias, epoch, grant status set, one live grant and one active code per account, reservation rules; `private.validate_profile` (time zones, `pending_settings.timeZone`, minutes 5/10/15, languages, terms fields); class A cascades; `updated_at`; no seed rows. |
 | `checks_0003.sql` | `master_plans`, `plan_versions`, `plan_phases`, `offline_snapshots`, `learning_sessions`, `attempts`, `session_activity_intervals`: columns, keys and composite parent-ownership keys, delete classes A, B, C, F, G; one active plan per account; the daily-session partial unique index (A-01); the deferred cyclic key, including a real `COMMIT` that refuses a plan without a version; `private.guard_plan_order`; value sets and the four memorization paths; couplings; idempotency keys; activity-interval bounds. |
 | `checks_0004.sql` | `daily_progress`, `daily_completions`, `target_mastery`, `target_part_evidence`, `ai_usage`: columns, keys, the due-review index, no `reviews` table, every `target_mastery` state-consistency combination, evidence that refuses a part or attempt of another passage, no learner or text column in `ai_usage`, delete classes. |
-| `checks_0005.sql` | The 42 policies by name and command and their predicates; the grant matrix of every role (`anon`, `authenticated` by table and column, `service_role`, `qatra_server`); the 19 `srv_*` and 6 `app_*` functions (owner, definer/invoker, empty `search_path`, EXECUTE per role, nothing for PUBLIC); default function privileges; the two catalog views (columns, owner, barrier, rows only for published, visible, unarchived editions, per-path counts of the current bank); anon and learner reads of published content; the two-account isolation test; every `app_*` function including atomic rollback; every `srv_*` function including recovery reservation, epoch, sessions, throttle buckets and purge, personal-row deletion, redaction; storage with no policy; `qatra_server` at run time; and a concurrency check over `dblink` (parallel recovery reservations, daily get-or-create, revisions, plan creations, throttle increments). |
+| `checks_0005.sql` | The 42 policies by name and command and their predicates; the grant matrix of every role (`anon`, `authenticated` by table and column, `service_role`, `qatra_server`); the 19 `srv_*` and 6 `app_*` functions (owner, definer/invoker, empty `search_path`, EXECUTE per role, nothing for PUBLIC); default function privileges; the two catalog views (columns, owner, barrier, rows only for published, visible, unarchived editions, per-path counts of the current bank); anon and learner reads of published content; the two-account isolation test; every `app_*` function including atomic rollback; every `srv_*` function including recovery reservation, epoch, sessions, throttle buckets and purge, personal-row deletion, redaction; storage with no policy; `qatra_server` at run time; a concurrency check over `dblink` (parallel recovery reservations, daily get-or-create, revisions, plan creations, throttle increments); and, in chunk 28, `app_revise_plan` refusing a completed plan (QT003, message `plan_not_active`, tested before the version and before any write, nothing changed). |
+| `checks_0006.sql` | `plan_chats` and `plan_chat_messages` against §6.3 of v1.2: columns, keys with delete classes A and B, indexes, the five P-OWN policies and the triggers, the grants (learner privileges at run time), value sets, the 2000-character text limit, the `closed_at` coupling, the tamper guard (also against a learner token), `updated_at`, no seed rows; the four learner functions with their refusals and atomic rollback: `app_plan_chat_open` (first conversation, replacement, revision conversations, invalid input), `app_plan_chat_append` (ordinals, proposal and counters), `app_plan_chat_confirm` (creation and revision, proposal version, closed and foreign chats, failing steps) and `app_resume_plan`, and their interplay; the execution boundary at run time (no token subject, `anon`, `service_role`, `qatra_server`); account deletion and cascades (`srv_delete_personal_rows` run as `qatra_server`); a completed plan refused with QT003 and the message `plan_not_active` by `app_plan_chat_open` and the revision path of `app_plan_chat_confirm` (`app_resume_plan` keeps `invalid_state`); and two concurrency checks over `dblink` (chunk 27: parallel opens, appends, a confirmation against a replacing open, a double confirmation; chunk 30: a completion racing a revision, a confirmation or an open, and the lock order of an open and a confirmation). |
 
 ## Known limits
 

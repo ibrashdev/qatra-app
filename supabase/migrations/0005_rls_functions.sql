@@ -26,6 +26,8 @@
 --         QT002  version_conflict    (app_*: plan version is not the one in force)
 --         QT003  invalid_state       (srv_recovery_consume: grant not executing;
 --                                     srv_redact_revoked_content: edition not revoked)
+--                plan_not_active     (the same SQLSTATE; app_revise_plan: the plan is completed;
+--                                     the message tells the causes apart)
 --         QT004  idempotency_input   (app_create_offline_snapshot: same operation id,
 --                                     different input)
 --   * The six `app_*` functions persist results already computed by the Python domain
@@ -1269,11 +1271,16 @@ grant execute on function public.app_create_plan(
   to authenticated;
 
 -- 7.2 app_revise_plan --------------------------------------------------------
--- Checks the expected version; updates master_plans (the mirrored values of the new latest
--- version and current_version + 1; status unchanged); appends plan_versions and plan_phases.
--- Returns the new version number. A stale version raises QT002 (version_conflict); an unknown
--- or foreign plan raises no_data_found. Of two simultaneous revisions with the same expected
--- version one wins (row lock, then the version test fails for the other).
+-- Locks the plan row first and tests it under that lock: an unknown or foreign plan raises
+-- no_data_found; a completed plan raises QT003 (plan_not_active, API-spec E17); a version other
+-- than the expected one raises QT002 (version_conflict). The status is tested before the
+-- version, because retrying with the current version cannot help a completed plan. Nothing is
+-- written before the tests pass, and the lock is held to the end of the transaction, so a
+-- concurrent completion or revision cannot slip in between the tests and the write: it waits
+-- and is then tested against the new row. Then it updates master_plans (the mirrored values of
+-- the new latest version and current_version + 1; status unchanged) and appends plan_versions
+-- and plan_phases. Returns the new version number. Of two simultaneous revisions with the same
+-- expected version one wins (the other waits for the row lock, then fails the version test).
 
 create function public.app_revise_plan(
   p_plan_id                 uuid,
@@ -1298,9 +1305,27 @@ declare
   v_uid     uuid := (select auth.uid());
   v_new     integer := p_expected_version + 1;
   v_version uuid := gen_random_uuid();
+  v_status  text;
+  v_current integer;
 begin
   if v_uid is null then
     raise exception 'not authenticated' using errcode = 'insufficient_privilege';
+  end if;
+
+  select mp.status, mp.current_version into v_status, v_current
+  from public.master_plans mp
+  where mp.id = p_plan_id
+    and mp.user_id = v_uid
+  for update;
+
+  if not found then
+    raise exception 'plan_not_found' using errcode = 'no_data_found';
+  end if;
+  if v_status = 'completed' then
+    raise exception 'plan_not_active' using errcode = 'QT003';
+  end if;
+  if v_current is distinct from p_expected_version then
+    raise exception 'version_conflict' using errcode = 'QT002';
   end if;
 
   update public.master_plans mp
@@ -1312,15 +1337,7 @@ begin
          agreed_estimate = p_agreed_estimate,
          current_version = v_new
    where mp.id = p_plan_id
-     and mp.user_id = v_uid
-     and mp.current_version = p_expected_version;
-
-  if not found then
-    if exists (select 1 from public.master_plans mp where mp.id = p_plan_id and mp.user_id = v_uid) then
-      raise exception 'version_conflict' using errcode = 'QT002';
-    end if;
-    raise exception 'plan_not_found' using errcode = 'no_data_found';
-  end if;
+     and mp.user_id = v_uid;
 
   insert into public.plan_versions
     (id, plan_id, user_id, version_no, reason_code, policy_json, effective_learning_date)

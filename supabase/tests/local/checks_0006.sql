@@ -4,7 +4,7 @@
 -- run_local.sh right after that migration (the database then holds 0001-0006). Every
 -- "-- CHECK:" line starts one independent chunk; a chunk passes when psql finishes it
 -- without an error. Rows are synthetic placeholders created inside transactions that are
--- rolled back (the last chunk, concurrency over dblink, commits for real and removes its
+-- rolled back (chunks 27 and 30, concurrency over dblink, commit for real and remove their
 -- rows). Roles are exercised with SET ROLE (qa.as_user, qa.as_none, qa.as_anon,
 -- qa.as_service, qa.as_server); no Data API runs. Expected values are written from
 -- docs/Database-schema.md v1.2 (§4.4, §5.2, §6.3, §11 `0006_plan_chats`, §12.1, §14 check 18),
@@ -27,17 +27,21 @@
 --          subject, anon, service_role, qatra_server); account deletion and cascades
 --   27     concurrency over dblink (needs the contrib module dblink, like checks_0005 chunk 27):
 --          parallel opens, parallel appends, a confirm against a replacing open, a double confirm
+--   28-30  a completed plan (S1-1b, API-spec E17/E31/E34 item 4) is refused with QT003 and the message
+--          plan_not_active: by app_plan_chat_open (28: the previous chat stays open, another account's
+--          plan stays 23503, app_resume_plan keeps invalid_state) and by the revision path of
+--          app_plan_chat_confirm (29: before anything is written, the chat stays open and usable);
+--          30 (dblink again) shows that a completion racing a revision, a confirmation or an open
+--          cannot slip in between the check and the write, and that an open and a confirmation of
+--          one conversation lock the chat and then the plan (no deadlock). app_revise_plan has the
+--          same guard (checks_0005 chunk 28); the status is tested before the version.
 -- Refusals are asserted by SQLSTATE, and by constraint name for CHECK, UNIQUE and FOREIGN KEY
 -- violations: QT002 stale proposal version or a plan that moved, QT003 chat not open (or no
--- proposal yet), P0002 unknown or foreign chat, 22023 unusable arguments, 42501 no subject or no
--- privilege. Every refusal of a function is followed by a check that nothing was saved or changed.
+-- proposal yet) or a completed plan (the message plan_not_active, asserted by message in 28-30),
+-- P0002 unknown or foreign chat, 22023 unusable arguments, 42501 no subject or no privilege.
+-- Every refusal of a function is followed by a check that nothing was saved or changed.
 --
 -- Deliberately not asserted:
---   * A completed plan is accepted by app_plan_chat_open (as the plan of a revision
---     conversation) and by the revision path of app_plan_chat_confirm, while API-spec E31
---     and E34 name 409 `plan_not_active` for it. None of the three functions tests the plan's
---     status (only app_resume_plan does, QT003), so that refusal currently depends on the
---     service layer. No check pins either outcome until it is decided where the rule lives.
 --   * The turn pipeline, the model caps, ai_usage and the HTTP mapping of the SQLSTATEs
 --     (service layer, not database).
 --   * A purge of abandoned conversations: no DELETE path exists (OPEN-18, Plan-conversation §2.9 item 8).
@@ -1877,6 +1881,405 @@ begin
      or (select count(*) from public.master_plans where user_id = a) <> 3
      or (select count(*) from public.master_plans where user_id = a and status = 'active') <> 1 then
     raise exception 'a double confirm saved more than one plan';
+  end if;
+
+  perform extensions.dblink_disconnect('c1');
+  perform extensions.dblink_disconnect('c2');
+end $$;
+-- cleanup of everything this chunk committed
+drop extension dblink;
+delete from auth.users where id in (qa.id(901), qa.id(902), qa.id(903));
+delete from public.book_editions where id = qa.id(5);
+delete from public.books where id = qa.id(4);
+delete from public.sources where id = qa.id(3);
+delete from public.approved_source_rules where id = qa.id(2);
+delete from public.categories where id = qa.id(1);
+do $$
+declare
+  t text;
+  n bigint;
+begin
+  foreach t in array array['public.plan_chats', 'public.plan_chat_messages', 'public.master_plans', 'public.plan_versions', 'public.plan_phases',
+                           'public.book_editions', 'auth.users'] loop
+    execute format('select count(*) from %s', t) into n;
+    if n <> 0 then raise exception 'cleanup left % rows in %', n, t; end if;
+  end loop;
+  if exists (select 1 from pg_extension where extname = 'dblink') then raise exception 'dblink is still installed'; end if;
+end;
+$$;
+
+-- CHECK: 28 app_plan_chat_open, completed plan: a revision conversation on a completed plan is QT003 plan_not_active, nothing is saved and the previous open chat stays open; another account's plan stays 23503; resume keeps its own message; a creation is not affected and the plan opens once it is not completed
+begin;
+select qa.make_fixture();
+select qa.make_users();
+select qa.make_plan(qa.id(1001), qa.id(901), 'active');
+select qa.make_plan(qa.id(1002), qa.id(901), 'completed');
+select qa.make_plan(qa.id(1003), qa.id(902), 'completed');
+select qa.make_plan(qa.id(1004), qa.id(901), 'completed');
+-- QT003 also means invalid_state (resume, closed chat): the message tells the causes apart
+create function pg_temp.expect_msg(p_sql text, p_sqlstate text, p_message text, p_label text)
+returns void
+language plpgsql
+as $f$
+begin
+  begin
+    execute p_sql;
+  exception when others then
+    if sqlstate = p_sqlstate and sqlerrm = p_message then
+      return;
+    end if;
+    raise exception 'FAIL [%]: expected SQLSTATE % with the message "%" but got % with "%"', p_label, p_sqlstate, p_message, sqlstate, sqlerrm;
+  end;
+  raise exception 'FAIL [%]: statement succeeded but SQLSTATE % was expected', p_label, p_sqlstate;
+end
+$f$;
+do $$
+declare
+  c0 uuid; c1 uuid; c2 uuid;
+  v_repl uuid;
+  v_snap text;
+begin
+  perform qa.as_user(qa.id(901));
+  -- the account has an open conversation: a revision of its active plan
+  select o.chat_id into c0
+  from public.app_plan_chat_open('ar', 'synthetic goal', '{"kind":"proposal","text":"p","source":"rules"}', qa.id(1001), qa.proposal_json()) o;
+  perform qa.as_owner();
+  v_snap := (select string_agg(id || ':' || status || ':' || proposal_version || ':' || model_turns || ':' || coalesce(closed_at::text, '-'), ',' order by id) from public.plan_chats) || '/' ||
+            (select count(*) from public.plan_chat_messages) || '/' || (select string_agg(id || ':' || status || ':' || current_version, ',' order by id) from public.master_plans);
+
+  -- a completed plan: QT003 with the message plan_not_active, whatever else is passed
+  perform qa.as_user(qa.id(901));
+  perform pg_temp.expect_msg(format($q$select * from public.app_plan_chat_open('ar', null, '{"kind":"proposal","text":"p","source":"rules"}', %L)$q$, qa.id(1002)),
+                             'QT003', 'plan_not_active', 'a completed plan');
+  perform pg_temp.expect_msg(format($q$select * from public.app_plan_chat_open('en', 'synthetic goal', '{"kind":"proposal","text":"p","source":"rules"}', %L, qa.proposal_json())$q$, qa.id(1002)),
+                             'QT003', 'plan_not_active', 'a completed plan with a learner text and a proposal');
+  perform pg_temp.expect_msg(format($q$select * from public.app_plan_chat_open('en', null, '[{"kind":"refusal","text":"r","source":"fixed"},{"kind":"proposal","text":"p","source":"rules"}]', %L, qa.proposal_json())$q$, qa.id(1004)),
+                             'QT003', 'plan_not_active', 'another completed plan of the account');
+  -- another account's completed plan is not visible to A: the composite key refuses it like any foreign plan (nothing is revealed)
+  perform qa.expect_fk(format($q$select * from public.app_plan_chat_open('ar', null, '{"kind":"text","text":"r","source":"rules"}', %L)$q$, qa.id(1003)),
+                       'plan_chats_plan_id_user_id_fkey');
+  -- nothing was saved: the previous chat is still open with its messages, no chat was added, no plan changed
+  perform qa.as_owner();
+  if (select string_agg(id || ':' || status || ':' || proposal_version || ':' || model_turns || ':' || coalesce(closed_at::text, '-'), ',' order by id) from public.plan_chats) || '/' ||
+     (select count(*) from public.plan_chat_messages) || '/' || (select string_agg(id || ':' || status || ':' || current_version, ',' order by id) from public.master_plans) is distinct from v_snap
+     or (select (status, closed_at is null)::text from public.plan_chats where id = c0) <> '(open,t)' then
+    raise exception 'a refused open abandoned the previous chat or left rows behind';
+  end if;
+
+  -- B: its own completed plan is refused the same way; A's completed plan is still a foreign plan to it
+  perform qa.as_user(qa.id(902));
+  perform pg_temp.expect_msg(format($q$select * from public.app_plan_chat_open('en', null, '{"kind":"text","text":"r","source":"rules"}', %L)$q$, qa.id(1003)),
+                             'QT003', 'plan_not_active', 'B on its own completed plan');
+  perform qa.expect_fk(format($q$select * from public.app_plan_chat_open('en', null, '{"kind":"text","text":"r","source":"rules"}', %L)$q$, qa.id(1002)),
+                       'plan_chats_plan_id_user_id_fkey');
+  perform qa.as_owner();
+  if (select count(*) from public.plan_chats where user_id = qa.id(902)) <> 0 then raise exception 'a refused open of B left a chat behind'; end if;
+
+  -- app_resume_plan keeps its own message for a completed plan
+  perform qa.as_user(qa.id(901));
+  perform pg_temp.expect_msg(format('select public.app_resume_plan(%L)', qa.id(1002)), 'QT003', 'invalid_state', 'resume of a completed plan');
+
+  -- a creation conversation is not affected by the account's completed plans (and replaces the revision chat)
+  select o.chat_id, o.replaced_chat_id into c1, v_repl from public.app_plan_chat_open('ar', null, '{"kind":"text","text":"r","source":"rules"}') o;
+  if v_repl is distinct from c0 or (select plan_id from public.plan_chats where id = c1) is not null then
+    raise exception 'the creation conversation differs';
+  end if;
+
+  -- the status is read at the call: once the plan is paused again, the conversation opens on it and replaces the creation chat
+  perform qa.as_owner();
+  update public.master_plans set status = 'paused' where id = qa.id(1002);
+  perform qa.as_user(qa.id(901));
+  select o.chat_id, o.replaced_chat_id into c2, v_repl
+  from public.app_plan_chat_open('en', null, '{"kind":"proposal","text":"p","source":"rules"}', qa.id(1002), qa.proposal_json()) o;
+  perform qa.as_owner();
+  if v_repl is distinct from c1 or (select (plan_id = qa.id(1002), status)::text from public.plan_chats where id = c2) <> '(t,open)'
+     or (select status from public.master_plans where id = qa.id(1002)) <> 'paused'
+     or (select status from public.master_plans where id = qa.id(1004)) <> 'completed' then
+    raise exception 'the conversation on the plan that is no longer completed differs';
+  end if;
+end $$;
+rollback;
+
+-- CHECK: 29 app_plan_chat_confirm, plan completed after the open: the revision is QT003 plan_not_active before anything is written (before a stale expected version, after a stale proposal version), the chat stays open and usable and confirms once the plan is not completed; a creation is not affected by completed plans
+begin;
+select qa.make_fixture();
+select qa.make_users();
+select qa.make_plan(qa.id(1001), qa.id(901), 'paused');
+select qa.make_plan(qa.id(1003), qa.id(901), 'completed');
+select qa.make_plan(qa.id(1002), qa.id(902), 'active');
+-- QT003 also means invalid_state (closed chat, no proposal): the message tells the causes apart
+create function pg_temp.expect_msg(p_sql text, p_sqlstate text, p_message text, p_label text)
+returns void
+language plpgsql
+as $f$
+begin
+  begin
+    execute p_sql;
+  exception when others then
+    if sqlstate = p_sqlstate and sqlerrm = p_message then
+      return;
+    end if;
+    raise exception 'FAIL [%]: expected SQLSTATE % with the message "%" but got % with "%"', p_label, p_sqlstate, p_message, sqlstate, sqlerrm;
+  end;
+  raise exception 'FAIL [%]: statement succeeded but SQLSTATE % was expected', p_label, p_sqlstate;
+end
+$f$;
+do $$
+declare
+  c uuid; c2 uuid;
+  v_snap text;
+begin
+  perform qa.as_user(qa.id(901));
+  select o.chat_id into c
+  from public.app_plan_chat_open('ar', 'synthetic goal', '{"kind":"proposal","text":"p1","source":"rules"}', qa.id(1001), qa.proposal_json(1, 10)) o;
+  if public.app_plan_chat_append(c, '[{"role":"assistant","kind":"proposal","text":"p2","source":"rules"}]', qa.proposal_json(2, 15)) <> 2 then
+    raise exception 'the second proposal did not get version 2';
+  end if;
+  -- the plan completes while the conversation is open (the service writes the status with the learner's token)
+  update public.master_plans set status = 'completed' where id = qa.id(1001);
+  perform qa.as_owner();
+  v_snap := (select string_agg(id || ':' || status || ':' || current_version, ',' order by id) from public.master_plans) || '/' ||
+            (select count(*) from public.plan_versions) || '/' || (select count(*) from public.plan_phases) || '/' || (select count(*) from public.learning_sessions) || '/' ||
+            (select string_agg(id || ':' || status || ':' || proposal_version || ':' || model_turns || ':' || coalesce(closed_at::text, '-'), ',' order by id) from public.plan_chats) || '/' ||
+            (select count(*) from public.plan_chat_messages);
+
+  perform qa.as_user(qa.id(901));
+  -- refused with the message plan_not_active ...
+  perform pg_temp.expect_msg(format($q$select public.app_plan_chat_confirm(%L, 2, qa.plan_args_json())$q$, c), 'QT003', 'plan_not_active', 'confirm after the plan completed');
+  -- ... also with the expected version of the conversation's snapshot, stale or not: the plan's status is tested before its version
+  perform pg_temp.expect_msg(format($q$select public.app_plan_chat_confirm(%L, 2, qa.plan_args_json('{"expected_version": 1}'))$q$, c), 'QT003', 'plan_not_active', 'confirm with the snapshot version');
+  perform pg_temp.expect_msg(format($q$select public.app_plan_chat_confirm(%L, 2, qa.plan_args_json('{"expected_version": 7}'))$q$, c), 'QT003', 'plan_not_active', 'confirm with a stale expected version');
+  -- the proposal version comes first (API-spec E34: the proposal, then the plan): the older proposal is stale, not plan_not_active
+  perform pg_temp.expect_msg(format($q$select public.app_plan_chat_confirm(%L, 1, qa.plan_args_json())$q$, c), 'QT002', 'version_conflict', 'a stale proposal version on a completed plan');
+  -- nothing was written by any of them
+  perform qa.as_owner();
+  if (select string_agg(id || ':' || status || ':' || current_version, ',' order by id) from public.master_plans) || '/' ||
+     (select count(*) from public.plan_versions) || '/' || (select count(*) from public.plan_phases) || '/' || (select count(*) from public.learning_sessions) || '/' ||
+     (select string_agg(id || ':' || status || ':' || proposal_version || ':' || model_turns || ':' || coalesce(closed_at::text, '-'), ',' order by id) from public.plan_chats) || '/' ||
+     (select count(*) from public.plan_chat_messages) is distinct from v_snap
+     or (select (status, closed_at is null, proposal_version)::text from public.plan_chats where id = c) <> '(open,t,2)' then
+    raise exception 'a refused confirmation wrote something or closed the chat';
+  end if;
+
+  -- the chat stays open and usable ...
+  perform qa.as_user(qa.id(901));
+  if public.app_plan_chat_append(c, '[{"role":"learner","kind":"text","text":"still here","source":"learner"}]') <> 2 then
+    raise exception 'the chat does not take messages after the refusal';
+  end if;
+  -- ... and confirms at its version once the plan is not completed (paused again): version 2, 15 minutes, still paused
+  perform qa.as_owner();
+  update public.master_plans set status = 'paused' where id = qa.id(1001);
+  perform qa.as_user(qa.id(901));
+  if public.app_plan_chat_confirm(c, 2, qa.plan_args_json()) <> qa.id(1001) then
+    raise exception 'the confirmation did not return the plan';
+  end if;
+  perform qa.as_owner();
+  if (select (status, current_version, session_minutes)::text from public.master_plans where id = qa.id(1001)) <> '(paused,2,15)'
+     or (select (status, closed_at is not null)::text from public.plan_chats where id = c) <> '(confirmed,t)' then
+    raise exception 'the confirmation after the refusal differs';
+  end if;
+
+  -- a creation conversation is not affected by the account's completed plan: it confirms and that plan stays completed
+  perform qa.as_user(qa.id(901));
+  select o.chat_id into c2 from public.app_plan_chat_open('en', null, '{"kind":"proposal","text":"p","source":"rules"}', null, qa.proposal_json()) o;
+  perform public.app_plan_chat_confirm(c2, 1, qa.plan_args_json());
+  perform qa.as_owner();
+  if (select status from public.master_plans where id = qa.id(1003)) <> 'completed'
+     or (select count(*) from public.master_plans where user_id = qa.id(901) and status = 'active') <> 1
+     or (select status from public.plan_chats where id = c2) <> 'confirmed' then
+    raise exception 'the creation conversation was affected by a completed plan';
+  end if;
+  set constraints all immediate;
+  set constraints all deferred;
+end $$;
+rollback;
+
+-- CHECK: 30 concurrency over dblink (needs the contrib module dblink; commits for real and cleans up): a plan that completes while a revision, a confirmation or an open waits for its row is refused with plan_not_active; a revision or an open that holds the plan first is applied and the completion follows; an open and a confirmation of one conversation lock the chat and then the plan, so they cannot deadlock
+set statement_timeout = '120s';
+select qa.make_fixture();
+select qa.make_users();
+select qa.make_plan(qa.id(101), qa.id(901), 'paused');
+select qa.make_plan(qa.id(102), qa.id(901), 'paused');
+select qa.make_plan(qa.id(103), qa.id(901), 'paused');
+select qa.make_plan(qa.id(104), qa.id(901), 'paused');
+select qa.make_plan(qa.id(105), qa.id(901), 'paused');
+select qa.make_plan(qa.id(106), qa.id(901), 'paused');
+create extension if not exists dblink with schema extensions;
+-- helpers for the two remote connections (session-local, gone with this chunk)
+create function pg_temp.dl_begin(p_conn text, p_user uuid) returns void language plpgsql as $f$
+begin
+  perform extensions.dblink_exec(p_conn, 'begin');
+  perform extensions.dblink_exec(p_conn, 'set local role authenticated');
+  perform * from extensions.dblink(p_conn, format('select set_config(''request.jwt.claim.sub'', %L, true)', p_user::text)) as t(x text);
+end $f$;
+create function pg_temp.dl_query(p_conn text, p_sql text) returns text language plpgsql as $f$
+declare
+  v text;
+begin
+  select t.r into v from extensions.dblink(p_conn, p_sql) as t(r text);
+  return v;
+end $f$;
+-- the result of a statement sent with dblink_send_query: its text, or the error it ended with
+create function pg_temp.dl_result(p_conn text, out res text, out err_state text, out err_message text) language plpgsql as $f$
+begin
+  begin
+    select t.r into res from extensions.dblink_get_result(p_conn) as t(r text);
+  exception when others then
+    err_state := sqlstate;
+    err_message := sqlerrm;
+  end;
+  begin   -- drain the connection
+    perform * from extensions.dblink_get_result(p_conn) as t(r text);
+  exception when others then null;
+  end;
+end $f$;
+do $$
+declare
+  v_conn constant text := 'dbname=' || current_database();
+  a constant uuid := qa.id(901);
+  c uuid;
+  e record;
+begin
+  perform extensions.dblink_connect('c1', v_conn);
+  perform extensions.dblink_connect('c2', v_conn);
+  perform extensions.dblink_exec('c1', 'set statement_timeout = ''60s''');
+  perform extensions.dblink_exec('c2', 'set statement_timeout = ''60s''');
+
+  ---------------------------------------------------------------------------
+  -- 1. app_revise_plan: the plan completes (not yet committed) while a revision of it waits for the row lock
+  ---------------------------------------------------------------------------
+  perform pg_temp.dl_begin('c1', a);
+  perform pg_temp.dl_begin('c2', a);
+  perform pg_temp.dl_query('c1', format($q$update public.master_plans set status = 'completed' where id = %L returning id::text$q$, qa.id(101)));
+  perform extensions.dblink_send_query('c2', format(
+    $q$select public.app_revise_plan(%L, 1, '{"sectionOrdinals":[1]}', array['quran'], 'book', 5::smallint, null, '{}', 'x', '{}', date '2026-10-07', qa.phases_json())::text$q$, qa.id(101)));
+  perform pg_sleep(0.7);
+  if extensions.dblink_is_busy('c2') <> 1 then raise exception 'the revision did not wait for the row lock of the completing plan'; end if;
+  perform extensions.dblink_exec('c1', 'commit');
+  select * into e from pg_temp.dl_result('c2');
+  perform extensions.dblink_exec('c2', 'rollback');
+  if e.err_state is distinct from 'QT003' or e.err_message is distinct from 'plan_not_active' then
+    raise exception 'the revision of the plan that completed ended with % (%), expected QT003 plan_not_active', e.err_state, e.err_message;
+  end if;
+  if (select (status, current_version)::text from public.master_plans where id = qa.id(101)) <> '(completed,1)'
+     or (select count(*) from public.plan_versions where plan_id = qa.id(101)) <> 1 then
+    raise exception 'the revision slipped in before the completion';
+  end if;
+
+  ---------------------------------------------------------------------------
+  -- 2. app_plan_chat_confirm: the same race through a revision conversation
+  ---------------------------------------------------------------------------
+  perform pg_temp.dl_begin('c1', a);
+  c := pg_temp.dl_query('c1', format(
+    $q$select (select o.chat_id from public.app_plan_chat_open('ar', null, '{"kind":"proposal","text":"p","source":"rules"}', %L, qa.proposal_json()) o)::text$q$, qa.id(102)))::uuid;
+  perform extensions.dblink_exec('c1', 'commit');
+  perform pg_temp.dl_begin('c1', a);
+  perform pg_temp.dl_begin('c2', a);
+  perform pg_temp.dl_query('c1', format($q$update public.master_plans set status = 'completed' where id = %L returning id::text$q$, qa.id(102)));
+  perform extensions.dblink_send_query('c2', format($q$select public.app_plan_chat_confirm(%L, 1, qa.plan_args_json())::text$q$, c));
+  perform pg_sleep(0.7);
+  if extensions.dblink_is_busy('c2') <> 1 then raise exception 'the confirmation did not wait for the row lock of the completing plan'; end if;
+  perform extensions.dblink_exec('c1', 'commit');
+  select * into e from pg_temp.dl_result('c2');
+  perform extensions.dblink_exec('c2', 'rollback');
+  if e.err_state is distinct from 'QT003' or e.err_message is distinct from 'plan_not_active' then
+    raise exception 'the confirmation after the completion ended with % (%), expected QT003 plan_not_active', e.err_state, e.err_message;
+  end if;
+  if (select (status, closed_at is null, proposal_version)::text from public.plan_chats where id = c) <> '(open,t,1)'
+     or (select (status, current_version)::text from public.master_plans where id = qa.id(102)) <> '(completed,1)'
+     or (select count(*) from public.plan_versions where plan_id = qa.id(102)) <> 1 then
+    raise exception 'the refused confirmation saved something or closed the chat';
+  end if;
+
+  ---------------------------------------------------------------------------
+  -- 3. the other order: a confirmation holds the plan first, the completion waits for it and follows
+  ---------------------------------------------------------------------------
+  perform pg_temp.dl_begin('c1', a);
+  c := pg_temp.dl_query('c1', format(
+    $q$select (select o.chat_id from public.app_plan_chat_open('ar', null, '{"kind":"proposal","text":"p","source":"rules"}', %L, qa.proposal_json()) o)::text$q$, qa.id(103)))::uuid;
+  perform extensions.dblink_exec('c1', 'commit');
+  perform pg_temp.dl_begin('c1', a);
+  perform pg_temp.dl_begin('c2', a);
+  perform pg_temp.dl_query('c1', format($q$select public.app_plan_chat_confirm(%L, 1, qa.plan_args_json())::text$q$, c));
+  perform extensions.dblink_send_query('c2', format($q$update public.master_plans set status = 'completed' where id = %L returning id::text$q$, qa.id(103)));
+  perform pg_sleep(0.7);
+  if extensions.dblink_is_busy('c2') <> 1 then raise exception 'the completion did not wait for the revision that holds the plan'; end if;
+  perform extensions.dblink_exec('c1', 'commit');
+  select * into e from pg_temp.dl_result('c2');
+  if e.err_state is not null then raise exception 'the completion failed with % (%)', e.err_state, e.err_message; end if;
+  perform extensions.dblink_exec('c2', 'commit');
+  if (select (status, current_version)::text from public.master_plans where id = qa.id(103)) <> '(completed,2)'
+     or (select status from public.plan_chats where id = c) <> 'confirmed' then
+    raise exception 'the revision that held the plan first was not applied before the completion';
+  end if;
+
+  ---------------------------------------------------------------------------
+  -- 4. app_plan_chat_open: the plan completes (not yet committed) while a conversation on it is opened: the open waits for the row, is then refused, and the account's open chat survives
+  ---------------------------------------------------------------------------
+  perform pg_temp.dl_begin('c1', a);
+  c := pg_temp.dl_query('c1', $q$select (select o.chat_id from public.app_plan_chat_open('ar', null, '{"kind":"text","text":"a creation chat","source":"rules"}') o)::text$q$)::uuid;
+  perform extensions.dblink_exec('c1', 'commit');
+  perform pg_temp.dl_begin('c1', a);
+  perform pg_temp.dl_begin('c2', a);
+  perform pg_temp.dl_query('c1', format($q$update public.master_plans set status = 'completed' where id = %L returning id::text$q$, qa.id(104)));
+  perform extensions.dblink_send_query('c2', format(
+    $q$select o::text from public.app_plan_chat_open('ar', null, '{"kind":"proposal","text":"p","source":"rules"}', %L, qa.proposal_json()) o$q$, qa.id(104)));
+  perform pg_sleep(0.7);
+  if extensions.dblink_is_busy('c2') <> 1 then raise exception 'the open did not wait for the row lock of the completing plan'; end if;
+  perform extensions.dblink_exec('c1', 'commit');
+  select * into e from pg_temp.dl_result('c2');
+  perform extensions.dblink_exec('c2', 'rollback');
+  if e.err_state is distinct from 'QT003' or e.err_message is distinct from 'plan_not_active' then
+    raise exception 'the open after the completion ended with % (%), expected QT003 plan_not_active', e.err_state, e.err_message;
+  end if;
+  if (select count(*) from public.plan_chats where plan_id = qa.id(104)) <> 0
+     or (select (status, closed_at is null)::text from public.plan_chats where id = c) <> '(open,t)'
+     or (select count(*) from public.plan_chats where user_id = a and status = 'open') <> 1 then
+    raise exception 'the refused open created a chat or abandoned the open one';
+  end if;
+
+  ---------------------------------------------------------------------------
+  -- 5. the other order: an open holds the plan first (not yet committed), the completion waits for it and follows
+  ---------------------------------------------------------------------------
+  perform pg_temp.dl_begin('c1', a);
+  perform pg_temp.dl_begin('c2', a);
+  c := split_part(trim(both '()' from pg_temp.dl_query('c1', format(
+    $q$select o::text from public.app_plan_chat_open('ar', null, '{"kind":"proposal","text":"p","source":"rules"}', %L, qa.proposal_json()) o$q$, qa.id(105)))), ',', 1)::uuid;
+  perform extensions.dblink_send_query('c2', format($q$update public.master_plans set status = 'completed' where id = %L returning id::text$q$, qa.id(105)));
+  perform pg_sleep(0.7);
+  if extensions.dblink_is_busy('c2') <> 1 then raise exception 'the completion did not wait for the open that holds the plan'; end if;
+  perform extensions.dblink_exec('c1', 'commit');
+  select * into e from pg_temp.dl_result('c2');
+  if e.err_state is not null then raise exception 'the completion failed with % (%)', e.err_state, e.err_message; end if;
+  perform extensions.dblink_exec('c2', 'commit');
+  if (select status from public.master_plans where id = qa.id(105)) <> 'completed'
+     or (select (status, plan_id = qa.id(105))::text from public.plan_chats where id = c) <> '(open,t)' then
+    raise exception 'the open that held the plan first was not kept before the completion';
+  end if;
+
+  ---------------------------------------------------------------------------
+  -- 6. lock order: a confirmation locks the chat row and then the plan row, and an open locks them in the same order, so an open that arrives in between waits instead of deadlocking
+  ---------------------------------------------------------------------------
+  perform pg_temp.dl_begin('c1', a);
+  c := split_part(trim(both '()' from pg_temp.dl_query('c1', format(
+    $q$select o::text from public.app_plan_chat_open('ar', null, '{"kind":"proposal","text":"p","source":"rules"}', %L, qa.proposal_json()) o$q$, qa.id(106)))), ',', 1)::uuid;
+  perform extensions.dblink_exec('c1', 'commit');
+  perform pg_temp.dl_begin('c1', a);
+  perform pg_temp.dl_begin('c2', a);
+  -- c1 does what app_plan_chat_confirm does first: it locks the chat row
+  perform pg_temp.dl_query('c1', format($q$select id::text from public.plan_chats where id = %L for update$q$, c));
+  perform extensions.dblink_send_query('c2', format(
+    $q$select o::text from public.app_plan_chat_open('en', null, '{"kind":"proposal","text":"p","source":"rules"}', %L, qa.proposal_json()) o$q$, qa.id(106)));
+  perform pg_sleep(0.7);
+  if extensions.dblink_is_busy('c2') <> 1 then raise exception 'the open did not wait for the chat row'; end if;
+  -- c1 then does what it does next, it locks the plan row: the waiting open holds no lock on the plan, so nobody deadlocks
+  perform pg_temp.dl_query('c1', format($q$select id::text from public.master_plans where id = %L for update$q$, qa.id(106)));
+  perform extensions.dblink_exec('c1', 'commit');
+  select * into e from pg_temp.dl_result('c2');
+  if e.err_state is not null then raise exception 'the open failed with % (%) instead of waiting', e.err_state, e.err_message; end if;
+  perform extensions.dblink_exec('c2', 'commit');
+  if (select status from public.plan_chats where id = c) <> 'abandoned' or e.res not like '(%,' || c::text || ')' then
+    raise exception 'the open did not replace the chat it had waited for: %', e.res;
   end if;
 
   perform extensions.dblink_disconnect('c1');

@@ -1,8 +1,10 @@
--- STATUS (4 Oct 2026, merge snapshot): applies cleanly after 0001–0005 and has a compact local check set
--- (checks_0006.sql, 6 chunks: privileges, function grants, two-account isolation, one open chat, the
--- tamper guard, app_resume_plan; harness total 97 passed). NOT yet covered: the full open/append/confirm
--- matrix of the three app_plan_chat_* functions (confirm with a real plan commit, stale version, closed
--- chat, replaced chat, message ordinals). No production use before that and the security review.
+-- STATUS (4 Oct 2026, S1-1b): applies cleanly after 0001–0005. checks_0006.sql (30 chunks) covers the
+-- tables, grants, policies and triggers, the four learner functions (the full open/append/confirm matrix
+-- with refusals and atomic rollback, resume, and their interplay), the execution boundary, account
+-- deletion and cascades, and concurrency over dblink; the local harness total is 122 passed. A completed
+-- plan is refused in the database, with QT003 and the message plan_not_active, by app_plan_chat_open, by
+-- the revision path of app_plan_chat_confirm and by app_revise_plan (0005); app_resume_plan keeps
+-- invalid_state. Local checks only: no production use before the security review (Database-schema §11 item 7).
 --
 -- 0006_plan_chats
 --
@@ -25,6 +27,9 @@
 --   * `app_resume_plan` (E30, A-08) is added here although it is not one of the six functions of
 --     §8.3: coordinator decision of 4 October 2026.
 --   * SQLSTATEs as in 0005: QT002 version_conflict, QT003 invalid_state; P0002 no_data_found.
+--     QT003 also carries the message plan_not_active (a completed plan: app_plan_chat_open and
+--     the revision path of app_plan_chat_confirm here, app_revise_plan in 0005); `app_resume_plan`
+--     keeps invalid_state for a completed plan. The message tells the causes apart.
 --   * The model's raw output is never stored; no learner text leaves these tables except through
 --     the owner's own rows. No seed rows.
 
@@ -223,6 +228,11 @@ grant execute on function public.app_resume_plan(uuid) to authenticated;
 -- p_proposal is stored with proposal_version 1. The parameter order differs from the brief
 -- only because PostgreSQL requires every parameter after a defaulted one to have a default:
 -- the optional p_plan and p_proposal come last. A forged or foreign p_plan raises 23503.
+-- A revision conversation needs a plan that can still be revised: a completed p_plan raises
+-- QT003 (plan_not_active, API-spec E31). The plan row is read with a share lock, after the
+-- previous chat row has been locked (the order of app_plan_chat_confirm, so the two cannot
+-- deadlock), so the plan cannot complete before the chat is written. An error rolls back the
+-- whole call: the previous chat is abandoned only when the new one is opened.
 
 create function public.app_plan_chat_open(
   p_language            text,
@@ -238,11 +248,12 @@ set search_path = ''
 as $$
 #variable_conflict use_column
 declare
-  v_uid      uuid := (select auth.uid());
-  v_chat     uuid;
-  v_replaced uuid := null;
-  v_msgs     jsonb;
-  v_ord      integer := 0;
+  v_uid         uuid := (select auth.uid());
+  v_chat        uuid;
+  v_replaced    uuid := null;
+  v_msgs        jsonb;
+  v_ord         integer := 0;
+  v_plan_status text;
 begin
   if v_uid is null then
     raise exception 'not authenticated' using errcode = 'insufficient_privilege';
@@ -264,6 +275,19 @@ begin
    where c.user_id = v_uid
      and c.status = 'open'
   returning c.id into v_replaced;
+
+  -- a completed plan cannot be revised (E17, E31); an unknown or foreign plan is not seen here
+  -- (the caller's own rows only) and is refused by the composite key below (23503)
+  if p_plan is not null then
+    select mp.status into v_plan_status
+    from public.master_plans mp
+    where mp.id = p_plan
+      and mp.user_id = v_uid
+    for share;
+    if v_plan_status = 'completed' then
+      raise exception 'plan_not_active' using errcode = 'QT003';
+    end if;
+  end if;
 
   insert into public.plan_chats (user_id, plan_id, status, language, proposal, proposal_version)
   values (v_uid, p_plan, 'open', p_language, p_proposal, case when p_proposal is null then 0 else 1 end)
@@ -375,8 +399,11 @@ grant execute on function public.app_plan_chat_append(uuid, jsonb, jsonb, intege
 --   reason_code, policy_json?, effective_learning_date, phases (array, as app_create_plan),
 --   sessions? and plan_id? (creation only), expected_version? (revision only; default: the
 --   plan's current version).
--- A chat without a proposal raises QT003. Any failing step rolls the whole call back, so a
--- chat is never closed without its plan.
+-- A chat without a proposal raises QT003. A revision of a completed plan raises QT003 too, with
+-- the message plan_not_active (API-spec E34 item 4), before anything is written: the plan row is
+-- locked after the chat row and tested under that lock, so a concurrent completion cannot slip in
+-- between the test and the revision (app_revise_plan repeats the test for its other callers).
+-- Any failing step rolls the whole call back, so a chat is never closed without its plan.
 
 create function public.app_plan_chat_confirm(
   p_chat                      uuid,
@@ -389,19 +416,21 @@ security invoker
 set search_path = ''
 as $$
 declare
-  v_uid      uuid := (select auth.uid());
-  v_status   text;
-  v_plan     uuid;
-  v_proposal jsonb;
-  v_version  integer;
-  v_paths    text[];
-  v_scope    jsonb;
-  v_minutes  smallint;
-  v_pref     date;
-  v_order    text;
-  v_estimate jsonb;
-  v_expected integer;
-  v_result   uuid;
+  v_uid          uuid := (select auth.uid());
+  v_status       text;
+  v_plan         uuid;
+  v_proposal     jsonb;
+  v_version      integer;
+  v_paths        text[];
+  v_scope        jsonb;
+  v_minutes      smallint;
+  v_pref         date;
+  v_order        text;
+  v_estimate     jsonb;
+  v_expected     integer;
+  v_result       uuid;
+  v_plan_status  text;
+  v_plan_version integer;
 begin
   if v_uid is null then
     raise exception 'not authenticated' using errcode = 'insufficient_privilege';
@@ -444,9 +473,18 @@ begin
       (p_plan_args ->> 'effective_learning_date')::date, p_plan_args -> 'phases',
       p_plan_args -> 'sessions', (p_plan_args ->> 'plan_id')::uuid);
   else
-    v_expected := coalesce(
-      (p_plan_args ->> 'expected_version')::integer,
-      (select mp.current_version from public.master_plans mp where mp.id = v_plan and mp.user_id = v_uid));
+    -- the plan row is locked from here to the end of the transaction, after the chat row (the
+    -- order of app_plan_chat_open): its status and version cannot change before the revision
+    select mp.status, mp.current_version into v_plan_status, v_plan_version
+    from public.master_plans mp
+    where mp.id = v_plan
+      and mp.user_id = v_uid
+    for update;
+    if v_plan_status = 'completed' then
+      raise exception 'plan_not_active' using errcode = 'QT003';
+    end if;
+
+    v_expected := coalesce((p_plan_args ->> 'expected_version')::integer, v_plan_version);
     perform public.app_revise_plan(
       v_plan, v_expected, v_scope, v_paths, v_order, v_minutes, v_pref, v_estimate,
       p_plan_args ->> 'reason_code', coalesce(p_plan_args -> 'policy_json', '{}'::jsonb),
