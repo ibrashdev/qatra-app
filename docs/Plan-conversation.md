@@ -55,7 +55,7 @@ Earlier the same day the owner asked that the plan screen be titled «ما هي 
 
 ### 1.4 Open points resolved by this amendment
 
-UQ-01 and UQ-02 of [UI-design.md](UI-design.md) §9.3 are answered; contract §11 "English religious labels" stays open (unchanged); API-spec [O-17] (placement persistence for revisions) is resolved in §2.3 below.
+UQ-01 and UQ-02 of [UI-design.md](UI-design.md) §9.3 are answered; contract §11 "English religious labels" stays open (unchanged); API-spec [O-17] (placement persistence for revisions) is resolved in §2.3 below. UG-04 of UI-design.md (the version of a completed plan for maintenance reviews) is resolved by adding `currentVersion: number` to `PlanProgress` (E19) in the API-spec v1.2 and contract v1.5 amendments of §4, so the client can open an E20 `daily` session on a completed plan with the right `expectedPlanVersion`.
 
 ## 2. Architecture amendment
 
