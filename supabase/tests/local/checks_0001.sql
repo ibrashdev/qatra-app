@@ -715,7 +715,8 @@ begin
 
   -- passages.path
   perform qa.expect_check($q$update public.passages set path = 'bogus' where id = qa.id(9)$q$, 'passages_path_check');
-  foreach v in array array['quran', 'matn', 'sanad', 'grade'] loop
+  -- five paths: quran and the four hadith paths (owner decision 4 Oct 2026, D75 pending register update)
+  foreach v in array array['quran', 'matn', 'sanad', 'takhrij', 'grade'] loop
     perform qa.expect_ok(format('update public.passages set path = %L where id = qa.id(9)', v), 'passages.path ' || v);
   end loop;
 
