@@ -1,10 +1,12 @@
 # Qatra — API Specification (`/api`)
 
-Version 1 · 2026-10-04 · Status: Needs Review — awaiting owner approval (architecture phase)
+Version 1.1 · 2026-10-04 · Status: Needs Review — awaiting owner approval at gate G0 (architecture phase)
 
 Owner of this draft: Solutions Architect (Role 3), for the root coordinator. This is design documentation only: no endpoint exists, every application path is Planned (D61), and implementation is not authorized until the architecture deliverables are presented and explicitly approved (D69).
 
-**Contents:** [0 Scope and authority](#0-scope-authority-and-how-to-read-this-file) · [1 Conventions](#1-conventions) · [2 Access matrix](#2-access-matrix) · [3 Common session validation](#3-server-side-validation-rules-common-to-sessions) · [4 Endpoints E01–E29](#4-endpoint-specifications) · [5 Operator CLI](#5-operator-cli-interface-no-http) · [6 Keep-awake job](#6-keep-awake-job-interface-d72) · [7 Traceability](#7-traceability) · [8 Differences and open points](#8-differences-between-sources-and-open-points)
+**Version 1.1 (4 October 2026).** The coordinator consistency pass resolved differences C-02..C-15 and the open points per §8, and items marked "owner confirms" remain questions in the approval request (Q1–Q7), so no approval is implied.
+
+**Contents:** [0 Scope and authority](#0-scope-authority-and-how-to-read-this-file) · [1 Conventions](#1-conventions) · [2 Access matrix](#2-access-matrix) · [3 Common session validation](#3-server-side-validation-rules-common-to-sessions) · [4 Endpoints E01–E30](#4-endpoint-specifications) · [5 Operator CLI](#5-operator-cli-interface-no-http) · [6 Keep-awake job](#6-keep-awake-job-interface-d72) · [7 Traceability](#7-traceability) · [8 Differences and open points](#8-differences-between-sources-and-open-points)
 
 ## 0. Scope, authority and how to read this file
 
@@ -22,11 +24,11 @@ Where sources differ, the contract plus the D-decisions are followed and the dif
 
 **Status vocabulary.** This file is `Needs Review`. Nothing in it is `Approved`, `Implemented` or `Verified`.
 
-**Numbers.** A number appears only if it is in an approved document or the contract. Anything else is marked `[O-xx]` and listed in §8.2. A gap-filling choice by the architect is labelled **Proposed** and always carries an `[O-xx]`.
+**Numbers.** A number appears only if it is in an approved document or the contract. Anything else is marked `[O-xx]` and listed in §8.2. A gap-filling choice by the architect is labelled **Proposed** and always carries an `[O-xx]`. In version 1.1 the architect decisions on these points are recorded in §8.2 as **Decided (A-xx; Needs Review at G0)**; the numbers among them are configuration defaults, not approved numbers, and only the owner can approve them.
 
-**Notation.** `E01`–`E29` identify operations. DTO type names (`Profile`, `Plan`, `SessionSnapshot`, …) are the contract §7 names. A response shape that has no contract type name is written inline. Paths are always written in full, with the `/api` prefix.
+**Notation.** `E01`–`E30` identify operations. DTO type names (`Profile`, `Plan`, `SessionSnapshot`, …) are the contract §7 names. A response shape that has no contract type name is written inline. Paths are always written in full, with the `/api` prefix.
 
-**Inventory.** 29 HTTP operations: the 28 operations of contract §7 (GET and PATCH `/me` counted separately) plus `GET /api/health/ready` (directive 1).
+**Inventory.** 30 HTTP operations: the 28 operations of contract §7 (GET and PATCH `/me` counted separately), plus `GET /api/health/ready` (directive 1), plus E30 `POST /api/plans/:id/resume` (a proposed contract v1.4 amendment; owner confirms, Q5). Under the same proposed amendment E13 is `POST /api/account/delete` (§8.3).
 
 **Not specified here.**
 
@@ -64,7 +66,7 @@ Where sources differ, the contract plus the D-decisions are followed and the dif
 
 - A resource addressed by id is resolved **inside the caller's own rows**. An unknown id and another learner's id both return `404 not_found` and are indistinguishable (never `403`, never an existence leak).
 - Row-level security (`user_id = (select auth.uid())`, composite parent foreign keys) is the second layer. The API checks scope, plan, edition and ownership itself regardless of RLS (Architecture-and-data «RLS والحدود»).
-- A role-based denial (a learner calling a demo-only endpoint, or a demo account calling a learner-only endpoint) returns `403`. The contract has no code for it: **Proposed** `forbidden` [O-05].
+- A role-based denial (a learner calling a demo-only endpoint, or a demo account calling a learner-only endpoint) returns `403`. Contract v1.3 has no code for it: the code is `forbidden` (decided, A-12; proposed contract v1.4 amendment, item 5; Needs Review at G0) [O-05].
 
 **Database roles** (directive 7; contract §3.2, §8):
 
@@ -73,7 +75,7 @@ Where sources differ, the contract plus the D-decisions are followed and the dif
 | `anon` | published catalog metadata only (a `public.catalog_*` view or column-level grants); no access to units, passages, parts, lessons or questions | E14 |
 | `authenticated` (the user's JWT, held only by the backend) | the learner's own rows under RLS | learner data of every Session endpoint |
 | `qatra_server` (separate limited login role, secret `QATRA_SERVER_DB`) | `EXECUTE` on `srv_*` SECURITY DEFINER functions only: account lookup, session lookup and verification, logout, password change, recovery-code rotation, throttling, and the other `private.*` access in register, recovery and delete | E02 (`select 1`), E03–E10, E13, E26, and session validation on every Session/Demo endpoint |
-| `service_role` | Supabase Auth Admin API (create user, reset password by recovery, delete account) and content publishing only | E03, E07, E13, E26; CLI `publish`; never `srv_*` functions, never learner requests |
+| `service_role` | Supabase Auth Admin API (create user, reset password by recovery, delete account) and content publishing only | E03, E07, E13, E26; CLI `publish` and `withdraw`; never `srv_*` functions except `srv_redact_revoked_content` (CLI `withdraw`, A-04), never learner requests |
 
 ### 1.5 Error envelope and error codes
 
@@ -96,21 +98,21 @@ Every error from the application uses one envelope (contract §7):
 | 403 | `forbidden_origin` | `Origin` differs from `FRONTEND_ORIGIN` on a mutation |
 | 404 | `not_found` | unknown or not-owned resource |
 | 409 | `username_taken` | the normalized username already exists |
-| 409 | `version_conflict` | an `expectedVersion` or `expectedPlanVersion` mismatch, an idempotent id reused with different input, a plan that is not active, a race on the one-active-plan rule; always with `details.reason` |
+| 409 | `version_conflict` | an `expectedVersion` or `expectedPlanVersion` mismatch (including a stale plan version on an offline snapshot, C-11), an idempotent id reused with different input, a plan that is not active, a race on the one-active-plan rule; always with `details.reason` |
 | 422 | `validation_error` | schema or rule violation, forbidden field, invalid reference, scope or edition |
 | 429 | `throttled` | auth throttle or another rate limit |
 | 500 | `internal` | unexpected failure (safe message, no details) |
 | 503 | `unavailable` | database, Supabase Auth or another dependency unavailable; readiness failure |
 
-**Not in the contract — Proposed [O-05]:** `forbidden` (403, role-based denial) and `payload_too_large` (413, body above the limit of [O-01]).
+**Not in contract v1.3 — decided (A-12, 4 Oct 2026; proposed contract v1.4 amendment, item 5; Needs Review at G0) [O-05]:** `forbidden` (403, role-based denial) and `payload_too_large` (413, body above the 64 KiB cap of §1.7).
 
-**`details` shapes — Proposed [O-05]** (the contract defines only `{}`):
+**`details` shapes — decided (A-12; proposed contract v1.4 amendment, item 5) [O-05]** (contract v1.3 defines only `{}`):
 
 | Code | `details` |
 |---|---|
 | `validation_error` | `{"fields":[{"field":"events[3].correct","rule":"forbidden_field"}]}`; values are never echoed |
 | `version_conflict` | `{"reason":"plan_version","currentVersion":3}`; reasons used in this file: `plan_version`, `idempotency_input`, `plan_not_active`, `estimate_changed`, `active_plan_conflict` |
-| `throttled` | `{"retryAfterSec":900}` and a `Retry-After` header |
+| `throttled` | `{"retryAfterSec":900}` and a `Retry-After` header on every `429` (A-12) |
 | `terms_required` | `{"requiredVersion":"2026-10-04"}` |
 
 Framework-generated errors (unknown route, wrong method, wrong content type, unparsable JSON) are converted into the envelope (`not_found` for 404/405, `validation_error` for 415 and for unparsable JSON). Errors produced by Vercel or Render themselves (gateway timeouts, 502/503 from a sleeping free server) are **not** in the envelope; the client treats them as connectivity (§1.11).
@@ -121,10 +123,10 @@ Framework-generated errors (unknown route, wrong method, wrong content type, unp
 |---|---|---|
 | `clientEventId` (UUID) | E21 | unique per account (`attempts` and `session_activity_intervals`: `unique(user_id, client_event_id)`); a repeat is listed in `duplicate` and has no second effect |
 | `clientOperationId` (UUID) | E23 | `unique(user_id, client_operation_id)`; same input → `200` with the same snapshot; changed input → `409 version_conflict` (`idempotency_input`) |
-| get-or-create | E20 `kind=daily` | returns the open session of today's learning date |
+| get-or-create | E20 `kind=daily` | atomic (A-01): returns the open session of today's learning date (`200`) or creates one (`201`) |
 | naturally idempotent | E05 (same version), E10, E22 | a repeat returns the same result; no second effect |
 | optimistic version | E17 `expectedVersion`; E20, E23 `expectedPlanVersion` | mismatch → `409 version_conflict` with `details.currentVersion`; E25 reports `stale` in its body instead |
-| `Idempotency-Key` header | none | contract §7 says mutations accept it "where noted" but notes no endpoint [O-06]; E22 accepts an optional UUID header (PWA-design §5: stable operation id) |
+| `Idempotency-Key` header | none required | contract §7 says mutations accept it "where noted" but notes no endpoint; E22 accepts an optional UUID header only (PWA-design §5: stable operation id; proposed contract v1.4 amendment, item 6); no required key in v1 stays open, deferred [O-06] |
 | none | E03, E16, E20 (`game`, `placement`), E26, E28 | each call creates; the client must not retry automatically [O-20] |
 
 Database constraints are the final arbiter (partial unique index on `master_plans(user_id) where status='active'`, unique event ids, unique `(user_id, client_operation_id)`); a service never relies on read-then-write alone.
@@ -156,33 +158,51 @@ Database constraints are the final arbiter (partial unique index on `master_plan
 | Warm latency targets | p95 ≤ 500 ms (read), ≤ 800 ms (write); targets, not SLAs | NFR-03 |
 | Users | at most 10 in total, hence ≤ 10 concurrent | D67, D72, NFR-04 |
 
-**Not approved, therefore open:** request body size and field caps [O-01]; request timeouts [O-02]; rate limits other than the auth throttle [O-03]; progressive-delay values [O-04]; `downloadTargetRefs` count and snapshot size [O-25]; `durationMs` upper bound [O-22].
+**Configuration defaults (A-12), not approved numbers.** These values are architect decisions (Needs Review at G0), held as tunable configuration and not as code constants. They are not approvals of numbers by the owner.
+
+| Item | Default | Source |
+|---|---|---|
+| Request body size | 64 KiB globally; larger → `413 payload_too_large` | A-12 [O-01] |
+| `downloadTargetRefs` (E23) | ≤ 60 entries | A-12 [O-25] |
+| `passageIds` (E20 `game`) | ≤ 60 entries | A-12 [O-01] |
+| `targetScope.sectionOrdinals` | ≤ 40 entries | A-12 [O-01] |
+| `durationMs` of an answer event | ≤ 30 minutes; the 30-minute bound applies to `endedAt − startedAt` of an activity event | A-12 [O-22], [O-23] |
+| Prepared sessions per snapshot (E23) | at most 7 | A-12 [O-25] |
+| `ProgressResponse.history` (E19) | the last 30 learning days | A-12 [O-09] |
+| Auth throttle detail | one-minute buckets, so "5 failures in 15 minutes" is a sliding sum; after the 5th failure the delay is 1, 2, 4, 8 s, then 10 s per failure (cap 60 s); a successful login clears the username key; failed password checks on E08, E09 and E13 count under the same username key; registrations do not count | A-03 [O-04] |
+| Throttle row purge | opportunistic and bounded (`DELETE … LIMIT 100` via a ctid subselect) inside `srv_throttle_record`, for rows with `window_start < now() - interval '24 hours'`; no scheduled job | A-03 [O-04] |
+| Keep-awake retry | 1, 2, 4, 8 s, then 10 s steps, up to 90 s | A-06 [O-29] |
+| Per-IP rate limits | see §1.8 | A-12 [O-03] |
+
+**Still open:** request timeouts [O-02], deferred to B0 (verify during the build).
 
 ### 1.8 Rate-limit classes
 
-Only the auth throttle has approved numbers. Every other limit is open [O-03].
+Only the auth throttle has approved numbers. The per-IP values below are configuration defaults (A-12), not approved numbers; they count requests per client IP per minute [O-03].
 
 | Class | Operations | Limit |
 |---|---|---|
-| Auth throttle | E04, E06 (coverage of E07, E08, E09, E13: [O-04]) | 5 failures in 15 min → progressive delay; 20 failures → `429` for 15 min; keys = `HMAC(QATRA_THROTTLE_HMAC_KEY, normalized username)` and `HMAC(…, IP /24 or /48 prefix from the trusted proxy)`; values stored are hashes, never the name or the IP |
-| Liveness | E01 | no database, no authentication; limit [O-03] |
-| Readiness | E02 | rate-limited (directive 1); number [O-03] |
-| Public read | E14 | [O-03] |
-| Anonymous entry | E03, E26 | [O-03] |
-| Session read | E11, E15, E18, E19, E24 | [O-03] |
-| Session write | E05, E08, E09, E10, E12, E13, E16, E17, E20, E21, E22, E23, E25 | [O-03] |
-| Demo | E27, E28, E29, plus the usage and budget limit of D29 | [O-03] |
+| Auth throttle | E04, E06, and failed password checks on E08, E09, E13 under the same username key (A-03) | 5 failures in 15 min → progressive delay (1, 2, 4, 8 s, then 10 s per failure, cap 60 s); 20 failures → `429` for 15 min; a successful login clears the username key; registrations do not count; keys = `HMAC(QATRA_THROTTLE_HMAC_KEY, normalized username)` and `HMAC(…, IP /24 or /48 prefix from the trusted proxy)`; values stored are hashes, never the name or the IP |
+| Liveness | E01 | no database, no authentication; A-12 sets no separate number |
+| Readiness | E02 | 6 per client IP per minute (configuration default, A-12) |
+| Public read | E14 | 60 per client IP per minute (configuration default, A-12) |
+| Anonymous entry | E03, E26 | 10 per client IP per minute (configuration default, A-12) |
+| Session read | E11, E15, E18, E19, E24 | 120 per client IP per minute (configuration default, A-12) |
+| Session write | E05, E08, E09, E10, E12, E13, E16, E17, E20, E21, E22, E23, E25, E30 | 60 per client IP per minute (configuration default, A-12) |
+| Demo | E27, E28, E29, plus the usage and budget limit of D29 | A-09 (owner confirms or gives numbers, Q6): at most 5 demo accounts per client IP per day (E26); at most 10 `POST /demo/plans` per demo account per day (E28); demo Teaching-Agent calls draw on a configured daily free budget and fall back to the rules engine when it is exhausted (D54/D60). Values are configuration, not code |
 
-A limited request gets `429 throttled` with `Retry-After` (seconds). Capacity assumption: at most 10 users (NFR-04); a limit that is reached never triggers a paid fallback (D60).
+Every `429 throttled` carries a `Retry-After` header (seconds; A-12). Capacity assumption: at most 10 users (NFR-04); a limit that is reached never triggers a paid fallback (D60).
 
 ### 1.9 Cache-Control
 
 | Responses | `Cache-Control` |
 |---|---|
-| All Anonymous-entry, Session and Demo operations (E03–E13 and E15–E29) | `no-store` (personal and offline data; Authentication-and-privacy, PWA-design §5) |
+| All Anonymous-entry, Session and Demo operations (E03–E13 and E15–E30) | `no-store` (personal and offline data; Authentication-and-privacy, PWA-design §5) |
 | E24 (snapshot download) | `no-store` (contract §7) |
-| E01, E02 | `no-store` — **Proposed** [O-07]: they are wake-up and keep-alive probes and must always reach the origin |
-| E14 (catalog metadata) | `no-store` until [O-07] decides whether short public caching is allowed |
+| E01, E02 | `no-store`: they are wake-up and keep-alive probes and must always reach the origin |
+| E14 (catalog metadata) | `no-store`; public catalog caching is deferred |
+
+`Cache-Control: no-store` applies everywhere in v1 (A-12, decision on [O-07]).
 
 The service worker never caches `/api/*` (network-only, PWA-design §3) and no CDN caches API responses.
 
@@ -221,7 +241,7 @@ The server clock is the only clock the server trusts. `occurredAt`, `startedAt`,
 
 ### 1.13 Lists, pagination and filtering
 
-The contract defines no query parameters on any endpoint. Version 1 therefore has **no pagination, filtering or sorting parameters**. Every list is bounded by content or fixtures: 2 editions in this build, 37 surah sections (78–114) and 42 hadith sections, and the demo fixtures. The order of list items and the length of `ProgressResponse.history` are open [O-09].
+The contract defines no query parameters on any endpoint. Version 1 therefore has **no pagination, filtering or sorting parameters**. Every list is bounded by content or fixtures: 2 editions in this build, 37 surah sections (78–114) and 42 hadith sections, and the demo fixtures. Editions (E14) are ordered by category display order, then `editionKey`, and `ProgressResponse.history` holds the last 30 learning days (A-12, decision on [O-09]).
 
 ## 2. Access matrix
 
@@ -231,13 +251,13 @@ The contract defines no query parameters on any endpoint. Version 1 therefore ha
 |---|---|---|
 | **P — Public** | no session; read-only `GET`; no personal data. Visitors (unregistered) get the catalog **metadata only** (D71) | E01, E02, E14 |
 | **A — Anonymous entry** | no session yet; state-changing; Origin check and auth throttle apply. Needed because PRD v14 lets a visitor register, log in, recover an account and create a demo account [C-13] | E03, E04, E06, E07, E26 |
-| **S — Session** | a valid `__Host-qatra_session`; any account, learner or demo account (D71 "same as learners") unless the notes say otherwise | E05, E08–E13, E15–E25 |
+| **S — Session** | a valid `__Host-qatra_session`; any account, learner or demo account (D71 "same as learners") unless the notes say otherwise | E05, E08–E13, E15–E25, E30 |
 | **D — Demo session** | a valid session whose account has `is_demo = true`, set by the server only; anything else gets `403` | E27, E28, E29 |
 | **O — Operator CLI** | no HTTP at all. Developer tools run by the content manager (the owner) and the reviewer (the owner, D71); `service_role` limited to publishing | the CLI commands of §5 |
 
 ### 2.2 Operation matrix
 
-`yes` allowed · `401` = `unauthenticated` · `403` = role denial with the **Proposed** code `forbidden` [O-05] · `—` not applicable.
+`yes` allowed · `401` = `unauthenticated` · `403` = role denial with the code `forbidden` (decided, A-12; proposed contract v1.4 amendment, item 5) [O-05] · `—` not applicable.
 
 | ID | Operation | Level | Visitor | Learner | Demo account | Notes |
 |---|---|---|---|---|---|---|
@@ -253,9 +273,9 @@ The contract defines no query parameters on any endpoint. Version 1 therefore ha
 | E10 | `POST /api/auth/logout` | S | yes | yes | yes | tolerates a missing or invalid session [O-14] |
 | E11 | `GET /api/me` | S | 401 | yes | yes | |
 | E12 | `PATCH /api/me` | S | 401 | yes | yes | `isDemo` is read-only |
-| E13 | `DELETE /api/account` | S | 401 | yes | yes | D71: demo accounts allowed |
+| E13 | `POST /api/account/delete` | S | 401 | yes | yes | D71: demo accounts allowed; replaces `DELETE /api/account` (A-10, proposed contract v1.4 amendment) |
 | E14 | `GET /api/catalog` | P | yes | yes | yes | metadata only for everyone (D71) |
-| E15 | `POST /api/plans/estimate` | S | 401 | yes | [O-19] | read-only |
+| E15 | `POST /api/plans/estimate` | S | 401 | yes | yes | read-only; demo accounts allowed (C-15) |
 | E16 | `POST /api/plans` | S | 401 | yes | 403 | a demo plan is created only through E28 (PRD roles matrix) |
 | E17 | `POST /api/plans/:id/revise` | S | 401 | yes | yes | D71: demo accounts may revise |
 | E18 | `GET /api/today` | S | 401 | yes | yes | own rows only |
@@ -270,6 +290,7 @@ The contract defines no query parameters on any endpoint. Version 1 therefore ha
 | E27 | `GET /api/demo/scenarios` | D | 401 | 403 | yes | |
 | E28 | `POST /api/demo/plans` | D | 401 | 403 | yes | synthetic data only |
 | E29 | `GET /api/demo/simulations` | D | 401 | 403 | yes | read-only fixtures |
+| E30 | `POST /api/plans/:id/resume` | S | 401 | yes | 403 | learner only; demo plans are managed through E28; proposed contract v1.4 amendment, owner confirms (Q5) |
 | — | CLI `acquire` … `delete-unused-draft` (§5) | O | no HTTP | no HTTP | no HTTP | content manager and reviewer only |
 
 ### 2.3 Cross-check against the PRD v14 roles matrix
@@ -289,7 +310,7 @@ The contract defines no query parameters on any endpoint. Version 1 therefore ha
 | Read other accounts' data | none | no operation exists; RLS and `404` |
 | Feedback and manager inbox (conditional) | not specified (§0) | outside this version |
 
-Deviations to review: the extra level **A** [C-13]; the **Proposed** `forbidden` code [O-05]; E15 for demo accounts [O-19].
+Deviations to review: the extra level **A** [C-13]; the `forbidden` code [O-05] and E15 for demo accounts [O-19] (decided, A-12 and C-15; Needs Review at G0); E30 (proposed contract v1.4 amendment, owner confirms, Q5).
 
 ## 3. Server-side validation rules common to sessions
 
@@ -302,14 +323,14 @@ These rules apply to E20 (session creation), E21 (events), E22 (completion) and,
 **S-2 Edition, bank version and scope.**
 - Every passage and question that is addressed must belong to (a) the session's `editionId`, (b) its pinned `bankVersion`, and (c) for `daily` and `game` sessions, the active plan's `targetScope.sectionOrdinals` and selected `paths`; for `placement`, the requested `editionId` and `targetScope`.
 - Option and distractor references from the same edition may lie outside the scope (technical distractors, D31) but are never test targets.
-- New plans, placement sessions and snapshots require an edition that is `published`, not revoked and not hidden. Sessions of an existing plan stay valid while the edition is published and not revoked (hiding only stops new selection, D44; superseded editions: [O-30]). A revoked edition is never served, even inside a pinned plan or a device snapshot (D44, D58).
+- New plans, placement sessions and snapshots require an edition that is `published`, not revoked and not hidden. Sessions of an existing plan stay valid while the edition is published and not revoked (hiding only stops new selection, D44); learners read editions with status `published` or `superseded` and the `bank_version` pinned by their plan version (A-02, decision on [O-30]). A revoked edition is never served, even inside a pinned plan or a device snapshot (D44, D58).
 - A violation is `422 validation_error` (rule `out_of_scope` or `edition_not_available`) at creation, and a per-event `rejected` entry in E21 [O-21].
 
 **S-3 Question identity.** A session is an immutable snapshot (`learning_sessions.steps`). An answer event's `questionId` must be a question step of that very session. The bank is never consulted for ids outside the snapshot.
 
 **S-4 Plan state.**
-- E20 (`daily`, `game`) and E23 require the plan to be `active` and `expectedPlanVersion` to equal the plan's `current_version`; otherwise `409 version_conflict`. Online events of E21 (events without the offline envelope) require the session's plan to be `active`; otherwise the event is rejected individually.
-- Starting another plan pauses the current one; a paused plan accepts no new session.
+- E20 (`daily`, `game`) and E23 require the plan to be `active` (an E20 `daily` session on a `completed` plan serves maintenance reviews only, no new passages, A-08) and `expectedPlanVersion` to equal the plan's `current_version`; otherwise `409 version_conflict`. Online events of E21 (events without the offline envelope) require the session's plan to be `active`; otherwise the event is rejected individually.
+- Starting another plan pauses the current one; a paused plan accepts no new session until it is resumed (E30).
 - Events replayed with the offline envelope are validated in their **original** plan and version, never moved to another plan (D59). An event that cannot be verified stays `pending` without credit.
 
 **S-5 Answer grading.**
@@ -413,8 +434,8 @@ Compact `Profile` used in examples (illustrative values; the initial `sessionMin
 
 | Field | Type | Required | Rules |
 |---|---|---|---|
-| `username` | string | yes | 3–24 characters; only Arabic or English letters, digits and underscore; spaces and invisible characters rejected; uniqueness is checked on the NFKC-normalized name with Latin letters lowercased; no other folding (no Arabic letter folding; `arabic-norm-v1` is for grading only). Exact Unicode classes and the point where length is counted: [O-11] |
-| `password` | string | yes | at least 15 Unicode characters and at most 72 bytes in UTF-8; checked by server and UI; never truncated or normalized; pasting and password managers allowed; no composition rules and no periodic rotation. Character counting method: [O-11] |
+| `username` | string | yes | 3–24 characters; only Arabic or English letters, digits and underscore; spaces and invisible characters rejected; uniqueness is checked on the NFKC-normalized name with Latin letters lowercased; no other folding (no Arabic letter folding; `arabic-norm-v1` is for grading only). Classes (A-12, decision on [O-11]): Arabic letters U+0621–U+064A and English letters, digits 0–9 and Arabic-Indic digits ٠–٩ (mapped to ASCII before storage), underscore; the 3–24 length is counted after NFKC |
+| `password` | string | yes | at least 15 Unicode characters and at most 72 bytes in UTF-8; checked by server and UI; never truncated or normalized; pasting and password managers allowed; no composition rules and no periodic rotation. Characters are counted as Unicode code points (A-12, decision on [O-11]) |
 | `timeZone` | string | yes | IANA time zone name (taken from the browser) |
 | `language` | `ar` or `en` | yes | UI language |
 | `termsAccepted` | boolean | yes | must be exactly `true` |
@@ -436,7 +457,7 @@ Compact `Profile` used in examples (illustrative values; the initial `sessionMin
 | 503 | `unavailable` | Supabase Auth or database unavailable |
 | 500 | `internal` | unexpected |
 
-**Side effects:** `auth.users` (alias `u.<uuid4>@qatra.invalid`, `email_confirm = true`); `private.account_handles` (`username_display`, `username_normalized`, `internal_auth_alias`, `auth_epoch`, `is_demo = false`); `public.profiles` (`language`, `time_zone`, `terms_version`, `terms_accepted_at` = server time, `session_minutes` default [O-13], `reminder_settings` default); `private.recovery_codes` (HMAC-SHA-256 fingerprint under `QATRA_RECOVERY_HMAC_KEY`; the raw code is never stored); `private.app_sessions` (new session). No password column exists in application tables. The Auth user and the application rows succeed together or are compensated: no usable Auth user is left without application rows.
+**Side effects:** `auth.users` (alias `u.<uuid4>@qatra.invalid`, `email_confirm = true`); `private.account_handles` (`username_display`, `username_normalized`, `internal_auth_alias`, `auth_epoch`, `is_demo = false`); `public.profiles` (`language`, `time_zone`, `terms_version`, `terms_accepted_at` = server time, `session_minutes` default 10 (A-07, decision on [O-13]), `reminder_settings` default); `private.recovery_codes` (HMAC-SHA-256 fingerprint under `QATRA_RECOVERY_HMAC_KEY`; the raw code is never stored); `private.app_sessions` (new session). No password column exists in application tables. The Auth user and the application rows succeed together or are compensated: no usable Auth user is left without application rows.
 
 **Idempotency/concurrency:** none; the unique `username_normalized` constraint decides a race (`409` for the loser). If the response is lost after commit, the learner logs in and rotates the recovery code (E08). The client does not retry automatically.
 
@@ -475,7 +496,7 @@ Compact `Profile` used in examples (illustrative values; the initial `sessionMin
 - The username is normalized (NFKC, Latin lowercase) for lookup.
 - The throttle is checked **before** the credentials: a locked key returns `429` even for a correct password (no oracle).
 - Success creates a fresh session (any existing cookie is replaced) bound to the account's current `auth_epoch`.
-- `reconsentRequired` is `true` when the stored `terms_version` is older than the current `TERMS_VERSION`; the session is still created, and what it may do until consent is open [O-10].
+- `reconsentRequired` is `true` when the stored `terms_version` is older than the current `TERMS_VERSION`; the session is still created, and until consent every operation except E01, E02, E05, E10, E11 and E14 answers `400 terms_required` with `details.requiredVersion` (A-12, decision on [O-10]).
 
 **Errors**
 
@@ -648,11 +669,11 @@ Compact `Profile` used in examples (illustrative values; the initial `sessionMin
 | `currentPassword` | string | yes | verified with Supabase Auth |
 | `newPassword` | string | yes | same policy as registration (≥ 15 characters, ≤ 72 bytes; not truncated or normalized) |
 
-**Behaviour:** after the change `auth_epoch` increases, so every older session (and any old access token) stops working; the caller receives a fresh session on the new epoch. Devices that are offline keep their local copy until they reconnect (D58). The change is made with the user's own Supabase token, which keeps `service_role` within its approved scope [O-14].
+**Behaviour (A-03, C-02):** after the change `auth_epoch` increments and every **other** app session is revoked (any old access token stops working); the **current** session receives a new cookie bound to the new `auth_epoch`, so the caller is not logged out and needs no re-login. A failed current-password check counts under the same username key as login failures (A-03). Devices that are offline keep their local copy until they reconnect (D58). The change is made with the user's own Supabase token, which keeps `service_role` within its approved scope [O-14].
 
 **Errors:** `401 unauthenticated`; `401 invalid_credentials` (wrong current password) [O-11]; `403 forbidden_origin`; `422 validation_error` (`password_min_chars`, `password_max_bytes`); `429 throttled` [O-04]; `503 unavailable`; `500 internal`.
 
-**Side effects:** Supabase Auth password; `private.account_handles.auth_epoch + 1`; `private.app_sessions` (all revoked, one new row).
+**Side effects:** Supabase Auth password; `private.account_handles.auth_epoch + 1`; `private.app_sessions` (all other sessions revoked; the current session replaced by one new row bound to the new epoch).
 
 ```json
 {"currentPassword":"synthetic passphrase for docs only","newPassword":"another synthetic passphrase for docs"}
@@ -716,7 +737,7 @@ Compact `Profile` used in examples (illustrative values; the initial `sessionMin
 **Behaviour (D57)**
 - `pendingSettings = { sessionMinutes?, timeZone?, effectiveDate }`. `effectiveDate` is the next learning date in the time zone currently in force. There is no retroactive change, no repeated day completion, and past days keep their goal and zone. A later request before `effectiveDate` replaces the pending value of the same field.
 - Until `effectiveDate`, `Profile.timeZone` and `Profile.sessionMinutes` keep the values in force.
-- Which minutes value defines `dailyGoalMs` (profile or plan) and the behaviour at day boundaries are open [O-13].
+- `Plan.sessionMinutes` of the plan version in force governs `dailyGoalMs`; `Profile.sessionMinutes` is the default pre-filled for a new plan (initial value 10). The day boundary is the account time zone at the time of the request (A-07, decision on [O-13]).
 
 **Errors:** `401 unauthenticated`; `403 forbidden_origin`; `422 validation_error` (rules `no_fields`, `language_invalid`, `time_zone_invalid`, `session_minutes_invalid`, `reminder_settings_invalid`, `forbidden_field`); `503 unavailable`; `500 internal`.
 
@@ -732,7 +753,7 @@ Compact `Profile` used in examples (illustrative values; the initial `sessionMin
 {"username":"sample_user_01","language":"en","timeZone":"Asia/Dubai","sessionMinutes":10,"reminderSettings":{"inApp":true},"isDemo":false,"termsVersion":"2026-10-04","termsAcceptedAt":"2026-10-04T08:15:00Z","createdAt":"2026-10-04T08:15:00Z","pendingSettings":{"sessionMinutes":15,"effectiveDate":"2026-10-05"}}
 ```
 
-#### E13 · `DELETE /api/account`
+#### E13 · `POST /api/account/delete`
 
 | | |
 |---|---|
@@ -748,7 +769,7 @@ Compact `Profile` used in examples (illustrative values; the initial `sessionMin
 | `password` | string | yes | the current password, verified with Supabase Auth |
 | `confirm` | string | yes | exactly `"DELETE"` |
 
-A JSON body on `DELETE` may be dropped by some proxies; this must be verified through the Next.js rewrite and Render [O-12].
+**Method and path (A-10, proposed contract v1.4 amendment, item 2; Needs Review at G0).** The operation becomes `POST /api/account/delete` with a JSON body, because bodies on `DELETE` are dropped by some proxies. Until the owner approves contract v1.4, the v1.3 form `DELETE /api/account` is the stale text; the id E13 is kept. Only the method and path change; the body fields above are unchanged.
 
 **Behaviour** (order of Database-schema §12.1): the password and the confirmation are checked; `srv_delete_personal_rows` removes every personal row and the throttle rows keyed by the account's username in one transaction, which also ends all sessions; the Auth user is then deleted through the Admin API (idempotent, retried by the backend); the cookie is cleared. The client then wipes its local copy on the current device. Another device that is offline keeps its copy until it reconnects and receives `401` (D58). Provider backups expire under the provider's retention, which is documented before launch (no period is claimed now).
 
@@ -756,7 +777,7 @@ A JSON body on `DELETE` may be dropped by some proxies; this must be verified th
 
 **Side effects (rows removed):** the Auth user; `private.account_handles`, `private.recovery_codes`, `private.password_reset_grants`, `private.app_sessions`, the account's `private.auth_throttle` rows; `public.profiles`, `master_plans`, `plan_versions`, `plan_phases`, `learning_sessions`, `attempts`, `session_activity_intervals`, `daily_progress`, `daily_completions`, `target_mastery`, `target_part_evidence`, `offline_snapshots` (and `content_feedback` only if D45 is activated). The `reviews` table no longer exists (directive 3) [C-08]. Published content is never deleted because a learner was deleted; `ai_usage` holds no account data.
 
-**Idempotency/concurrency:** once the personal rows are gone the session no longer exists, so a repeat returns `401`. A failure before that point leaves the account intact and may be repeated. If only the Auth deletion fails afterwards, the backend retries it and the answer stays `204` (**Proposed** [O-12]); the residue is an unreachable Auth record holding only the alias (Database-schema OPEN-14).
+**Idempotency/concurrency:** once the personal rows are gone the session no longer exists, so a repeat returns `401`. A failure before that point leaves the account intact and may be repeated. If only the Auth deletion fails afterwards, the backend retries it and the answer stays `204` (decided, A-10); the residue is an unreachable Auth record holding only the alias (Database-schema OPEN-14).
 
 ```json
 {"password":"synthetic passphrase for docs only","confirm":"DELETE"}
@@ -782,10 +803,11 @@ A JSON body on `DELETE` may be dropped by some proxies; this must be verified th
 - Visitors, learners and demo accounts receive the **same** payload (public and metadata-only, D71 [C-07]). A session cookie, if sent, is ignored.
 - Allowed: titles, author, edition label, category, section ordinals, references and titles, word and passage counts, available paths. Not allowed: religious text, lessons, questions, canonical URLs (they are shown only beside text), commentary or translation.
 - English section titles are numeric labels (`Surah 78`, `Hadith 1`) until the D28 terms are sourced.
+- Editions are ordered by category display order, then `editionKey` (A-12).
 - `defaultOrder` is `book`. The `reverse` order (D72) is available exactly when `contentFormat` is `quran`; no extra field is added.
-- The views expose per-path word and passage counts (`path_word_counts`, `path_passage_counts`, `path_stats`); the service derives `totalWords`, `wordCount`, `passageCount` and `defaultPaths` from them (Database-schema §7). Which paths those totals sum is open [O-15].
+- The views expose per-path word and passage counts (`path_word_counts`, `path_passage_counts`, `path_stats`); the service derives `totalWords`, `wordCount`, `passageCount` and `defaultPaths` from them (Database-schema §7). The totals sum the edition's `defaultPaths` (A-12, decision on [O-15]).
 
-**Errors:** `429 throttled` [O-03]; `503 unavailable`; `500 internal`. **Side effects:** none. **Cache:** `no-store` until [O-07].
+**Errors:** `429 throttled` [O-03]; `503 unavailable`; `500 internal`. **Side effects:** none. **Cache:** `no-store` (A-12, decision on [O-07]).
 
 `200` (a synthetic edition shortened to two sections; numbers are illustrative)
 
@@ -822,11 +844,11 @@ A JSON body on `DELETE` may be dropped by some proxies; this must be verified th
 | Input | Rule |
 |---|---|
 | `editionId` | UUID of a published, non-revoked, non-hidden edition (S-2); otherwise `422` rule `edition_not_available` |
-| `targetScope.sectionOrdinals` | non-empty array of unique integers, each an existing section ordinal of the edition; stored in ascending order; the UI default is all sections. A scope never changes after creation (a different scope is a new plan) |
+| `targetScope.sectionOrdinals` | non-empty array of at most 40 unique integers (A-12), each an existing section ordinal of the edition; stored in ascending order; the UI default is all sections. A scope never changes after creation (a different scope is a new plan) |
 | `paths` | non-empty, unique, a subset of the edition's `availablePaths`. Quran edition: exactly `["quran"]`. Hadith edition: a non-empty subset of `matn`, `sanad`, `grade` (default `["matn"]`, D66) |
 | `sessionMinutes` | 5, 10 or 15 |
-| `order` (E16, E17) | `book` or `reverse` (D72), default `book`. `reverse` ("from An-Nas backwards") is allowed only when the edition's `contentFormat` is `quran`; for a hadith collection it is `422` rule `order_not_available`. Within the chosen order no unit is dropped and new passages are introduced in that order; the Teaching Agent never reorders new material |
-| `preferredDate` | optional `ISODate` (a learning date); handling of a past date is open [O-17] |
+| `order` (E15, E16, E17) | `book` or `reverse` (D72), default `book`. Inside a surah under `reverse`, passages keep mushaf order (A-12; **owner confirms or changes, Q4**). `reverse` ("from An-Nas backwards") is allowed only when the edition's `contentFormat` is `quran`; for a hadith collection it is `422` rule `order_not_available`. Within the chosen order no unit is dropped and new passages are introduced in that order; the Teaching Agent never reorders new material |
+| `preferredDate` | optional `ISODate` (a learning date); a past date is `422` rule `date_invalid` (A-12) |
 | `placementSessionId` | optional UUID of a `placement` session owned by the caller for the same edition [O-17] |
 
 There is **no free-text goal field** on any plan endpoint: a free-text goal is resolved in the app (guided choice) into `editionId` and `targetScope`, and a fatwa or explanation request gets the fixed D26 message as a UI string (QA-and-evaluation «التخطيط والمراجعة»). Nothing here calls an external model for a learner (D17).
@@ -836,16 +858,16 @@ There is **no free-text goal field** on any plan endpoint: a free-text goal is r
 | | |
 |---|---|
 | Purpose, module | read-only estimate of the time needed for a goal, with a smaller and a longer alternative; M3 (R01, R02; D42) |
-| Auth | S — Session; demo accounts [O-19] |
+| Auth | S — Session; demo accounts allowed (C-15, A-09); read-only |
 | Success | `200` `{estimate: Estimate, alternatives: Estimate[], reasonCode: string}` |
 
-**Request body:** `editionId`, `targetScope`, `paths`, `sessionMinutes` (required); `preferredDate`, `placementSessionId` (optional) — rules in the shared table. There is no `order` field in the contract [O-17].
+**Request body:** `editionId`, `targetScope`, `paths`, `sessionMinutes` (required); `preferredDate`, `placementSessionId` and `order` (optional) — rules in the shared table. The optional `order` (A-12; proposed contract v1.4 amendment, item 4) makes "first half in plan order" follow the chosen order; it defaults to `book`.
 
 **Response semantics** (contract §5)
 - `newWordsPerDay` is the capacity for `sessionMinutes`: 5 → 12, 10 → 25, 15 → 40.
 - `totalWords` is the sum of word counts of the passages in scope for the selected paths; `knownWords` is the word count of passages answered correctly in the placement session (known passages count as known for the estimate and are scheduled as an early quick review, with no mastery credit); without a placement session it is 0.
 - `days = ceil((totalWords − knownWords) / newWordsPerDay × 1.15)` (15% review buffer); `endDate = today + days`, with `today` the account's learning date.
-- `alternatives` holds at most two full `Estimate` objects: (a) the next larger minutes option; (b) the scope halved (first half in plan order). An alternative that does not apply is omitted [O-17].
+- `alternatives` holds at most two full `Estimate` objects: (a) the next larger minutes option; (b) the scope halved (first half in plan order, following `order`). An alternative that does not apply is omitted [O-17].
 - `reasonCode` is `fits_preferred_date`, `exceeds_preferred_date` or `no_preferred_date`.
 
 **Errors**
@@ -855,7 +877,7 @@ There is **no free-text goal field** on any plan endpoint: a free-text goal is r
 | 401 | `unauthenticated` | no valid session |
 | 403 | `forbidden_origin` | `Origin` mismatch |
 | 404 | `not_found` | `placementSessionId` unknown or not the caller's |
-| 422 | `validation_error` | any shared rule: `edition_not_available`, `scope_invalid`, `paths_invalid`, `session_minutes_invalid`, `date_invalid`, `forbidden_field` |
+| 422 | `validation_error` | any shared rule: `edition_not_available`, `scope_invalid`, `paths_invalid`, `session_minutes_invalid`, `date_invalid`, `order_not_available`, `forbidden_field` |
 | 429 | `throttled` | [O-03] |
 | 503, 500 | `unavailable`, `internal` | |
 
@@ -890,15 +912,15 @@ There is **no free-text goal field** on any plan endpoint: a free-text goal is r
 | | |
 |---|---|
 | Purpose, module | save the learner's plan after the learner confirmed the estimate; the previous active plan is paused. M3 (R01, R02, R14; D34, D42, D72) |
-| Auth | S — Session, **learner accounts**; demo accounts get `403` and use E28 [C-15] |
+| Auth | S — Session, **learner accounts**; demo accounts get `403 forbidden` and use E28 (C-15, resolved 4 Oct 2026) |
 | Success | `201` `Plan` |
 
 **Request body:** the E15 inputs plus `order` (optional, default `book`) and `confirmedEstimate` (an `Estimate`, required).
 
-**`confirmedEstimate` check.** The server recomputes the estimate from the request's own inputs (the E15 function) and requires every field of `confirmedEstimate` to equal the result (`days`, `endDate`, `newWordsPerDay`, `totalWords`, `knownWords`, `passageCount`, `sessionMinutes`, `scope`, `paths`). If the learner picked an alternative in E15, the request carries that alternative's scope and minutes and that alternative as `confirmedEstimate`. A mismatch is `409 version_conflict` with `details.reason = "estimate_changed"` and the fresh estimate in `details.estimate`, so the UI asks the learner to confirm again; nothing is saved before confirmation (R02). Tolerance for a change of day between the two calls is open [O-17].
+**`confirmedEstimate` check.** The server recomputes the estimate from the request's own inputs (the E15 function) and requires every field of `confirmedEstimate` to equal the result (`days`, `endDate`, `newWordsPerDay`, `totalWords`, `knownWords`, `passageCount`, `sessionMinutes`, `scope`, `paths`). If the learner picked an alternative in E15, the request carries that alternative's scope and minutes and that alternative as `confirmedEstimate`. A mismatch is `409 version_conflict` with `details.reason = "estimate_changed"` and the fresh estimate in `details.estimate`, so the UI asks the learner to confirm again; nothing is saved before confirmation (R02). Tolerance for a change of day between the two calls is not covered by a decision and stays for implementation design [O-17].
 
 **Behaviour**
-- One transaction: the current active plan (if any) becomes `paused` with its progress kept, and the new plan becomes `active` with `currentVersion = 1`. One active plan per account.
+- One transaction: the current active plan (if any) becomes `paused` with its progress kept (it can be resumed with E30, A-08), and the new plan becomes `active` with `currentVersion = 1`. One active plan per account.
 - `planner.source` is `rules` for learners. No model is called.
 - `Plan.order` is the chosen order (D72). The first daily session is not created here; it is created by E20 [C-03].
 
@@ -908,7 +930,7 @@ There is **no free-text goal field** on any plan endpoint: a free-text goal is r
 |---|---|---|
 | 401 | `unauthenticated` | no valid session |
 | 403 | `forbidden_origin` | `Origin` mismatch |
-| 403 | `forbidden` (**Proposed** [O-05]) | the account is a demo account |
+| 403 | `forbidden` | the account is a demo account (C-15) |
 | 404 | `not_found` | `placementSessionId` unknown or not the caller's |
 | 409 | `version_conflict` | `details.reason` = `estimate_changed` or `active_plan_conflict` (a race on the one-active-plan rule) |
 | 422 | `validation_error` | shared rules, `order_not_available`, `confirmed_estimate_invalid`, `forbidden_field` |
@@ -970,24 +992,75 @@ There is **no free-text goal field** on any plan endpoint: a free-text goal is r
 | `preferredDate` | `ISODate` | no | |
 | `paths` | `Path[]` | no | hadith only: a non-empty subset of the edition's available paths; for the Quran edition it can only be `["quran"]`. Effective the next learning day; deselected paths leave the denominator but their history stays, reselecting restores it (D66) |
 | `order` | `book` or `reverse` | no | Quran edition only (D72); effective the next learning day. Part of the contract request since v1.3 [C-01] |
+| `confirmedEstimate` | `Estimate` | no | optional (A-12; proposed contract v1.4 amendment, item 4): when a change alters the estimate, the client sends the estimate the learner confirmed. The server recomputes it with the E16 check; a mismatch is `409 version_conflict` with `details.reason = "estimate_changed"` and the fresh estimate in `details.estimate`. On success it replaces the stored `agreedEstimate` of the plan |
 
 At least one optional field must be present (`422` rule `no_fields`). The scope and the edition cannot be changed here.
 
 **Behaviour**
-- The plan must be the caller's (`404` otherwise) and `active`; a paused or completed plan is `409` with `details.reason = "plan_not_active"` [O-16].
+- The plan must be the caller's (`404` otherwise). An `active` plan or a `paused` plan may be revised (a paused plan stays paused); a `completed` plan is `409` with `details.reason = "plan_not_active"` (A-08; owner confirms or changes, Q5).
 - A stale `expectedVersion` is `409 version_conflict` with `details.reason = "plan_version"` and `details.currentVersion`.
 - Success appends a new immutable `plan_versions` row (`version_no + 1`) that carries `effective_learning_date`; future phases and sessions that are not yet opened are re-planned; completed sessions are never changed and an open session is not changed (Architecture-and-data §«أين تحفظ الخطة الكبيرة؟»). History is never rewritten.
-- `Plan` shows the values of the latest version; the day they take effect is applied server-side, and E18 shows what is in force today [O-13]. The revised estimate is not re-confirmed by the contract [O-18]. Learners never invoke the Teaching Agent; for demo accounts see [O-18].
+- `Plan` shows the values of the latest version; the day they take effect is applied server-side, and E18 shows what is in force today [O-13]. A revision that changes the estimate carries the optional `confirmedEstimate` and replaces `agreedEstimate` (A-12, decision on [O-18]). Learners never invoke the Teaching Agent, and demo revisions do not call it either (A-12).
 
-**Errors:** `401 unauthenticated`; `403 forbidden_origin`; `404 not_found`; `409 version_conflict` (`plan_version`, `plan_not_active`); `422 validation_error` (`no_fields`, `paths_invalid`, `order_not_available`, `session_minutes_invalid`, `date_invalid`, `forbidden_field`); `429 throttled` [O-03]; `503 unavailable`; `500 internal`.
+**Errors:** `401 unauthenticated`; `403 forbidden_origin`; `404 not_found`; `409 version_conflict` (`plan_version`, `plan_not_active`, `estimate_changed`); `422 validation_error` (`no_fields`, `paths_invalid`, `order_not_available`, `session_minutes_invalid`, `date_invalid`, `confirmed_estimate_invalid`, `forbidden_field`); `429 throttled` [O-03]; `503 unavailable`; `500 internal`.
 
-**Side effects:** `plan_versions` (insert), `master_plans` (`current_version`; the changed values from their effective date [O-13]), `plan_phases` (future phases). **Concurrency:** optimistic on `expectedVersion`; of two simultaneous revisions with the same `expectedVersion` one wins and the other gets `409`.
+**Side effects:** `plan_versions` (insert), `master_plans` (`current_version`; the changed values from their effective date; `agreed_estimate` replaced when `confirmedEstimate` is supplied [O-13]), `plan_phases` (future phases). **Concurrency:** optimistic on `expectedVersion`; of two simultaneous revisions with the same `expectedVersion` one wins and the other gets `409`.
 
 ```json
 { "expectedVersion": 1, "sessionMinutes": 10, "order": "reverse" }
 ```
 
 `200`
+
+```json
+{
+  "planId": "44444444-4444-4444-8444-000000000001",
+  "editionId": "11111111-1111-4111-8111-0000000000e1",
+  "titleAr": "«عنوان الكتاب»",
+  "titleEn": "Book title placeholder",
+  "targetScope": { "sectionOrdinals": [1, 2] },
+  "paths": ["quran"],
+  "order": "reverse",
+  "sessionMinutes": 10,
+  "preferredDate": "2026-10-20",
+  "agreedEstimate": { "days": 16, "endDate": "2026-10-20", "newWordsPerDay": 12, "totalWords": 180, "knownWords": 20, "passageCount": 4, "sessionMinutes": 5, "scope": { "sectionOrdinals": [1, 2] }, "paths": ["quran"] },
+  "currentVersion": 2,
+  "status": "active",
+  "createdAt": "2026-10-04T08:30:00Z",
+  "planner": { "source": "rules" }
+}
+```
+
+#### E30 · `POST /api/plans/:id/resume`
+
+| | |
+|---|---|
+| Purpose, module | make a paused plan the active plan again; the current active plan, if any, is paused; M3 (A-08) |
+| Status | proposed contract v1.4 amendment (item 1); owner confirms or changes the plan lifecycle at G0 (Q5) |
+| Auth | S — Session, **learner accounts only**; demo accounts get `403 forbidden` because they manage plans only through E28 |
+| Success | `200` `Plan` |
+
+**Plan lifecycle (A-08; owner confirms or changes, Q5).** One active plan per account. E16 (and E28) pause the previous active plan; E30 sets a paused plan active and pauses the current one. A plan becomes `completed` automatically when every passage in its version scope is `confirmed`; maintenance reviews (D66) stay available from a completed plan through the daily session (reviews only, no new passages). A paused plan can be revised and stays paused (E17); a completed plan cannot be revised or resumed (`409 plan_not_active`).
+
+**Request:** no body. `:id` is a plan UUID owned by the caller. There is no `expectedVersion`, so version conflicts do not apply.
+
+**Behaviour:** in one transaction the caller's `paused` plan becomes `active` (its `currentVersion` and progress are unchanged) and the plan that was active, if any, becomes `paused` with its progress kept. A plan that is already `active` is returned unchanged with `200`. A `completed` plan is `409` with `details.reason = "plan_not_active"`. The partial unique index on `master_plans(user_id) where status = 'active'` is the final arbiter of a race. The name and signature of the atomic database function are fixed at implementation (B2).
+
+**Errors**
+
+| Status | Code | When |
+|---|---|---|
+| 401 | `unauthenticated` | no valid session |
+| 403 | `forbidden_origin` | `Origin` mismatch |
+| 403 | `forbidden` | the account is a demo account |
+| 404 | `not_found` | plan unknown or not the caller's |
+| 409 | `version_conflict` | `details.reason` = `plan_not_active` (the plan is `completed`) |
+| 429 | `throttled` | session-write class (§1.8) |
+| 503, 500 | `unavailable`, `internal` | |
+
+**Side effects:** `master_plans.status` of the resumed plan (`active`) and of the previously active plan (`paused`). No `plan_versions` row is written. **Idempotency:** naturally idempotent.
+
+`POST /api/plans/44444444-4444-4444-8444-000000000001/resume` (no body) → `200`
 
 ```json
 {
@@ -1026,15 +1099,15 @@ At least one optional field must be present (`422` rule `no_fields`). The scope 
 |---|---|
 | `learningDate` | today's learning date in the account time zone in force |
 | `dailyActiveMs` | verified active time of that date: the union of non-overlapping intervals from learning and games inside the plan (placement, pauses and background excluded) |
-| `dailyGoalMs` | minutes in force × 60 000 [O-13] |
-| `dailyPercent` | integer, never above 100; the rounding rule is open [O-24] |
+| `dailyGoalMs` | `Plan.sessionMinutes` of the plan version in force × 60 000 (A-07). `Profile.sessionMinutes` is only the default pre-filled for a new plan; a plan-level change takes effect from the next learning day (D57) and the pending value is exposed as the optional `Plan.pendingSessionMinutes` (proposed contract v1.4 amendment, item 3); the day boundary is the account time zone at the time of the request |
+| `dailyPercent` | integer, `floor(100 × dailyActiveMs ÷ dailyGoalMs)`, never above 100 (A-12, decision on [O-24]) |
 | `dailyCompleted` | `true` once the single `daily_completions` row of the date exists (reached once per date, even with games only or wrong answers) |
 | `extraActiveMs` | `max(0, dailyActiveMs − dailyGoalMs)`, shown separately; no second completion and no carry-over |
 | `plan` | the active `Plan`, or `null` when the account has none |
 | `dueReviews` | number of passages of the active plan whose `next_review_due` is on or before `learningDate`, derived from `target_mastery` (there is no `reviews` table, directive 3) |
 | `nextNewPassage` | `{reference, sectionTitleAr}` of the next passage to be introduced in plan order, or `null` [O-24] |
 | `openSessionId` | the open daily session of today, or `null` |
-| `streakDays` | consecutive completed learning days; counting rule [O-24] |
+| `streakDays` | consecutive learning dates with the daily goal met, up to and including today or yesterday (A-12, decision on [O-24]) |
 
 **Errors:** `401 unauthenticated`; `503 unavailable`; `500 internal`. **Side effects:** none; a GET never creates a session or any evidence.
 
@@ -1068,11 +1141,11 @@ At least one optional field must be present (`422` rule `no_fields`). The scope 
 
 **Field semantics**
 - `daily` is the same `DailyProgress` as in E18.
-- `history` lists past learning dates `{date, activeMs, goalMs, completed}`; the window and order are open [O-09].
+- `history` lists past learning dates `{date, activeMs, goalMs, completed}` over the last 30 learning days (A-12, decision on [O-09]).
 - `plans` has one `PlanProgress` per plan of the account (active, paused or completed).
   - `overallPercent = floor(100 × confirmedWords ÷ totalWords)`, where `confirmedWords` is the sum of word counts of passages with status `confirmed` (a passage in `needs_refresh` is outside the numerator) and `totalWords` is the sum over all passages of the plan's scope for the selected paths (D66; contract §4.7). It is a progress indicator, never a memorization certificate.
   - `counts` gives passages per status (`new` includes passages that have no mastery row yet). `confirmedSections` counts a section when all its passages for the selected paths are confirmed. `nextReviewDate` is the earliest `next_review_due`, or `null`.
-  - `sections[].percent` and `.status` follow a rollup rule that the contract does not define [O-24].
+  - `sections[].percent` = `floor(100 × confirmed words ÷ section words)` for the selected paths (A-12, decision on [O-24]); the `.status` rollup is not defined by the contract and stays for implementation design.
 - Daily progress (time) and overall progress (confirmed material) are independent (D40).
 
 **Errors:** `401 unauthenticated`; `503 unavailable`; `500 internal`. **Side effects:** none.
@@ -1113,15 +1186,15 @@ At least one optional field must be present (`422` rule `no_fields`). The scope 
 |---|---|
 | Purpose, module | prepare a session snapshot: the daily session, a game session or a placement test. M4 (R04, R07), M5 (R05, R20), M3 (placement) |
 | Auth | S — Session (demo accounts allowed) |
-| Success | `201` `SessionSnapshot` when a session is created; `200` with the existing session when a daily session is already open for the learning date [O-20] |
+| Success | `201` `SessionSnapshot` when a new session is created; `200` with the existing session when a daily session is already open for the learning date (A-01, decision on [O-20]) |
 
 **Request body** — a discriminated union on `kind` (all other properties are rejected)
 
 | `kind` | Properties | Rules |
 |---|---|---|
-| `daily` | `planId`, `expectedPlanVersion` | the plan must be the caller's and `active`; `expectedPlanVersion` must equal `currentVersion` |
-| `game` | `planId`, `expectedPlanVersion`, `gameType?`, `passageIds?` | `gameType` is one of `word_order`, `word_choice`, `word_recall`, `similar_distinction`; every `passageIds` entry must be a passage of the plan's edition, scope and selected paths (S-2); passages of future days are allowed (D42); no lesson has to be completed; up to 10 questions |
-| `placement` | `editionId`, `targetScope`, `selfRating?` | no plan needed; the edition must be published and not hidden; scope as in the shared plan rules; `selfRating` is `none`, `some` or `most`; up to 8 passages sampled evenly across the scope, one `word_choice` (continuation) or `word_recall` question each; which paths are sampled for a hadith edition is open [O-17] |
+| `daily` | `planId`, `expectedPlanVersion` | the plan must be the caller's and `active` (a `completed` plan serves maintenance reviews only, no new passages, A-08); `expectedPlanVersion` must equal `currentVersion` |
+| `game` | `planId`, `expectedPlanVersion`, `gameType?`, `passageIds?` | `gameType` is one of `word_order`, `word_choice`, `word_recall`, `similar_distinction`; at most 60 `passageIds` (A-12), each a passage of the plan's edition, scope and selected paths (S-2); passages of future days are allowed (D42); no lesson has to be completed; up to 10 questions |
+| `placement` | `editionId`, `targetScope`, `selfRating?` | no plan needed; the edition must be published and not hidden; scope as in the shared plan rules; `selfRating` is `none`, `some` or `most`; up to 8 passages sampled evenly across the scope, one `word_choice` (continuation) or `word_recall` question each; for a hadith edition the edition's `defaultPaths` are sampled (A-12, decision on [O-17]) |
 
 **Snapshot content** (contract §5)
 - `daily`, in order: (1) due review rounds, overdue first, capped at 6/10/14 questions for 5/10/15 minutes; (2) the current learning passage or the next passage(s) in plan order up to the day's capacity — a `learn` step with the full passage, its reference, edition, canonical URL, takhrij and the D50 notice where it applies, then training questions (one per part, templates rotating) and extra questions until the passage reaches 3 consecutive correct answers; (3) an end-of-session test of 3/5/7 questions mixing today's parts, error parts and uncovered parts. After 3 or more days of absence the session starts with the light review of step 1 and introduces no new material by default; missed days are not stacked (R07). Nothing force-closes a session.
@@ -1144,7 +1217,7 @@ At least one optional field must be present (`422` rule `no_fields`). The scope 
 
 **Side effects:** `learning_sessions` (insert: `kind`, `plan_id`, `plan_version_id`, `phase_id`, `edition_id`, `learning_date`, `lesson_refs`, `question_refs`, `bank_version`, `self_rating`, `status`, `steps`). No `attempts` yet. When an open daily session is returned, nothing is written. No model call.
 
-**Idempotency/concurrency:** `daily` is get-or-create and must be atomic, so two simultaneous requests never create two open daily sessions for one date [O-20]. `game` and `placement` always create a new session; the client does not retry them automatically.
+**Idempotency/concurrency (A-01):** `daily` is an atomic get-or-create: a conditional insert guarded by the partial unique index `(user_id, learning_date) WHERE kind = 'daily' AND status IN ('prepared','open') AND offline_snapshot_id IS NULL` (offline-prepared sessions keep coexisting), so two simultaneous requests never create two open daily sessions for one date; an existing session answers `200`, a new one `201`. The commit runs as the `SECURITY INVOKER` function `app_open_session` in `public` (`set search_path = ''`, `EXECUTE` granted to `authenticated` only) with the learner's token, so RLS and the §5.2 grants stay in force; it persists what the Python domain policies computed and contains integrity checks only. Exact signatures are fixed at implementation (B2). `game` and `placement` always create a new session; the client does not retry them automatically.
 
 ```json
 { "kind": "daily", "planId": "44444444-4444-4444-8444-000000000001", "expectedPlanVersion": 2 }
@@ -1219,7 +1292,7 @@ At least one optional field must be present (`422` rule `no_fields`). The scope 
 | `answer` | `AnswerPayload` | yes | the shape must match the question type (S-5): `{order: TokenRef[]}` for `word_order`, `{optionId}` for `word_choice` and `similar_distinction`, `{text}` for `word_recall` |
 | `hintUsed` | boolean | yes | client-reported; marks the answer *assisted* (accepted risk, S-5) |
 | `occurredAt` | `ISODateTime` | yes | an input to check, never proof of time |
-| `durationMs` | integer ≥ 0 | yes | upper bound [O-22] |
+| `durationMs` | integer ≥ 0 | yes | ≤ 30 minutes (A-12, decision on [O-22]) |
 
 *Activity event*
 
@@ -1248,13 +1321,16 @@ At least one optional field must be present (`422` rule `no_fields`). The scope 
 2. Events are processed in array order. Each event gets exactly one outcome:
    - `acknowledged` — validated and recorded; credit follows S-6 and S-7.
    - `duplicate` — the `clientEventId` was already acknowledged; no second effect and no new grading.
-   - `pending` — structurally valid but not verifiable or creditable now (a disputed or unverifiable old event, D59; an unsupported policy version). It is kept **without credit** and the client keeps it in its outbox. Each entry has a `reasonCode` [O-21].
-   - `rejected` — a final negative decision for that id: no credit; the client does not resend it unchanged and marks it blocked. Each entry has a `code` [O-21].
+   - `pending` — structurally valid but not verifiable or creditable now (a disputed or unverifiable old event, D59; an unsupported policy version). It is kept **without credit** and the client keeps it in its outbox. Each entry has a `reasonCode` from the O-21 set below.
+   - `rejected` — a final negative decision for that id: no credit; the client does not resend it unchanged and marks it blocked. Each entry has a `code` from the O-21 set below.
 3. Each event commits atomically (attempt, part evidence, mastery, interval, daily totals, completion). Events are independent of each other. If the database fails mid-request the answer is `503`; events that had committed come back as `duplicate` when the same batch is resent.
-4. **Online events** (no envelope) require the session to be `open` and, when it has a plan, the plan to be `active` (S-4; a placement session has no plan); otherwise they are `rejected`. **Replayed events** (with envelope) are validated in their original plan and version (S-10, D59). Events for a `completed` or `prepared` session: [O-22].
-5. A `review` question counts only at its first attempt in its round. When every question of a round has its first attempt, the round is evaluated (S-6). An unfinished round is not evaluated and the passage stays due [O-22].
-6. A placement session records attempts (used for the estimate) with no mastery credit; its `activity` events are acknowledged but never added to daily totals [O-22].
+4. **Online events** (no envelope) require the session to be `open` and, when it has a plan, the plan to be `active` (S-4; a placement session has no plan); otherwise they are `rejected`. **Replayed events** (with envelope) are validated in their original plan and version (S-10, D59). Events for a `completed` session are `rejected` with `session_closed`; a `prepared` session opens on its first accepted event (A-12, decision on [O-22]). Events for a session whose edition is revoked are `rejected` with `edition_mismatch` (A-04).
+5. A `review` question counts only at its first attempt in its round. When every question of a round has its first attempt, the round is evaluated (S-6). An unfinished round at completion is not evaluated and the passage stays due (A-12).
+6. A placement session records attempts (used for the estimate) with no mastery credit; its `activity` events are acknowledged but never counted in daily totals (A-12).
 7. `results` holds one `AnswerResult` per acknowledged answer event, in request order: `correct`, `assisted`, `expected` (`order` refs, `optionId` or the target `word`, so the UI can show the original with its reference), and the passage state after the event. `daily` is the authoritative `DailyProgress` after processing; local figures are provisional.
+8. **Time and order (A-12, decision on [O-23]).** `learningDate` is fixed at session creation in the account time zone and governs the ladder and the evidence for late replays. Replay order is `occurredAt`, then `clientEventId`. The 30-minute bound applies to `endedAt − startedAt` of an activity event.
+
+**O-21 code sets (A-12).** `rejected[].code`: `question_not_in_session`, `out_of_scope`, `edition_mismatch`, `bank_version_mismatch`, `invalid_answer_shape`, `activity_out_of_bounds`, `plan_not_active`, `session_closed`, `envelope_mismatch`. `pending[].reasonCode`: `plan_changed_unverifiable`, `content_unverifiable`, `policy_unsupported`, `clock_unverifiable`. For E25: `current`, `plan_version_changed`, `bank_version_changed`, `content_revoked`, `validity_ended`. In E21, content of a revoked edition is never graded.
 
 **Client rules for the outbox** (PWA-design §5, §6): remove `acknowledged` and `duplicate` ids; keep `pending`; mark `rejected` as blocked; a `401` stops replay and asks for an online login; a timeout or un-enveloped `5xx` is connectivity (resend the same ids, §1.11).
 
@@ -1265,6 +1341,7 @@ At least one optional field must be present (`422` rule `no_fields`). The scope 
 | 401 | `unauthenticated` | no valid session |
 | 403 | `forbidden_origin` | `Origin` mismatch |
 | 404 | `not_found` | session unknown or not the caller's |
+| 413 | `payload_too_large` | the body exceeds 64 KiB (§1.7) |
 | 422 | `validation_error` | `events_empty`, `events_too_many` (more than 100), `forbidden_field`, `envelope_incomplete`, malformed id, date or answer shape |
 | 429 | `throttled` | [O-03] |
 | 503, 500 | `unavailable`, `internal` | |
@@ -1273,7 +1350,7 @@ There is no `409` on this endpoint: conflicts are reported per event.
 
 **Side effects:** `attempts` (one row per `clientEventId`: `session_id`, `question_id`, `passage_id`, `correct`, `assisted`, `review_round_id`, `error_kind`, `wrong_token_ref`, `duration_ms`, `occurred_at`, per Database-schema §6.3 — **never** the raw recall text); `session_activity_intervals` (one row per `clientEventId`); `daily_progress` (recomputed from the union of verified intervals); `daily_completions` (inserted once per learning date when `activeMs ≥ goalMs`); `target_mastery` (streak, ladder, `error_part_ids`, confirmation, maintenance, `needs_refresh`); `target_part_evidence` (one row per part, only from correct unassisted answers). There is no `reviews` table (directive 3).
 
-**Idempotency/concurrency:** `unique(user_id, client_event_id)` on `attempts` and `session_activity_intervals`. The first accepted payload for an id wins; a later request with the same id and different content is reported as `duplicate` and has no effect [O-22]. Parallel batches that share ids are resolved by the constraint.
+**Idempotency/concurrency:** `unique(user_id, client_event_id)` on `attempts` and `session_activity_intervals`. The first accepted payload for an id wins; a later request with the same id and different content is reported as `duplicate` and has no effect (A-12, decision on [O-22]). Parallel batches that share ids are resolved by the constraint.
 
 ```json
 {
@@ -1320,7 +1397,7 @@ There is no `409` on this endpoint: conflicts are reported per event.
 }
 ```
 
-A mixed outcome on a later replay (the `reasonCode` and `code` values are illustrative [O-21]):
+A mixed outcome on a later replay (the `reasonCode` and `code` values come from the O-21 sets above):
 
 ```json
 {
@@ -1341,13 +1418,13 @@ A mixed outcome on a later replay (the `reasonCode` and `code` values are illust
 | Auth | S — Session; `:id` owned by the caller |
 | Success | `200` `CompleteResponse` |
 
-**Request:** no body. An optional `Idempotency-Key` header (UUID) is accepted because PWA-design §5 sends completion with a stable operation id [C-04]; completion is idempotent per session, so the key adds no further semantics in v1 [O-06]. A malformed key is `422`.
+**Request:** no body. An optional `Idempotency-Key` header (UUID) is accepted because PWA-design §5 sends completion with a stable operation id [C-04]; completion is idempotent per session, so the key adds no further semantics in v1; E22 is the only endpoint that accepts it (proposed contract v1.4 amendment, item 6) [O-06]. A malformed key is `422`.
 
 **Behaviour**
 - The session becomes `completed` and `elapsed_ms` records its verified active time.
-- `summary` is derived only from acknowledged events: `answered` (acknowledged answer attempts), `correct`, `newPassages` (passages introduced in the session [O-24]), `reviewsPassed` and `reviewsFailed` (review rounds evaluated in the session), `activeMs` (verified active time attributed to the session).
+- `summary` is derived only from acknowledged events: `answered` (acknowledged answer attempts), `correct`, `newPassages` (passages first attempted in the session, A-12), `reviewsPassed` and `reviewsFailed` (review rounds evaluated in the session), `activeMs` (verified active time attributed to the session).
 - It never adds time and never creates the daily completion; that is written from events when `activeMs ≥ goalMs` (D40). `daily` is the current verified figure.
-- Repeating the call returns the stored result with no second effect. The client sends it after the events of its runs are acknowledged (PWA-design §5); the server does not enforce that order [O-22].
+- Repeating the call returns the stored result with no second effect. The client sends it after the events of its runs are acknowledged (PWA-design §5); the server does not enforce that order; unfinished review rounds are not evaluated (A-12).
 
 **Errors:** `401 unauthenticated`; `403 forbidden_origin`; `404 not_found`; `422 validation_error` (malformed `Idempotency-Key`); `429 throttled` [O-03]; `503 unavailable`; `500 internal`.
 
@@ -1364,7 +1441,7 @@ A mixed outcome on a later replay (the `reasonCode` and `code` values are illust
 
 ### 4.8 Offline (PWA, D46 / D58 / D59)
 
-Names follow PWA-design §4–§6, where the offline contract is proposed and `Needs Review` (NR). Shapes that PWA-design and the contract leave NR (`contentHashes` keying and chunking, `verifiedAt`, `contentValidity`, `games` descriptors, the chunked manifest, the size and partitioning of a download, the number of prepared sessions) are **not invented here** [O-25]. No lease, lock or expiry is added (D58). No operation creates a server session while the device is offline: the device reuses the sessions the server prepared (`status = prepared`).
+Names follow PWA-design §4–§6, where the offline contract is proposed and `Needs Review` (NR). Shapes that PWA-design and the contract leave NR (`contentHashes` keying and chunking, `verifiedAt`, `contentValidity`, `games` descriptors, the chunked manifest, the size and partitioning of a download beyond the caps below) are **not invented here** [O-25]. Caps and error codes are decided in A-04 and A-12 (Needs Review at G0). No lease, lock or expiry is added (D58). No operation creates a server session while the device is offline: the device reuses the sessions the server prepared (`status = prepared`).
 
 #### E23 · `POST /api/plans/:id/offline-snapshots`
 
@@ -1379,13 +1456,14 @@ Names follow PWA-design §4–§6, where the offline contract is proposed and `N
 | Field | Type | Required | Rules |
 |---|---|---|---|
 | `clientOperationId` | UUID | yes | idempotency id of this download |
-| `expectedPlanVersion` | integer ≥ 1 | yes | must equal the plan's `currentVersion`; a mismatch is `409` [C-11] |
-| `downloadTargetRefs` | string[] | yes | non-empty, unique; each is a passage id (the memorization target, D66) inside the plan's edition, scope and selected paths. Maximum count and the size and partitioning of a download are not set [O-25] |
+| `expectedPlanVersion` | integer ≥ 1 | yes | must equal the plan's `currentVersion`; a stale value is `409 version_conflict` (C-11, resolved) |
+| `downloadTargetRefs` | string[] | yes | non-empty, unique; each is a passage id (the memorization target, D66) inside the plan's edition, scope and selected paths. At most 60 entries (A-12); size and partitioning of a download beyond this cap stay for implementation design [O-25]. Malformed values, unknown references, edition or scope are `422` (C-11) |
 
 **Behaviour**
-- The plan must be `active` and the edition published, not revoked and eligible for local download. Local-download rights are checked separately from the right to display a source (D58, D68; rights are owner-accepted and pending the publisher's terms); a failure is `422` rule `edition_not_downloadable` [O-25].
+- The plan must be `active` and the edition published, not revoked and eligible for local download. Local-download rights are checked separately from the right to display a source (D58, D68; rights are owner-accepted and pending the publisher's terms); a failure is `422` rule `edition_not_downloadable` (A-12).
 - The snapshot is immutable and follows contract §7 `PlanSnapshot`: `schemaVersion` and `protocolVersion` = 1; `userId` is a non-secret ownership binding (not a credential and not encryption); `downloadedTargetRefs` are the accepted references; `dailyGoalMs` is the goal in force; `preparedSessions` are `SessionSnapshot`s with `status = prepared` and a server-owned `sessionId`; `lessons` are `PassageView`s with verbatim text and the canonical URL; `games` are the questions with every option and distractor needed offline; `references` are `SourceRef`s.
 - Never included: tokens, passwords, recovery codes, HadeethEnc commentary, QuranEnc translation or tafsir.
+- The snapshot holds at most 7 prepared sessions (A-12).
 - The same `clientOperationId` with identical input returns the identical snapshot and creates no new session.
 
 **Errors**
@@ -1454,7 +1532,7 @@ Names follow PWA-design §4–§6, where the offline contract is proposed and `N
 
 **Request:** none (no query parameters; chunk selection is NR). **Headers:** `Cache-Control: no-store`.
 
-**Behaviour:** a GET **never creates a session** and never writes. Readiness of all parts is the device's condition for running offline. A snapshot whose edition has been revoked or withdrawn never delivers the blocked text; the response in that case is open (**Proposed** `404`) and the device learns the reason from E25 [O-25].
+**Behaviour:** a GET **never creates a session** and never writes. Readiness of all parts is the device's condition for running offline. A snapshot whose edition has been revoked or withdrawn never delivers the blocked text; the response in that case is `404 not_found` (A-04), and the device learns the reason from E25 (`content_revoked`).
 
 **Errors:** `401 unauthenticated`; `404 not_found` (unknown or not owned); `429 throttled` [O-03]; `503 unavailable`; `500 internal`. **Side effects:** none.
 
@@ -1477,7 +1555,7 @@ Names follow PWA-design §4–§6, where the offline contract is proposed and `N
 | `editionId` | UUID | yes | the edition the device holds |
 | `bankVersion` | integer ≥ 1 | yes | the bank version the device holds |
 
-The three values describe what the device holds. They must equal the snapshot's recorded values (`422` rule `snapshot_mismatch`) and are then compared with the **current** server state to produce the status [O-25].
+The three values describe what the device holds. They must equal the snapshot's recorded values (`422` rule `snapshot_mismatch`) and are then compared with the **current** server state to produce the status (A-04, A-12).
 
 **Response:** `{status: OfflineStatus, currentPlanVersion, allowedSessionRefs, catalogVersion, reasonCode}`.
 
@@ -1488,7 +1566,7 @@ The three values describe what the device holds. They must equal the snapshot's 
 | `revoked` | the content was revoked or its rights withdrawn; the device hides and clears that material |
 | `expired` | validity actually ended according to source or session data; no TTL is invented |
 
-`allowedSessionRefs` lists the prepared session ids that may still be run. `catalogVersion` is the current published `bank_version`. **Proposed derivation** [O-25]: `revoked` when the edition is revoked or not downloadable; `expired` only when validity really ended; `stale` when the plan version, edition or bank version held by the device differs from the current one, or the plan is no longer active; otherwise `available`. `reasonCode` values: [O-21].
+`allowedSessionRefs` lists the prepared session ids that may still be run. `catalogVersion` is the current published `bank_version`. **Derivation (A-04, A-12; Needs Review at G0):** `revoked` when the edition is revoked or not downloadable (`reasonCode = content_revoked`); `expired` only when validity really ended; `stale` when the plan version, edition or bank version held by the device differs from the current one, or the plan is no longer active; otherwise `available`. `reasonCode` values: the O-21 set under E21.
 
 A free-server wake-up timeout or a `5xx` is connectivity, never one of these statuses (D48).
 
@@ -1524,7 +1602,7 @@ A demo account is created from the public demo link and carries `is_demo = true`
 | | |
 |---|---|
 | Purpose, module | create a demo account from the public demo link; the committee then walks the full learner journey on synthetic data. M9 (D29; R10, R17) |
-| Auth | A — Anonymous entry; Origin check; throttle and usage limit [O-03] |
+| Auth | A — Anonymous entry; Origin check; throttle; at most 5 demo accounts per client IP per day (A-09; owner confirms or gives numbers, Q6) |
 | Success | `201` `{profile: Profile, recoveryCode: string}` with `isDemo: true`, and `Set-Cookie` |
 
 **Request body:** identical to E03 (`username`, `password`, `timeZone`, `language`, `termsAccepted`, `termsVersion`; the same rules, including the mandatory consent box, D52). A demo flag is never accepted: `isDemo`, `mode` or any other unknown property is `422 forbidden_field`.
@@ -1558,7 +1636,7 @@ A demo account is created from the public demo link and carries `is_demo = true`
 | | |
 |---|---|
 | Purpose, module | list the synthetic goal scenarios a committee member can choose. M9 |
-| Auth | D — Demo session; a learner gets `403 forbidden` (**Proposed** [O-05]); a visitor gets `401` |
+| Auth | D — Demo session; a learner gets `403 forbidden` (A-12, decision on [O-05]); a visitor gets `401` |
 | Success | `200` `{scenarios: {scenarioId, titleAr, titleEn, editionKey, targetScope}[]}` |
 
 **Request:** none. **Source:** `fixtures/demo_scenarios.json`, validated against the published editions (Programming-guide); how a scenario whose edition is not published is handled is open [O-19]. **Errors:** `401 unauthenticated`; `403 forbidden`; `429 throttled` [O-03]; `500 internal`. **Side effects:** none.
@@ -1578,7 +1656,7 @@ A demo account is created from the public demo link and carries `is_demo = true`
 | | |
 |---|---|
 | Purpose, module | build a demo plan from a synthetic scenario with the restricted Teaching Agent, falling back to the rules engine. M9; M8 (R09, R15; D17, D29, D38, D60) |
-| Auth | D — Demo session; a learner gets `403 forbidden` (**Proposed** [O-05]) |
+| Auth | D — Demo session; a learner gets `403 forbidden` (A-12, decision on [O-05]) |
 | Success | `201` `Plan`, with `planner = {source, model?}` |
 
 **Request body**
@@ -1592,7 +1670,7 @@ The edition, scope and other plan parameters come from the fixture scenario [O-1
 
 **Behaviour**
 1. The server fixes the mode `synthetic_demo` (only accounts with `is_demo` reach this endpoint).
-2. The demo usage and budget limits (D29) are applied [O-03]; the budget is zero and only free models are used (D60).
+2. The demo usage and budget limits (D29) are applied: at most 10 `POST /demo/plans` per demo account per day, and Teaching-Agent calls draw on a configured daily free budget and fall back to the rules engine when it is exhausted (A-09; owner confirms or gives numbers, Q6); only free models are used (D60).
 3. **Teaching Agent input — the only data that can leave the server:** the scenario id, passage ids with word counts, and the placement correct and incorrect counts. No account id, username, free text or answer text.
 4. The agent's output must be `{newWordsPerDay, reviewOffsetsDays, priorityReviewPassageIds}`, validated against allowed ids and bounds. New material always follows the plan order (D72) with no passage dropped: the agent sets pace and review timing and priority only, never the order of new passages.
 5. A call is made only after the model's free eligibility and quota are verified (D60). The timeout is 8 s. Any failure, timeout, quota exhaustion or ineligible model falls back to the rules engine; that is **not** an error — the answer is `201` with `planner.source = "rules"`.
@@ -1605,7 +1683,7 @@ The edition, scope and other plan parameters come from the fixture scenario [O-1
 |---|---|---|
 | 401 | `unauthenticated` | no valid session |
 | 403 | `forbidden_origin` | `Origin` mismatch |
-| 403 | `forbidden` (**Proposed** [O-05]) | the account is not a demo account |
+| 403 | `forbidden` (A-12, decision on [O-05]) | the account is not a demo account |
 | 404 | `not_found` | `placementSessionId` unknown or not the caller's |
 | 409 | `version_conflict` | `details.reason` = `active_plan_conflict` |
 | 422 | `validation_error` | `unknown_scenario`, `forbidden_field` |
@@ -1644,7 +1722,7 @@ The edition, scope and other plan parameters come from the fixture scenario [O-1
 | | |
 |---|---|
 | Purpose, module | read-only precomputed multi-day simulations with plan adjustment, labelled as synthetic. M9 |
-| Auth | D — Demo session; a learner gets `403 forbidden` (**Proposed** [O-05]) |
+| Auth | D — Demo session; a learner gets `403 forbidden` (A-12, decision on [O-05]) |
 | Success | `200` `{simulations: …}` — the element shape is not defined by the contract [O-19] |
 
 **Request:** none. **Source:** `fixtures/demo_simulations.json`, computed in advance by the developer. Every simulation is labelled as precomputed and synthetic, never live (PRD M9: «محسوبة سلفًا لا تشغيلًا حيًا»). No writes and no model call. **Errors:** `401 unauthenticated`; `403 forbidden`; `429 throttled` [O-03]; `500 internal`.
@@ -1692,8 +1770,8 @@ flowchart LR
 | `validate` | `validated` | `validated` |
 | `approve` | `approved` | `validated`, with approval recorded |
 | `publish` | `published` | `published` |
-| `withdraw` | none | `revoked` |
-| `archive` | none | unchanged status; `catalog_hidden = true` and `archived_at` set |
+| `withdraw` | `withdrawn` | `revoked` |
+| `archive` | `archived` | unchanged status; `catalog_hidden = true` and `archived_at` set |
 | `delete-unused-draft` | none (the job rows are deleted) | the draft no longer exists |
 
 `segment` and `build-bank` may be offered as one invocation; the workflow of directive 5 keeps them as two steps [O-26].
@@ -1705,7 +1783,7 @@ flowchart LR
 | | |
 |---|---|
 | Inputs | edition key, bank version; the source records returned by the Islamic Content MCP (tool `get_quran_verses` or `get_hadith`), or an HTTP (MCP JSON-RPC) fetch when the host is reachable; for the hadith edition, the pass number — two **independent** acquisitions are required |
-| Outputs | raw records stored **unmodified** in the private bucket `sources/<editionKey>/raw/` (`service_role`, publishing scope) with tool name, arguments, retrieval time, canonical URL and `rawSha256`; the local staging copy under `backend/.content-build/raw/` (gitignored) [C-10]; `backend/.content-build/acquisition_report.md`; draft rows `sources` (`rights_status = owner_accepted_pending_verification`), `book_editions` (`draft`) and the `content_jobs` row |
+| Outputs | raw records stored **unmodified** in the private bucket `sources/<editionKey>/raw/` (`service_role`, publishing scope) with tool name, arguments, retrieval time, canonical URL and `rawSha256`; the local staging copy under `backend/.content-build/raw/` (gitignored) [C-10]; `backend/.content-build/acquisition_report.md`; draft rows `sources` (`rights_status = owner_accepted_pending_verification`), `book_editions` (`draft`) the `acquisition` entry of `book_editions.review_record` (`{who, at, sourceUrl, recordIds}`, A-12) and the `content_jobs` row |
 | Record shapes | Quran `{surah, ayah, text, url}`; hadith `{hadeethencId, fortyNumber, title, narration, narrator, grade, url, languages}` (contract §2.7). Only the exact text and the Narrator and Grade values are kept; HadeethEnc commentary and QuranEnc translation or tafsir are not stored (D68) |
 | Step written | `acquired` |
 | Preconditions | the owner's `.env`; bucket `sources` exists; a known edition key; no published version with the same `(edition, bank_version)` |
@@ -1717,7 +1795,7 @@ flowchart LR
 |---|---|
 | Inputs | edition key, bank version; the local path of the verification oracle (KFGQPC Hafs v18 for the Quran, and the OpenITI/Shamela text for the hadith skeleton comparison). The oracles are verification tools only, never content sources, and are not committed |
 | Checks (contract §2.7) | (1) Quran: NFC text equals the NFC oracle text without its trailing ayah number, for all 564 ayat; (2) hadith: the two acquisitions are identical after NFC, and the letter skeleton is compared with the Shamela text only to flag omissions or additions for review; (3) when `mcp.islamiccontent.org` is reachable from the build environment: HTTP re-acquisition compared byte for byte. Any mismatch blocks the affected unit |
-| Outputs | per-source and per-unit verification records (`method`, `result` passed or failed, `details`); the gap report (hadiths without a Forty-wording record); the `verification` entry of `book_editions.review_record`, with known gaps and suspected errors (key layout [O-27]); the first part of `content_jobs.validation_summary` |
+| Outputs | per-source and per-unit verification records (`method`, `result` passed or failed, `details`); the gap report (hadiths without a Forty-wording record); the `verification` entry of `book_editions.review_record`, with known gaps and suspected errors (`verification {who, at, method, result, differences}`, A-12); the first part of `content_jobs.validation_summary` |
 | Step written | `verified` — only when every unit of the build is verified or is excluded as a documented gap |
 | Preconditions | `acquired` complete; both hadith acquisitions present; the oracle files available locally |
 
@@ -1754,7 +1832,7 @@ flowchart LR
 | | |
 |---|---|
 | Inputs | edition key, bank version; the reviewer identity as recorded for the owner; the **scope of the review actually performed** (for example automated verbatim gates only, or a human comparison of named units) and notes; an explicit interactive confirmation typed by the owner. Silence, a timeout or a non-interactive run is never an approval |
-| Outputs | the `approval` entry of `book_editions.review_record` (jsonb): who, when, what the human really reviewed and its scope, and the verification results; known gaps and suspected errors stay in the `verification` entry (key layout [O-27]). An automated check is never attributed to a human reviewer (Content-and-sources) |
+| Outputs | the `approval` entry of `book_editions.review_record` (jsonb): who, when, what the human really reviewed and its scope, and the verification results; known gaps and suspected errors stay in the `verification` entry (`approval {who, at, note}`, A-12). An automated check is never attributed to a human reviewer (Content-and-sources) |
 | Step written | `approved` |
 | Preconditions | `validated` passed with no blocking failure; every verification result is `passed`; the edition is `validated` |
 
@@ -1765,15 +1843,15 @@ flowchart LR
 | Inputs | edition key, bank version |
 | Outputs | idempotent upserts of `publish.sql` into the content tables (contract §3.1) with `service_role`; `book_editions.status = published`; `content_jobs.published_at`; earlier published versions of the same book become `superseded`; the catalog then lists the edition with `catalogVersion = bank_version`. A published version is immutable: a correction is a new version |
 | Step written | `published` |
-| Preconditions | `approved` recorded by the CLI (who and when); verification `passed`; the publisher's terms recorded in `sources.license_record` before any public display (D68) — placing this check at `publish` is a proposed reading [O-27]; no concurrent publication of the same edition |
+| Preconditions | `approved` recorded by the CLI (who and when); verification `passed`; the publisher's terms recorded in `sources.license_record` before any public display (D68) — recording them is a precondition of `publish` (A-12, decision on [O-27]); no concurrent publication of the same edition |
 
 #### `withdraw`
 
 | | |
 |---|---|
 | Inputs | edition key, version, reason (transmission, rights or accreditation defect) and a note |
-| Outputs | `book_editions.status = revoked`. The text is no longer served (new sessions, snapshots, E24); E25 answers `revoked`; plans, attempts and history are kept, but blocked text is never shown, even inside a pinned plan or a device snapshot (D44, D58). The reason is recorded in `review_record` [O-27] |
-| Step written | none |
+| Outputs | `book_editions.status = revoked`. The API never serves or grades content of a revoked edition (A-04): new sessions and snapshots are refused, E24 answers `404 not_found`, E25 answers `revoked` with `reasonCode = content_revoked`, and events for such a session are `rejected` with `edition_mismatch`. Plans, attempts and history are kept, but blocked text is never shown, even inside a pinned plan or a device snapshot (D44, D58). The command then calls `srv_redact_revoked_content(edition_id uuid)` (a `SECURITY DEFINER` function, the 19th `srv_*` function), which redacts the text fields (source text and answer keys) inside `offline_snapshots.payload` and `learning_sessions.steps` for the rows that reference the edition, keeping structure and ids; the CLI calls it with `service_role` (its publishing role), and only `service_role` may execute it, not `qatra_server`. The reason is recorded in `review_record` |
+| Step written | `withdrawn` (the audit entry of the withdrawal and the redaction) |
 | Preconditions | the edition is `published` |
 
 #### `archive`
@@ -1782,7 +1860,7 @@ flowchart LR
 |---|---|
 | Inputs | edition key, version |
 | Outputs | `book_editions.catalog_hidden = true` and `archived_at = now()`. The edition disappears from new selection (E14, new plans, new placement sessions); existing plans continue. It is not a status change and never permits a revoked text to display |
-| Step written | none |
+| Step written | `archived` |
 | Preconditions | the edition is `published`. Undoing an archive is not specified [O-26] |
 
 #### `delete-unused-draft`
@@ -1798,7 +1876,7 @@ flowchart LR
 
 - Each command prints counts and ids only, never source text and never secrets. Reports (`report.md`, `acquisition_report.md`) stay under the gitignored `backend/.content-build/`.
 - Exit status is zero on success and non-zero on failure; the numeric values are open [O-26]. A failure records the step and cursor in `content_jobs` and leaves the edition `draft`.
-- `job_execution_mode = in_process` (D48) has no HTTP trigger in this specification [O-28].
+- `job_execution_mode = in_process` (D48) is removed from the MVP scope (A-11, decision on [O-28]): the content workflow runs through the operator CLI only. The configuration value is reserved and not documented as a feature; no HTTP trigger exists.
 
 ## 6. Keep-awake job interface (D72)
 
@@ -1807,15 +1885,15 @@ A GitHub Actions scheduled workflow in the public repository keeps the free serv
 | Item | Specification |
 |---|---|
 | Calls | only `GET /api/health` (E01) and `GET /api/health/ready` (E02) |
-| Secret | none: both endpoints are public. The base URL is the public frontend origin (`FRONTEND_ORIGIN`), so the request takes the same Next.js rewrite path as real users and also exercises it. The value is not a secret; where it is stored is open [O-29] |
-| Liveness ping | `GET /api/health` about every 14 minutes (D72; NFR-02 allows 10–14), only from 6 October 2026 until 15 October, or 22 October if the project qualifies (challenge guide p.24), in the Asia/Dubai calendar |
-| Database check | `GET /api/health/ready` once a week, through 31 October 2026 23:59 Asia/Dubai, so the free database project is not paused for inactivity (D70). It runs the trivial query of E02 |
-| Window check | cron cannot express date ranges, so the workflow checks the current date (Asia/Dubai) at its start and exits successfully, without calling, outside the window. How the 15 or 22 October end date is set is open [O-29] |
-| Delays | GitHub may delay scheduled runs; that is accepted (D72). The Render free service stops after 15 minutes without requests, so a 14-minute interval plus a GitHub delay can exceed it; an interval inside the approved 10–14 minute range gives margin [O-29] |
-| Request behaviour | `GET` only (exempt from the Origin check); success is `200`. A sleeping server may need about a minute, so the job retries with short requests (1, 2, 4, 8 s, then 10 s steps) for up to 90 s before it fails the run (the NFR-02 wake-up sequence applied to the job; **Proposed** [O-29]) |
+| Secret | none: both endpoints are public. The target is the frontend origin through the Vercel rewrite (the repository variable `PUBLIC_BASE_URL`), so the request takes the same path as real users and also exercises it; the Render URL is the documented fallback if the rewrite-timeout check (NFR-02) fails. The value is not a secret (A-06) |
+| Liveness ping | `GET /api/health` on cron `4-59/10 * * * *` (every 10 minutes at minutes 4, 14, 24, 34, 44 and 54: inside the approved 10–14 range, a 5-minute margin against the 15-minute idle stop, and it avoids minute 0; A-06), only from 6 October 2026 until 15 October, or 22 October if the project qualifies (challenge guide p.24), in the Asia/Dubai calendar |
+| Database check | `GET /api/health/ready` on cron `23 2 * * 1,4` (Monday and Thursday 02:23 UTC = 06:23 Asia/Dubai), through 31 October 2026 23:59 Asia/Dubai, so the free database project is not paused for inactivity (D70). Twice weekly is **pending owner confirmation (Q3; amends D72 "weekly")**; the fallback is `23 2 * * 1`. It runs the trivial query of E02 |
+| Window check | cron cannot express date ranges, so the workflow checks the current date (Asia/Dubai) at its start and exits successfully, without calling, outside the window. The window dates and the base URL are non-secret GitHub repository variables: `KEEP_WARM_START`, `KEEP_WARM_END`, `READY_CHECK_END` and `PUBLIC_BASE_URL` (A-06) |
+| Delays | GitHub may delay scheduled runs; that is accepted (D72). The Render free service stops after 15 minutes without requests, so a 14-minute interval plus a GitHub delay could exceed it; the 10-minute interval gives margin (A-06) |
+| Request behaviour | `GET` only (exempt from the Origin check); success is `200`. A sleeping server may need about a minute, so the job retries with short requests (1, 2, 4, 8 s, then 10 s steps) for up to 90 s before it fails the run (the NFR-02 wake-up sequence applied to the job; A-06). GitHub scheduling facts are re-verified at implementation |
 | Record | each run logs time, status code and latency (NFR-01); no body, no personal data. A failed run is visible in GitHub; there is no other alarm |
-| Limits | the weekly `GET /api/health/ready` stays far below the readiness rate limit [O-03]; `GET /api/health` touches no database |
-| Where it lives | `.github/workflows/keep-warm.yml` (Programming-guide: Planned, not created, the only path outside `frontend/`, `backend/`, `supabase/` and `fixtures/`). Architecture-and-data's list of shared root paths does not include it yet [O-29]; any GitHub connection or publication needs separate explicit authorization |
+| Limits | the twice-weekly (or weekly) `GET /api/health/ready` stays far below the readiness rate limit of 6 per minute (§1.8); `GET /api/health` touches no database |
+| Where it lives | `.github/workflows/keep-warm.yml` (Programming-guide: Planned, not created, the only path outside `frontend/`, `backend/`, `supabase/` and `fixtures/`). Architecture-and-data's list of shared root paths adds it (Planned; A-06); any GitHub connection or publication needs separate explicit authorization |
 
 ## 7. Traceability
 
@@ -1835,7 +1913,7 @@ A GitHub Actions scheduled workflow in the public repository keeps the free serv
 | E10 | `POST /api/auth/logout` | M1, M7 | R10, R23 | NFR-06 | D46, D58 |
 | E11 | `GET /api/me` | M10, M1, M7 | R11, R23 | NFR-14 | D57, D58 |
 | E12 | `PATCH /api/me` | M10 | R11, R06 | NFR-14 | D57 |
-| E13 | `DELETE /api/account` | M1, M10 | R10, R17 | NFR-07 | D52, D58, D71 |
+| E13 | `POST /api/account/delete` | M1, M10 | R10, R17 | NFR-07 | D52, D58, D71 |
 | E14 | `GET /api/catalog` | M2 | R03, R08, R12 (refs R11, R13, R20) | NFR-11 | D68, D71 |
 | E15 | `POST /api/plans/estimate` | M3 | R01, R02 | NFR-03 | D34, D42, D72 |
 | E16 | `POST /api/plans` | M3 | R01, R02, R14 | NFR-03 | D34, D42, D57, D66, D72 |
@@ -1852,6 +1930,7 @@ A GitHub Actions scheduled workflow in the public repository keeps the free serv
 | E27 | `GET /api/demo/scenarios` | M9 | none (D29) | — | D29, D71 |
 | E28 | `POST /api/demo/plans` | M9, M8 | R09, R15 | NFR-05 | D17, D29, D38, D39, D60 |
 | E29 | `GET /api/demo/simulations` | M9 | none (D29) | — | D29 |
+| E30 | `POST /api/plans/:id/resume` | M3 | R14 | NFR-03 | none; plan lifecycle A-08 (proposed contract v1.4 amendment, owner confirms, Q5) |
 | CLI | `acquire` … `delete-unused-draft` | M11 | R13, R21 (refs R03, R08) | NFR-11 | D37, D43, D44, D65, D68, D69, D70, D71 |
 | Job | keep-awake workflow | cross-cutting (M7) | R23 | NFR-01, NFR-02 | D48, D70, D72 |
 
@@ -1861,7 +1940,7 @@ A GitHub Actions scheduled workflow in the public repository keeps the free serv
 |---|---|
 | M1 Account and privacy | E03–E10, E13, E26 |
 | M2 Catalog and sources | E14 |
-| M3 Goal, placement, plan | E15–E17, E20 (`placement`) |
+| M3 Goal, placement, plan | E15–E17, E30, E20 (`placement`) |
 | M4 Daily session | E18, E20, E22 |
 | M5 Games and hint | E20, E21 |
 | M6 Progress and memorization | E18, E19, E21, E22 |
@@ -1874,61 +1953,75 @@ A GitHub Actions scheduled workflow in the public repository keeps the free serv
 
 ## 8. Differences between sources and open points
 
-Summary: 29 HTTP operations (E01–E29) are specified; 15 differences between sources are recorded (§8.1; C-01 and C-08 are already resolved by contract v1.3 and Architecture-and-data v13); 30 open points are listed (§8.2). The rule applied to a difference is: **the contract plus the D-decisions win**.
+Summary: 30 HTTP operations (E01–E30) are specified (29 → 30: E30 `POST /api/plans/:id/resume` is a proposed contract v1.4 amendment); 15 differences between sources are recorded (§8.1): 11 resolved (C-01 and C-08 earlier, and C-02..C-07, C-11, C-12, C-15 on 4 October 2026) and 4 already applied (C-09, C-10, C-13, C-14); 30 open points are listed (§8.2): 26 decided by the architect (A-xx, Needs Review at gate G0; 4 of these are decided as defaults that the owner confirms or changes: O-16, O-17 mushaf order, O-19, O-29) and 4 still open with a deferral target (O-02, O-06, O-08, O-26). A decision here is not an approval. The rule applied to a difference is: **the contract plus the D-decisions win**.
 
 ### 8.1 Differences between sources
 
 | ID | Difference | Applied in this specification |
 |---|---|---|
 | C-01 | **Plan order.** Contract v1.2 had `PlanOrder = book` only and treated reverse order as open. D72 offers `book` (default) and `reverse` (Quran edition only), chosen at plan creation, with a change as a plan revision effective the next learning day | **Resolved:** contract v1.3 adds `order` to the create and revise requests, `PlanOrder = book or reverse` and the `validation_error` rule for `reverse` on a non-Quran edition; this specification matches v1.3. Text elsewhere that still describes v1.2 is stale |
-| C-02 | **`POST /api/auth/password`.** Contract §7: a new cookie, only the *other* sessions revoked. Architecture-and-data, Authentication-and-privacy and QA: `auth_epoch` increments, **all** app sessions are revoked and a new login is required | the contract is followed (E09) |
-| C-03 | **First session.** Architecture-and-data says `POST /api/plans` saves the plan, its phases "and the first session". Contract §7: `POST /plans` returns a `Plan`; sessions are created by `POST /sessions` | E16 creates no session; E20 does |
-| C-04 | **Completion id.** PWA-design §5 sends `complete` "with a stable operation id". Contract: no request body | E22 has no body and accepts an optional `Idempotency-Key` [O-06] |
-| C-05 | **Event names.** PWA-design §5 `OfflineEvent` uses `eventKind = attempt or activity`, `sessionId`, `targetRefs`, `answerRef` or `orderedTokenRefs`. Contract: `SessionEvent` with `type = answer or activity` plus `OfflineEnvelope`; the session id is the path parameter | the contract names are used (E21); the PWA names are proposals under review |
-| C-06 | **`EventsResponse`.** PWA-design §5: per-event acknowledged, duplicate and pending (with `reasonCode`), plus totals and a cursor. Contract: `acknowledged`, `duplicate`, `pending`, `rejected`, `results`, `daily`; no cursor | the contract shape is used |
-| C-07 | **Architecture-and-data API table.** «عقود API المخططة» omits `POST /auth/consent`, `POST /demo/accounts`, `GET /demo/scenarios` and `GET /health/ready`, and does not say that `GET /catalog` is public. Contract §7 (since v1.2) and D71 make it public and metadata-only | contract and D71 are followed; the Architecture table needs alignment |
+| C-02 | **`POST /api/auth/password`.** Contract §7: a new cookie, only the *other* sessions revoked. Architecture-and-data, Authentication-and-privacy and QA: `auth_epoch` increments, **all** app sessions are revoked and a new login is required | **Resolved (4 Oct 2026):** the contract wording stands: `auth_epoch` increments, all other app sessions are revoked and the current session receives a new cookie bound to the new epoch, so no re-login is needed (E09). Architecture-and-data, Authentication-and-privacy and QA-and-evaluation are aligned |
+| C-03 | **First session.** Architecture-and-data says `POST /api/plans` saves the plan, its phases "and the first session". Contract §7: `POST /plans` returns a `Plan`; sessions are created by `POST /sessions` | **Resolved (4 Oct 2026):** `POST /api/plans` (E16) creates no session; `POST /api/sessions` (E20) creates it (daily: atomic get-or-create). The Architecture-and-data text "and the first session" is corrected |
+| C-04 | **Completion id.** PWA-design §5 sends `complete` "with a stable operation id". Contract: no request body | **Resolved (4 Oct 2026):** E22 has no body and accepts an optional `Idempotency-Key` header (UUID); PWA-design §5 is aligned. Listed as proposed contract v1.4 amendment, item 6 |
+| C-05 | **Event names.** PWA-design §5 `OfflineEvent` uses `eventKind = attempt or activity`, `sessionId`, `targetRefs`, `answerRef` or `orderedTokenRefs`. Contract: `SessionEvent` with `type = answer or activity` plus `OfflineEnvelope`; the session id is the path parameter | **Resolved (4 Oct 2026):** the contract names win: `SessionEvent { type: answer \| activity }` inside `OfflineEnvelope`, with the session id as the path parameter (E21). PWA-design §5 drops `eventKind`, `sessionId`, `targetRefs`, `answerRef` and `orderedTokenRefs` in favour of the contract field names |
+| C-06 | **`EventsResponse`.** PWA-design §5: per-event acknowledged, duplicate and pending (with `reasonCode`), plus totals and a cursor. Contract: `acknowledged`, `duplicate`, `pending`, `rejected`, `results`, `daily`; no cursor | **Resolved (4 Oct 2026):** `EventsResponse` has the contract shape (`acknowledged`, `duplicate`, `pending`, `rejected`, `results`, `daily`; no cursor). PWA-design §5 is aligned; the per-event `reasonCode` of `pending[]` is kept (O-21 sets) |
+| C-07 | **Architecture-and-data API table.** «عقود API المخططة» omits `POST /auth/consent`, `POST /demo/accounts`, `GET /demo/scenarios` and `GET /health/ready`, and does not say that `GET /catalog` is public. Contract §7 (since v1.2) and D71 make it public and metadata-only | **Resolved (4 Oct 2026):** resolved by aligning the other documents: the Architecture-and-data API table adds `POST /auth/consent`, `POST /demo/accounts`, `GET /demo/scenarios` and `GET /health/ready`, and marks `GET /catalog` as public, metadata only (D71); this file is unchanged |
 | C-08 | **`reviews` table.** Architecture-and-data v12 and contract v1.2 still listed it; directive 3 drops it from the physical schema (the ladder lives in `target_mastery`) | **Resolved:** contract v1.3, Architecture-and-data v13 and Database-schema §3.4 drop it; no operation reads or writes `reviews`, and E13's deletion list omits it |
 | C-09 | **`content_jobs.step`.** Architecture-and-data, Programming-guide, QA and PRD M11: `uploaded → extracted → segmented → page_mapped → verified → embedded → bank_built → validated → published`. Directive 5 for MCP web editions: `acquired → verified → segmented → bank_built → validated → approved → published` (verified before segmented; `page_mapped` and `embedded` skipped) | §5 follows directive 5; Database-schema §4.4 fixes this vocabulary (the older identifiers are reserved for later editions and skipped in the MVP) |
 | C-10 | **Raw records.** Contract §2.7 stores them under `backend/.content-build/raw/` (gitignored). Directive 5 stores them in the private bucket `sources/<editionKey>/raw/` through the CLI, never in git | the bucket is the stored location; the local path is gitignored staging (§5.3) |
-| C-11 | **Offline snapshot errors.** Contract §7: "invalid reference, version or scope → 422". PWA-design §5: `409` for a plan conflict, `422` for an invalid reference, edition or scope | a stale `expectedPlanVersion` is `409 version_conflict` (as in E17 and E20); malformed values, unknown references and scope are `422` (E23) |
-| C-12 | **Monitoring window and executor.** Architecture-and-data and QA monitor health until 15 or 22 October with the executor undecided (PRD NFR open question 3). D70 adds a weekly database-touching check through 31 October and prevails; D72 chooses the GitHub Actions workflow | §6 follows D70 and D72 |
+| C-11 | **Offline snapshot errors.** Contract §7: "invalid reference, version or scope → 422". PWA-design §5: `409` for a plan conflict, `422` for an invalid reference, edition or scope | **Resolved (4 Oct 2026):** a stale `expectedPlanVersion` is `409 version_conflict` (as in E17 and E20); malformed values, unknown references, edition or scope are `422 validation_error` (E23). PWA-design §5 is aligned; recorded as a contract clarification in the v1.4 amendment list (item 5), because contract §7 says 422 only |
+| C-12 | **Monitoring window and executor.** Architecture-and-data and QA monitor health until 15 or 22 October with the executor undecided (PRD NFR open question 3). D70 adds a weekly database-touching check through 31 October and prevails; D72 chooses the GitHub Actions workflow | **Resolved (4 Oct 2026):** resolved by aligning the other documents: liveness ping 6–15 October (22 October if qualified); database readiness check through 31 October 23:59 Asia/Dubai (D70); executor = GitHub Actions scheduled workflow (D72). Architecture-and-data and QA-and-evaluation windows are aligned; Authentication-and-privacy: no downloadable backups (D70), provider-side retention is whatever the free plan provides and is confirmed at provisioning (schema OPEN-15), not asserted; this file is unchanged (§6 already followed D70 and D72) |
 | C-13 | **Access levels.** The coordinator's brief lists four levels (Public, Session, Demo session, Operator CLI). PRD v14 lets a visitor register, log in, recover and create a demo account, which are neither read-only public metadata nor session operations | this specification adds level **A — Anonymous entry** (E03, E04, E06, E07, E26) |
 | C-14 | **Conditional feedback endpoints** appear in Architecture-and-data and Programming-guide §6 but not in contract §7; they depend on D43–D45 | not specified here (§0) |
-| C-15 | **Demo plan creation.** PRD v14 roles matrix: a demo account creates plans only through `POST /demo/plans`. Contract §7 states no role restriction for `POST /plans` | E16 denies demo accounts (`403 forbidden`), subject to [O-19] |
+| C-15 | **Demo plan creation.** PRD v14 roles matrix: a demo account creates plans only through `POST /demo/plans`. Contract §7 states no role restriction for `POST /plans` | **Resolved (4 Oct 2026):** E16 denies demo accounts (`403 forbidden`; the PRD v14 roles matrix wins); E15 is read-only and stays allowed for demo accounts (closes O-19(a)) |
 
 ### 8.2 Open points
 
-Nothing below is decided. "Proposed" marks the architect's suggestion; it does not bind anyone.
+**Decided (A-xx)** marks an architect decision recorded on 4 October 2026 with status Needs Review at gate G0; it is not an owner approval and the numbers in it are configuration defaults. **Open** marks a point that stays open with its deferral target. "Proposed" in the original text of the earlier columns marks the architect's earlier suggestion.
 
 | ID | Open point | Where | Proposal or decision needed |
 |---|---|---|---|
-| O-01 | **Request size limits.** No maximum body size or field cap is approved; only `events` ≤ 100 per request, username 3–24 characters and the password bounds are | §1.7, E15–E17, E21, E23 | Proposed: one global body cap at the framework or gateway, answered `413 payload_too_large`; caps for `downloadTargetRefs`, `passageIds` and `sectionOrdinals` derived from content size |
-| O-02 | **Timeouts.** No server-side request timeout is set. The Vercel rewrite timeout is an unverified risk. Long calls: E28 (agent timeout 8 s) and E23 (snapshot build) | §1.11, E28 | verify during the build; keep wake requests short |
-| O-03 | **Rate limits** other than the auth throttle: public reads, E02 readiness, anonymous entry (E03, E26), session reads and writes, the demo usage and budget limits (D29) | §1.8 | numbers needed; Proposed: `Retry-After` on every `429` |
-| O-04 | **Auth throttle details.** The progressive-delay values after 5 failures; whether a success resets a counter; whether failed re-authentication on E07, E08, E09, E13, and registrations, count; the window granularity (Database-schema OPEN-05 proposes one-minute buckets) | §1.8, E03–E09, E13 | Proposed: failed password checks on E08, E09 and E13 count under the same username key |
-| O-05 | **Error-code gaps.** Contract §7 has no `forbidden` (403 role denial) or `payload_too_large` (413), defines no `details` shape, and has two 409 codes only | §1.5, E16, E27–E29 | Proposed additions as in §1.5; alternative: add a general `conflict` code instead of `details.reason` on `version_conflict` |
-| O-06 | **`Idempotency-Key`.** Contract §7 says mutations accept it "where noted", but no row notes it | §1.6, E22 | Proposed: no endpoint requires it in v1; E22 accepts an optional UUID; candidates if needed: E16, E20 (`game`, `placement`), E28 |
-| O-07 | **Public caching.** Whether `GET /api/catalog` may be cached briefly (max-age, ETag); no numbers are approved. `no-store` on E01 and E02 is a Proposed rule | §1.9, E14 | `no-store` until decided |
-| O-08 | **Health details.** The source of the `version` value of E01 (no `APP_VERSION` in contract §8); whether `select 1` over the `qatra_server` connection counts as activity for the Supabase free-tier inactivity pause (unverified). The E02 body (`{status}` only) and its query are fixed by contract v1.3 and Database-schema §8.1 | E01, E02 | verify before relying on the weekly check |
-| O-09 | **Ordering and pagination.** Order of the editions (E14), scenarios and simulations, and the window of `ProgressResponse.history` | §1.13, E14, E19, E27, E29 | Proposed order for editions: category display order, then `editionKey`; the history window needs a decision |
-| O-10 | **Re-consent gating.** Which operations a session may use while `reconsentRequired` is true (UX: no continuing without consent) | E04, E05 | Proposed: `400 terms_required` with `details.requiredVersion` for every operation except E01, E02, E05, E10, E11 and E14 |
-| O-11 | **Credential rules and codes.** (a) The exact Unicode classes of "Arabic letters" and "digits" in usernames (Arabic-Indic digits, combining marks) and where the 3–24 length is counted (before or after NFKC). (b) How "15 Unicode characters" is counted (code points or grapheme clusters). (c) A wrong current password on E08, E09, E13 returns `401 invalid_credentials` (the contract has no better code; clients branch on `error.code`). (d) An invalid, expired or used reset grant on E07, and a concurrent second E06, return the generic `401 invalid_credentials` | E03, E06–E09, E13 | confirm |
-| O-12 | **Account deletion.** (a) E13 carries a JSON body on `DELETE`, which some proxies and CDNs drop. (b) If the Auth deletion fails after the personal rows are gone, the answer is Proposed to stay `204` while the backend retries; the residue is an unreachable Auth record (Database-schema OPEN-14) | E13 | (a) verify through the Next.js rewrite and Render, or change it to a `POST` (a contract change); (b) confirm |
-| O-13 | **Daily-goal minutes.** Whether `dailyGoalMs` comes from `Profile.sessionMinutes` (E12) or `Plan.sessionMinutes` (E16, E17); the initial profile value at registration (Database-schema OPEN-09 proposes 10); the effective-date rule at day boundaries (a zone change crossing midnight, several devices); no DTO field exposes a pending plan-level change (Architecture-and-data marks the effective-date shape as needing review) | E03, E12, E17, E18 | decision needed |
-| O-14 | **Session behaviour.** (a) E10 tolerates a missing or invalid session (Proposed, so a pending offline logout can finish). (b) E09 changes the password with the user's own Supabase token, because `service_role` is limited to create user, reset by recovery and delete account (inferred). (c) The cookie is cleared on `401 unauthenticated` (Proposed) | E09, E10, §1.3 | confirm |
-| O-15 | **Catalog count semantics.** The catalog views give per-path counts (Database-schema §7); the DTO's `totalWords`, `CatalogSection.wordCount` and `passageCount` must say which paths they sum (all available paths, or the default path; for a hadith, `matn` only or `matn`, `sanad` and `grade` together) | E14 | decision needed |
-| O-16 | **Plan lifecycle gaps.** No operation resumes a paused plan; nothing says how a plan becomes `completed`; whether a paused or completed plan can be revised (E17 proposes `409 plan_not_active`) | E16, E17 | owner decision |
-| O-17 | **Estimate and placement details.** Whether a past `preferredDate` is rejected; the alternatives when they do not apply (already 15 minutes; a one-section scope cannot be halved); whether a placement session must be completed before it is used; which paths a hadith placement samples (E20 has no `paths`; Proposed: the edition's `defaultPaths`); E15 has no `order`, so "first half in plan order" cannot follow `reverse` (Proposed: an optional `order` in E15); the order of passages inside a surah under `reverse` is mushaf order in contract §2.3, a design reading the owner confirms at architecture approval; tolerance of `confirmedEstimate.endDate` when the day changes between E15 and E16; where placement-known passages are stored with the plan | E15, E16, E20 | decision needed |
-| O-18 | **Revision confirmation.** E17 has no `confirmedEstimate`, although UX says an estimate change is shown after the learner confirms; whether `Plan.agreedEstimate` is replaced on revision; whether a demo account's revision calls the Teaching Agent (AI-agent.md lists "plan edit" as a trigger) | E17 | Proposed: an optional `confirmedEstimate` in E17 with the E16 check |
-| O-19 | **Demo specifics.** Whether demo accounts may call E15 (PRD: creation only through E28); the fixture schemas (scenario parameters: paths, minutes, order; the simulation element shape and its label); handling of a scenario whose edition is not published; the numbers of the usage and budget limits (D29) | E15, E16, E27–E29 | decision, and the fixtures task |
-| O-20 | **Session creation.** The "first session" text [C-03]; atomic get-or-create of the daily session: Database-schema OPEN-08 sets no uniqueness rule for open daily sessions (offline prepared sessions may coexist), so atomicity must come from the commit function (a lock or a conditional insert; Database-schema §8.3); `200` versus `201` when an existing daily session is returned (Proposed `200`); E03, E20 (`game`, `placement`) and E28 create again when repeated | E16, E20, E28 | decision needed |
-| O-21 | **Enumerations the contract does not define:** `EventsResponse.rejected[].code`, `pending[].reasonCode`, `RevalidationResult.reasonCode` | E21, E25 | Proposed starting sets. rejected: `question_not_in_session`, `out_of_scope`, `edition_mismatch`, `bank_version_mismatch`, `invalid_answer_shape`, `activity_out_of_bounds`, `plan_not_active`, `session_closed`, `envelope_mismatch`. pending: `plan_changed_unverifiable`, `content_unverifiable`, `policy_unsupported`, `clock_unverifiable`. revalidate: `current`, `plan_version_changed`, `bank_version_changed`, `content_revoked`, `validity_ended` |
-| O-22 | **Event and session state rules.** Events for a `completed` or `prepared` session (online and replayed); unfinished review rounds at completion (Proposed: not evaluated, the passage stays due); classification of activity events sent for a placement session (Proposed: acknowledged, never counted); the same `clientEventId` with a different payload (first wins, or reject); the upper bound of `durationMs`; E22 called before all events are acknowledged | E21, E22 | decision needed |
-| O-23 | **Time rules.** The learning date used for the ladder and evidence of an attempt (the session's `learningDate` fixed at creation, or derived from `occurredAt` in the account zone; this matters for late offline replays); ordering of replayed events across runs and devices (PWA-design NR); whether "at most 30 minutes per event" bounds `endedAt − startedAt` (assumed here) or `activeMs`; intervals crossing midnight and several devices (Architecture-and-data NR) | S-7, S-10, E21 | decision needed |
-| O-24 | **Derived values the contract does not define:** `dailyPercent` rounding; `streakDays` counting; `nextNewPassage` during an absence; `PlanProgress.sections[].percent` and `.status` rollups (Proposed: percent = floor(100 × confirmed words ÷ section words) for the selected paths); `CompleteResponse.summary.newPassages` | E18, E19, E22 | decision needed |
-| O-25 | **Offline items still under review.** Numeric size and partitioning of a download; the maximum `downloadTargetRefs`; the number and reuse of prepared sessions; the manifest shape; `contentHashes` keying; the content of `contentValidity`; the error for a failed local-download rights check (Proposed `422 edition_not_downloadable`); the answer of E24 for a revoked edition (Proposed `404`, because stored text copies are not purged — Database-schema OPEN-07); E25's request triple must equal the snapshot's record (Proposed `422 snapshot_mismatch`) and the derivation of `stale`, `revoked` and `expired` | E23–E25 | decision per the PWA-design review |
-| O-26 | **CLI details.** Flag names and defaults; exit-code values; configuration of oracle paths; mechanics of the second independent hadith acquisition; whether `segment` and `build-bank` are one invocation; whether read-only `status` or `report` commands exist; whether an archive can be undone | §5 | decision at implementation approval |
-| O-27 | **Workflow metadata.** The step vocabulary is fixed in Database-schema §4.4 [C-09]. Still open: the key layout of `review_record` (Database-schema OPEN-04 gives `acquisition`, `verification` and `approval` by intent only), where withdraw and archive are audited, and the enforcement point of "publisher's terms recorded before public display" (Proposed: a precondition of `publish`) | §5 | the schema task |
-| O-28 | **In-process execution.** `job_execution_mode = in_process` (D48) has no trigger in this specification: no public HTTP mutation exists and the Render free plan has no shell or Cron. If it is kept, its trigger must be defined without adding a public mutation | §5.4 | decision needed |
-| O-29 | **Keep-awake details.** The exact cron expression (`*/14` fires at minutes 0, 14, 28, 42 and 56, a 4-minute gap each hour); an interval inside 10–14 minutes for margin against the 15-minute idle stop; how the 15 or 22 October end date and the public base URL are stored (Proposed: non-secret repository variables); the weekly day and time and the start of the weekly checks; the retry policy; Architecture-and-data's list of shared root paths does not yet include `.github/workflows/keep-warm.yml` (named in Programming-guide); separate authorization for GitHub Actions | §6 | owner and coordinator decision |
-| O-30 | **Superseded editions for pinned plans.** Contract §3.1 says learners read editions that are "published and not revoked"; Database-schema reads `status = 'published'` and the current `bank_version` only (OPEN-03). Irrelevant while the MVP has one bank version; S-2 follows the contract wording | S-2, E20, E21 | owner decision |
+| O-01 | **Request size limits.** No maximum body size or field cap is approved; only `events` ≤ 100 per request, username 3–24 characters and the password bounds are | §1.7, E15–E17, E21, E23 | **Decided (A-12, 4 Oct 2026; Needs Review at G0):** one global body cap of 64 KiB, answered `413 payload_too_large`; `downloadTargetRefs` ≤ 60, `passageIds` ≤ 60, `sectionOrdinals` ≤ 40. Configuration defaults, not approved numbers. |
+| O-02 | **Timeouts.** No server-side request timeout is set. The Vercel rewrite timeout is an unverified risk. Long calls: E28 (agent timeout 8 s) and E23 (snapshot build) | §1.11, E28 | **Open (deferred to B0):** verify timeouts during the build; keep wake requests short. |
+| O-03 | **Rate limits** other than the auth throttle: public reads, E02 readiness, anonymous entry (E03, E26), session reads and writes, the demo usage and budget limits (D29) | §1.8 | **Decided (A-12, 4 Oct 2026; Needs Review at G0):** per client IP per minute: public reads 60, readiness 6, anonymous entry 10, session reads 120, session writes 60; `Retry-After` on every `429`. Demo limits: see O-19. |
+| O-04 | **Auth throttle details.** The progressive-delay values after 5 failures; whether a success resets a counter; whether failed re-authentication on E07, E08, E09, E13, and registrations, count; the window granularity (Database-schema OPEN-05 proposes one-minute buckets) | §1.8, E03–E09, E13 | **Decided (A-03, 4 Oct 2026; Needs Review at G0):** one-minute buckets, so "5 failures in 15 minutes" is a sliding sum; after the 5th failure the delay is 1, 2, 4, 8 s, then 10 s per failure (cap 60 s); a successful login clears the username key; failed password checks on E08, E09 and E13 count under the same username key; registrations do not count; purge is opportunistic and bounded (`DELETE … LIMIT 100`) inside `srv_throttle_record` for rows older than 24 hours, with no scheduled job. |
+| O-05 | **Error-code gaps.** Contract §7 has no `forbidden` (403 role denial) or `payload_too_large` (413), defines no `details` shape, and has two 409 codes only | §1.5, E16, E27–E29 | **Decided (A-12; contract v1.4 item 5, 4 Oct 2026; Needs Review at G0):** `forbidden` (403) and `payload_too_large` (413) are added and the `details` shapes of §1.5 are used; `version_conflict` keeps `details.reason` (a general `conflict` code is not adopted). |
+| O-06 | **`Idempotency-Key`.** Contract §7 says mutations accept it "where noted", but no row notes it | §1.6, E22 | **Open (deferred):** no required `Idempotency-Key` in v1; E22 accepts an optional UUID only (contract v1.4 amendment, item 6); candidates if needed later: E16, E20 (`game`, `placement`), E28. |
+| O-07 | **Public caching.** Whether `GET /api/catalog` may be cached briefly (max-age, ETag); no numbers are approved. `no-store` on E01 and E02 is a Proposed rule | §1.9, E14 | **Decided (A-12, 4 Oct 2026; Needs Review at G0):** `Cache-Control: no-store` everywhere in v1; public catalog caching is deferred. |
+| O-08 | **Health details.** The source of the `version` value of E01 (no `APP_VERSION` in contract §8); whether `select 1` over the `qatra_server` connection counts as activity for the Supabase free-tier inactivity pause (unverified). The E02 body (`{status}` only) and its query are fixed by contract v1.3 and Database-schema §8.1 | E01, E02 | **Open (deferred to provisioning):** verify before relying on the weekly check. |
+| O-09 | **Ordering and pagination.** Order of the editions (E14), scenarios and simulations, and the window of `ProgressResponse.history` | §1.13, E14, E19, E27, E29 | **Decided (A-12, 4 Oct 2026; Needs Review at G0):** editions ordered by category display order, then `editionKey`; `ProgressResponse.history` = the last 30 learning days. |
+| O-10 | **Re-consent gating.** Which operations a session may use while `reconsentRequired` is true (UX: no continuing without consent) | E04, E05 | **Decided (A-12, 4 Oct 2026; Needs Review at G0):** re-consent gating: `400 terms_required` with `details.requiredVersion` for every operation except E01, E02, E05, E10, E11 and E14. |
+| O-11 | **Credential rules and codes.** (a) The exact Unicode classes of "Arabic letters" and "digits" in usernames (Arabic-Indic digits, combining marks) and where the 3–24 length is counted (before or after NFKC). (b) How "15 Unicode characters" is counted (code points or grapheme clusters). (c) A wrong current password on E08, E09, E13 returns `401 invalid_credentials` (the contract has no better code; clients branch on `error.code`). (d) An invalid, expired or used reset grant on E07, and a concurrent second E06, return the generic `401 invalid_credentials` | E03, E06–E09, E13 | **Decided (A-12, 4 Oct 2026; Needs Review at G0):** username classes = Arabic letters U+0621–U+064A plus English letters, digits 0–9 and Arabic-Indic ٠–٩ (mapped to ASCII before storage), underscore; length counted after NFKC; password length in Unicode code points; a wrong current password is `401 invalid_credentials`. |
+| O-12 | **Account deletion.** (a) E13 carries a JSON body on `DELETE`, which some proxies and CDNs drop. (b) If the Auth deletion fails after the personal rows are gone, the answer is Proposed to stay `204` while the backend retries; the residue is an unreachable Auth record (Database-schema OPEN-14) | E13 | **Decided (A-10, 4 Oct 2026; Needs Review at G0):** E13 becomes `POST /api/account/delete` with the unchanged body, answering `204` (contract v1.4 amendment, item 2); if Auth deletion fails after the personal rows are gone the answer stays `204` and the backend retries; the residue is an unreachable alias-only Auth record (schema OPEN-14, accepted). |
+| O-13 | **Daily-goal minutes.** Whether `dailyGoalMs` comes from `Profile.sessionMinutes` (E12) or `Plan.sessionMinutes` (E16, E17); the initial profile value at registration (Database-schema OPEN-09 proposes 10); the effective-date rule at day boundaries (a zone change crossing midnight, several devices); no DTO field exposes a pending plan-level change (Architecture-and-data marks the effective-date shape as needing review) | E03, E12, E17, E18 | **Decided (A-07, 4 Oct 2026; Needs Review at G0):** `Plan.sessionMinutes` (the plan version in force) governs `dailyGoalMs`; `Profile.sessionMinutes` is the default pre-filled for a new plan (initial value 10); a plan-level change takes effect from the next learning day (D57) and the pending value is exposed as optional `Plan.pendingSessionMinutes` (contract v1.4 amendment, item 3); the day boundary is the account time zone at the time of the request. |
+| O-14 | **Session behaviour.** (a) E10 tolerates a missing or invalid session (Proposed, so a pending offline logout can finish). (b) E09 changes the password with the user's own Supabase token, because `service_role` is limited to create user, reset by recovery and delete account (inferred). (c) The cookie is cleared on `401 unauthenticated` (Proposed) | E09, E10, §1.3 | **Decided (A-12, 4 Oct 2026; Needs Review at G0):** E10 tolerates a missing session; E09 uses the user's own Supabase token; the cookie is cleared on `401 unauthenticated`. |
+| O-15 | **Catalog count semantics.** The catalog views give per-path counts (Database-schema §7); the DTO's `totalWords`, `CatalogSection.wordCount` and `passageCount` must say which paths they sum (all available paths, or the default path; for a hadith, `matn` only or `matn`, `sanad` and `grade` together) | E14 | **Decided (A-12, 4 Oct 2026; Needs Review at G0):** catalog counts (`totalWords`, `wordCount`, `passageCount`) sum the edition's `defaultPaths`. |
+| O-16 | **Plan lifecycle gaps.** No operation resumes a paused plan; nothing says how a plan becomes `completed`; whether a paused or completed plan can be revised (E17 proposes `409 plan_not_active`) | E16, E17 | **Decided (A-08, 4 Oct 2026; Needs Review at G0):** decided as default; owner confirms or changes at G0 (Q5). One active plan per account; E16 pauses the previous active plan; new E30 `POST /api/plans/{id}/resume` sets a paused plan active and pauses the current one, `409 plan_not_active` for a completed plan; a plan becomes `completed` automatically when every passage in the version scope is `confirmed`, and maintenance reviews (D66) stay available from a completed plan through the daily session (reviews only, no new passages); revision of a paused plan is allowed (it stays paused), revision of a completed plan is `409 plan_not_active`. Contract v1.4 amendment (new endpoint). |
+| O-17 | **Estimate and placement details.** Whether a past `preferredDate` is rejected; the alternatives when they do not apply (already 15 minutes; a one-section scope cannot be halved); whether a placement session must be completed before it is used; which paths a hadith placement samples (E20 has no `paths`; Proposed: the edition's `defaultPaths`); E15 has no `order`, so "first half in plan order" cannot follow `reverse` (Proposed: an optional `order` in E15); the order of passages inside a surah under `reverse` is mushaf order in contract §2.3, a design reading the owner confirms at architecture approval; tolerance of `confirmedEstimate.endDate` when the day changes between E15 and E16; where placement-known passages are stored with the plan | E15, E16, E20 | **Decided (A-12, 4 Oct 2026; Needs Review at G0):** a past `preferredDate` is `422`; E15 gets an optional `order`; a hadith placement samples the edition's `defaultPaths`. Inside a surah under `reverse`, passages keep mushaf order: decided as default; owner confirms or changes at G0 (Q4). Sub-points without a proposal (tolerance of `confirmedEstimate.endDate` across a day change, storage of placement-known passages, alternatives that do not apply) stay for implementation design. |
+| O-18 | **Revision confirmation.** E17 has no `confirmedEstimate`, although UX says an estimate change is shown after the learner confirms; whether `Plan.agreedEstimate` is replaced on revision; whether a demo account's revision calls the Teaching Agent (AI-agent.md lists "plan edit" as a trigger) | E17 | **Decided (A-12, 4 Oct 2026; Needs Review at G0):** E17 gets an optional `confirmedEstimate` (checked as in E16) that replaces `agreedEstimate`; demo revisions do not call the Teaching Agent (contract v1.4 amendment, item 4). |
+| O-19 | **Demo specifics.** Whether demo accounts may call E15 (PRD: creation only through E28); the fixture schemas (scenario parameters: paths, minutes, order; the simulation element shape and its label); handling of a scenario whose edition is not published; the numbers of the usage and budget limits (D29) | E15, E16, E27–E29 | **Decided (A-09, 4 Oct 2026; Needs Review at G0):** decided as default; owner confirms or changes at G0 (Q6). At most 5 demo accounts per client IP per day; at most 10 `POST /demo/plans` per demo account per day; demo Teaching-Agent calls draw on a configured daily free budget and fall back to the rules engine when it is exhausted (D54/D60). Values are configuration, not code. E15 stays allowed for demo accounts (C-15). Fixture schemas and the handling of an unpublished scenario edition stay with the fixtures task. |
+| O-20 | **Session creation.** The "first session" text [C-03]; atomic get-or-create of the daily session: Database-schema OPEN-08 sets no uniqueness rule for open daily sessions (offline prepared sessions may coexist), so atomicity must come from the commit function (a lock or a conditional insert; Database-schema §8.3); `200` versus `201` when an existing daily session is returned (Proposed `200`); E03, E20 (`game`, `placement`) and E28 create again when repeated | E16, E20, E28 | **Decided (A-01, 4 Oct 2026; Needs Review at G0):** learner commits run as `SECURITY INVOKER` functions in `public` with prefix `app_` (`app_create_plan`, `app_revise_plan`, `app_open_session`, `app_apply_events`, `app_complete_session`, `app_create_offline_snapshot`), `set search_path = ''`, `EXECUTE` granted to `authenticated` only, run with the learner's token; signatures are fixed at implementation (B2). Daily get-or-create is atomic through a conditional insert guarded by the partial unique index `(user_id, learning_date) WHERE kind = 'daily' AND status IN ('prepared','open') AND offline_snapshot_id IS NULL`; an existing daily session answers `200`, a new one `201`. |
+| O-21 | **Enumerations the contract does not define:** `EventsResponse.rejected[].code`, `pending[].reasonCode`, `RevalidationResult.reasonCode` | E21, E25 | **Decided (A-12, 4 Oct 2026; Needs Review at G0):** starting sets adopted verbatim: rejected `question_not_in_session`, `out_of_scope`, `edition_mismatch`, `bank_version_mismatch`, `invalid_answer_shape`, `activity_out_of_bounds`, `plan_not_active`, `session_closed`, `envelope_mismatch`; pending `plan_changed_unverifiable`, `content_unverifiable`, `policy_unsupported`, `clock_unverifiable`; revalidate `current`, `plan_version_changed`, `bank_version_changed`, `content_revoked`, `validity_ended` (contract v1.4 amendment, item 7). |
+| O-22 | **Event and session state rules.** Events for a `completed` or `prepared` session (online and replayed); unfinished review rounds at completion (Proposed: not evaluated, the passage stays due); classification of activity events sent for a placement session (Proposed: acknowledged, never counted); the same `clientEventId` with a different payload (first wins, or reject); the upper bound of `durationMs`; E22 called before all events are acknowledged | E21, E22 | **Decided (A-12, 4 Oct 2026; Needs Review at G0):** the same `clientEventId` with a different payload: first wins, the later one is `duplicate`; `durationMs` ≤ 30 minutes; events for a `completed` session are `rejected session_closed`; a `prepared` session opens on its first accepted event; placement activity is acknowledged, never counted; unfinished review rounds at completion are not evaluated. |
+| O-23 | **Time rules.** The learning date used for the ladder and evidence of an attempt (the session's `learningDate` fixed at creation, or derived from `occurredAt` in the account zone; this matters for late offline replays); ordering of replayed events across runs and devices (PWA-design NR); whether "at most 30 minutes per event" bounds `endedAt − startedAt` (assumed here) or `activeMs`; intervals crossing midnight and several devices (Architecture-and-data NR) | S-7, S-10, E21 | **Decided (A-12, 4 Oct 2026; Needs Review at G0):** `learningDate` is fixed at session creation in the account zone and governs the ladder and evidence for late replays; replay order = `occurredAt`, then `clientEventId`; the 30-minute bound applies to `endedAt − startedAt`. |
+| O-24 | **Derived values the contract does not define:** `dailyPercent` rounding; `streakDays` counting; `nextNewPassage` during an absence; `PlanProgress.sections[].percent` and `.status` rollups (Proposed: percent = floor(100 × confirmed words ÷ section words) for the selected paths); `CompleteResponse.summary.newPassages` | E18, E19, E22 | **Decided (A-12, 4 Oct 2026; Needs Review at G0):** `dailyPercent` and section percent use floor; `streakDays` = consecutive learning dates with the daily goal met, up to and including today or yesterday; `newPassages` = passages first attempted in the session. `nextNewPassage` during an absence and the `sections[].status` rollup have no separate decision and stay for implementation design. |
+| O-25 | **Offline items still under review.** Numeric size and partitioning of a download; the maximum `downloadTargetRefs`; the number and reuse of prepared sessions; the manifest shape; `contentHashes` keying; the content of `contentValidity`; the error for a failed local-download rights check (Proposed `422 edition_not_downloadable`); the answer of E24 for a revoked edition (Proposed `404`, because stored text copies are not purged — Database-schema OPEN-07); E25's request triple must equal the snapshot's record (Proposed `422 snapshot_mismatch`) and the derivation of `stale`, `revoked` and `expired` | E23–E25 | **Decided (A-04, A-12, 4 Oct 2026; Needs Review at G0):** the API never serves or grades content of a revoked edition: E24 → `404 not_found`, E25 → `reasonCode = content_revoked`, events → `rejected edition_mismatch`; `422 edition_not_downloadable`; `422 snapshot_mismatch`; at most 60 `downloadTargetRefs` and at most 7 prepared sessions per snapshot; `srv_redact_revoked_content(edition_id uuid)` (the 19th `SECURITY DEFINER` function) redacts text inside `offline_snapshots.payload` and `learning_sessions.steps`, invoked by CLI `withdraw` only. The manifest shape, `contentHashes` keying and `contentValidity` content stay with the PWA-design review. |
+| O-26 | **CLI details.** Flag names and defaults; exit-code values; configuration of oracle paths; mechanics of the second independent hadith acquisition; whether `segment` and `build-bank` are one invocation; whether read-only `status` or `report` commands exist; whether an archive can be undone | §5 | **Open (deferred to implementation):** CLI flags, exit codes and the other CLI details are decided at implementation approval. |
+| O-27 | **Workflow metadata.** The step vocabulary is fixed in Database-schema §4.4 [C-09]. Still open: the key layout of `review_record` (Database-schema OPEN-04 gives `acquisition`, `verification` and `approval` by intent only), where withdraw and archive are audited, and the enforcement point of "publisher's terms recorded before public display" (Proposed: a precondition of `publish`) | §5 | **Decided (A-12, 4 Oct 2026; Needs Review at G0):** `review_record` keys: `acquisition {who, at, sourceUrl, recordIds}`, `verification {who, at, method, result, differences}`, `approval {who, at, note}`; withdraw and archive are audited as `content_jobs` steps `withdrawn` and `archived`; publisher terms recorded = a precondition of `publish`. |
+| O-28 | **In-process execution.** `job_execution_mode = in_process` (D48) has no trigger in this specification: no public HTTP mutation exists and the Render free plan has no shell or Cron. If it is kept, its trigger must be defined without adding a public mutation | §5.4 | **Decided (A-11, 4 Oct 2026; Needs Review at G0):** `job_execution_mode = in_process` is removed from the MVP scope; the content workflow runs through the operator CLI only; the configuration value is reserved and not documented as a feature. |
+| O-29 | **Keep-awake details.** The exact cron expression (`*/14` fires at minutes 0, 14, 28, 42 and 56, a 4-minute gap each hour); an interval inside 10–14 minutes for margin against the 15-minute idle stop; how the 15 or 22 October end date and the public base URL are stored (Proposed: non-secret repository variables); the weekly day and time and the start of the weekly checks; the retry policy; Architecture-and-data's list of shared root paths does not yet include `.github/workflows/keep-warm.yml` (named in Programming-guide); separate authorization for GitHub Actions | §6 | **Decided (A-06, 4 Oct 2026; Needs Review at G0):** decided as default; owner confirms or changes at G0 (Q3). Liveness cron `4-59/10 * * * *`; readiness cron `23 2 * * 1,4` (Monday and Thursday 02:23 UTC = 06:23 Dubai) pending owner confirmation of twice-weekly (fallback `23 2 * * 1`); window dates and base URL are non-secret repository variables (`KEEP_WARM_START`, `KEEP_WARM_END`, `READY_CHECK_END`, `PUBLIC_BASE_URL`); target = the frontend origin through the Vercel rewrite, with the Render URL as the documented fallback; retries 1, 2, 4, 8 s then 10 s steps up to 90 s; `.github/workflows/keep-warm.yml` is added to Architecture-and-data's shared root paths (Planned). |
+| O-30 | **Superseded editions for pinned plans.** Contract §3.1 says learners read editions that are "published and not revoked"; Database-schema reads `status = 'published'` and the current `bank_version` only (OPEN-03). Irrelevant while the MVP has one bank version; S-2 follows the contract wording | S-2, E20, E21 | **Decided (A-02, 4 Oct 2026; Needs Review at G0):** the learner read predicate for content is `book_editions.status IN ('published','superseded')` (= contract §3.1 "published and not revoked"); learners read the `bank_version` pinned by their plan version. The MVP ships one bank version and no supersession. |
+
+### 8.3 Proposed Implementation-contract v1.4 amendments
+
+These nine items are proposed amendments to [Implementation-contract.md](Implementation-contract.md). The approved v1.3 body is not edited before owner approval; until then the v1.3 text stays authoritative and this file records the proposed behaviour with its source.
+
+1. `POST /api/plans/{id}/resume` (A-08).
+2. `POST /api/account/delete` replaces `DELETE /api/account` (A-10).
+3. `Plan.pendingSessionMinutes` optional (A-07).
+4. Optional `order` in E15 and optional `confirmedEstimate` in E17.
+5. Error codes `forbidden` 403 and `payload_too_large` 413; `details` shape; 409 for stale offline-snapshot plan version (C-11).
+6. `Idempotency-Key` optional on E22 only.
+7. Enumerations of O-21.
+8. `SessionEvent` and `EventsResponse` confirmed as the only names (C-05/C-06).
+9. §3.2 grant rule: one exception — `srv_redact_revoked_content` is executable by `service_role` only (the CLI's publishing role), not by `qatra_server`; and `srv_throttle_record` takes a `p_outcome` argument (failure or success, A-03).

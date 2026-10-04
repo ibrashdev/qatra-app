@@ -1,10 +1,10 @@
 # قطرة غيث — الوثائق الجارية
 
-الإصدار ١٤ · ٤ أكتوبر ٢٠٢٦ · Asia/Dubai. الجذر qatra-app؛ وثائق ومراجع ضرورية فقط. القرارات المعتمدة تتقدم على التصميم المقترح والصور. الحالات: Approved للقرار المحدد، Needs Input للمتطلب غير المحسوم، Needs Review للتصميم المعد، Implemented/Verified لا تستعملان دون العمل ودليله.
+الإصدار ١٥ · ٤ أكتوبر ٢٠٢٦ · Asia/Dubai. الجذر qatra-app؛ وثائق ومراجع ضرورية فقط. القرارات المعتمدة تتقدم على التصميم المقترح والصور. الحالات: Approved للقرار المحدد، Needs Input للمتطلب غير المحسوم، Needs Review للتصميم المعد، Implemented/Verified لا تستعملان دون العمل ودليله.
 
 | ابدأ بالوثيقة | الغرض |
 |---|---|
-| [Decision-register.md](Decision-register.md) | القرارات الثابتة D01–D73 وأثر القرارات الأحدث |
+| [Decision-register.md](Decision-register.md) | القرارات الثابتة D01–D74 (D74 Needs Review) وأثر القرارات الأحدث |
 | [Readiness.tracker.md](Readiness.tracker.md) | حالات الاعتماد والأسئلة المتبقية والإجراء التالي |
 | [Programming-guide.md](Programming-guide.md) | خريطة المهمة إلى الوثائق والملفات المخططة؛ بداية أي مهمة برمجية |
 | [PRD.md](PRD.md) | النطاق والمتطلبات ومعايير القبول |
@@ -12,8 +12,8 @@
 | [Design-system.md](Design-system.md) | الهوية والألوان وقواعد الوضوح والصور المرجعية |
 | [Figma-prototype.md](Figma-prototype.md) | مسودة نموذج Figma المصرح بها ونطاقها ومعايير مراجعتها؛ Needs Review |
 | [Architecture-and-data.md](Architecture-and-data.md) | البيانات والحدود والخطط وعقود API |
-| [Database-schema.md](Database-schema.md) | المخطط الفيزيائي لقاعدة البيانات: ERD بالمفاتيح والجداول والأدوار والمنح وترتيب الترحيلات (الإصدار ١، Needs Review — بانتظار اعتماد المالك) |
-| [API-spec.md](API-spec.md) | واجهات REST الكاملة: المسارات والمصادقة والصلاحيات والمخططات والحدود والأخطاء (الإصدار ١، Needs Review — بانتظار اعتماد المالك) |
+| [Database-schema.md](Database-schema.md) | المخطط الفيزيائي لقاعدة البيانات: ERD بالمفاتيح والجداول والأدوار والمنح وترتيب الترحيلات (الإصدار ١٫١، Needs Review — بانتظار اعتماد المالك) |
+| [API-spec.md](API-spec.md) | واجهات REST الكاملة: المسارات والمصادقة والصلاحيات والمخططات والحدود والأخطاء (الإصدار ١٫١، Needs Review — بانتظار اعتماد المالك) |
 | [Implementation-contract.md](Implementation-contract.md) | عقد الواجهات المشتركة v1.3: حزمة المحتوى والجداول وواجهات API وقواعد الإتقان والجلسات والتخطيط والمصادقة والإعداد؛ قرارات D66–D72 معتمدة والمخرجات المعمارية المتبقية Needs Review؛ لا يأذن بالتنفيذ |
 | [Authentication-and-privacy.md](Authentication-and-privacy.md) | الحساب والاسترجاع والبيانات وشروط الاستخدام |
 | [Content-and-sources.md](Content-and-sources.md) | النص والطبعات والصفحات والحقوق وسير الإعداد |
@@ -22,7 +22,8 @@
 | [AI-agent.md](AI-agent.md) | المخطط المقيد والمجاني ومحرك القواعد |
 | [PWA-design.md](PWA-design.md) | التثبيت والخطة المحملة والمزامنة والتحديث |
 | [QA-and-evaluation.md](QA-and-evaluation.md) | معايير قبول مستقبلية وسيناريوهات اصطناعية |
-| [Qatra-build-plan.md](Qatra-build-plan.md) | هدف النسخة الأساسية يوم ٥ ويوم ٦ للتحقق، والخطة المرحلية بالتعقيد والتقديرات ومهمة الإبقاء دافئًا (Needs Review) |
+| [Qatra-build-plan.md](Qatra-build-plan.md) | هدف النسخة الأساسية يوم ٥ ويوم ٦ للتحقق، والخطة المرحلية بالتعقيد والتقديرات ومهمة الإبقاء دافئًا (الإصدار ١٤، Needs Review) |
+| [Architecture-review.md](Architecture-review.md) | طلب اعتماد المعمارية وملخص جولة الاتساق والأسئلة Q1–Q7 (Needs Review) |
 | [Competition-alignment.md](Competition-alignment.md) | متطلبات التحدي وأدلتها وحدود المطابقة |
 | [Delivery-and-baseline.md](Delivery-and-baseline.md) | شروط الجاهزية والتوثيق والتسليم |
 | [Additional-features.md](Additional-features.md) | حد النطاق للميزات المؤجلة والمشروطة |
