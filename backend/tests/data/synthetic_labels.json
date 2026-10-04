@@ -1,0 +1,44 @@
+{
+  "formatVersion": 1,
+  "editions": {
+    "quran-hafs-quranenc": {
+      "category": {
+        "slug": "quran",
+        "labelAr": "فئة تجريبية",
+        "labelEn": "Synthetic category"
+      },
+      "book": {
+        "titleAr": "كتاب تجريبي",
+        "titleEn": "Synthetic book",
+        "author": "مؤلف تجريبي"
+      },
+      "editionLabel": "طبعة تجريبية",
+      "sectionTitlesAr": {
+        "112": "سورة تجريبية 112",
+        "113": "سورة تجريبية 113",
+        "114": "سورة تجريبية 114"
+      },
+      "sectionTitleEnTemplate": "Surah {n}"
+    },
+    "nawawi40-hadeethenc": {
+      "category": {
+        "slug": "hadith",
+        "labelAr": "فئة تجريبية",
+        "labelEn": "Synthetic category"
+      },
+      "book": {
+        "titleAr": "كتاب تجريبي",
+        "titleEn": "Synthetic book",
+        "author": "مؤلف تجريبي"
+      },
+      "editionLabel": "طبعة تجريبية",
+      "sectionTitlesAr": {
+        "1": "حديث تجريبي 1",
+        "2": "حديث تجريبي 2",
+        "3": "حديث تجريبي 3",
+        "4": "حديث تجريبي 4"
+      },
+      "sectionTitleEnTemplate": "Hadith {n}"
+    }
+  }
+}

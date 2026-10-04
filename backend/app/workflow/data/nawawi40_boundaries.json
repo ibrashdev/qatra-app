@@ -1,0 +1,5 @@
+{
+  "formatVersion": 1,
+  "description": "Matn/sanad boundaries of Forty hadith whose «...» marks are absent or ambiguous. Token ranges only, never text. An entry with reviewedBy null is an unreviewed doubt (the hadith then gets one matn passage over the whole narration); an entry with reviewedBy set and matn/sanad token ranges (inclusive indexes into the narration unit's tokens) is used as reviewed.",
+  "entries": []
+}

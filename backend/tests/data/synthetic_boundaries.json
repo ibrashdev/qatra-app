@@ -1,0 +1,19 @@
+{
+  "formatVersion": 1,
+  "description": "Synthetic boundaries for tests: token ranges only.",
+  "entries": [
+    {
+      "fortyNumber": 4,
+      "doubt": "multiple",
+      "reviewedBy": "synthetic reviewer",
+      "matn": {
+        "start": 5,
+        "end": 11
+      },
+      "sanad": {
+        "start": 0,
+        "end": 4
+      }
+    }
+  ]
+}

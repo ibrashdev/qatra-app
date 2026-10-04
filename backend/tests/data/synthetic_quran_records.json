@@ -1,0 +1,32 @@
+{
+  "formatVersion": 1,
+  "tool": "get_quran_verses",
+  "retrievedAt": "2026-10-04T10:00:00Z",
+  "acquisition": "mcp_tool",
+  "records": [
+    {
+      "surah": 112,
+      "ayah": 1,
+      "text": "كَلِمَةٌ مِثَالٌ تَجْرِيبِيٌّ",
+      "url": "https://islamenc.com/ar/quran/112"
+    },
+    {
+      "surah": 112,
+      "ayah": 2,
+      "text": "هَٰذَا نَصٌّ تَجْرِيبِيٌّ",
+      "url": "https://islamenc.com/ar/quran/112"
+    },
+    {
+      "surah": 112,
+      "ayah": 3,
+      "text": "ٱلْكَلِمَةُ ٱلتَّجْرِيبِيَّةُ مِثَالٌ",
+      "url": "https://islamenc.com/ar/quran/112"
+    },
+    {
+      "surah": 112,
+      "ayah": 4,
+      "text": "تَجْرِيبِيٌّ مِثَالٌ كَلِمَةٌ",
+      "url": "https://islamenc.com/ar/quran/112"
+    }
+  ]
+}

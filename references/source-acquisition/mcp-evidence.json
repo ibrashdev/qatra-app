@@ -58,5 +58,42 @@
     "live_initialization_verified": false,
     "prior_denied_probe_repeated": false,
     "user_configuration_published": false
+  },
+  "claude_code_session_probe_2026_10_04": {
+    "evidence_type": "bounded live tool probe through the Claude connector (two read-only calls); no source text saved in the repository",
+    "connector": "Islamic Content MCP connector available in the Claude Code cloud session (tools prefixed mcp__Islamic_Content__)",
+    "direct_http_from_container": "not attempted (the session notes record that direct mcp.islamiccontent.org access is blocked from the container)",
+    "calls": [
+      {
+        "tool": "get_hadith",
+        "arguments": {
+          "id": 66511,
+          "language": "ar"
+        },
+        "result": "returned",
+        "canonical_url": "https://hadeethenc.com/ar/browse/hadith/66511",
+        "structure_observed": "title line; [EXACT] narration block (narrator chain + the Prophet's words inside «…»); [ATTRIBUTION] block with 'Narrator:' (takhrij text) and 'Grade:' values; [COMMENTARY] block (explanation and benefits, NOT to be stored, D68); 'Source:' line; list of 60 published languages",
+        "narrator_field_present": true,
+        "grade_field_present": true,
+        "narrator_names_bukhari_and_muslim": true,
+        "forty_number_claimed_by_D68": 1,
+        "text_saved": false
+      },
+      {
+        "tool": "get_quran_verses",
+        "arguments": {
+          "surah": 112,
+          "language": "ar"
+        },
+        "result": "returned",
+        "canonical_url": "https://islamenc.com/ar/quran/112",
+        "structure_observed": "header '[Surah 112, translation \"arabic_moyassar\"]'; one [EXACT] block containing, per ayah, a '[112:n]' marker line, the Uthmani Arabic verse line, then a Muyassar tafsir line; 'Source:' line",
+        "acquisition_implication": "the Arabic request returns the verse text interleaved with the Muyassar tafsir; the CLI acquire step must keep only the verse line per ayah (record shape {surah, ayah, text, url}) and must not store the tafsir (D20/D26/D68); the verbatim verification of contract §2.7 remains mandatory",
+        "ayah_count_returned": 4,
+        "text_saved": false
+      }
+    ],
+    "rights_or_source_edition_approval_inferred": false,
+    "next_step": "C1 acquisition through the CLI `acquire` command (B7) once the backend foundation exists; raw records go to the private Storage bucket after G5, never to git"
   }
 }
