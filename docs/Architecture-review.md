@@ -1,20 +1,20 @@
 # Qatra — Architecture consistency pass and approval request
 
-> Version 1 · 4 October 2026 (Asia/Dubai) · Status: **Needs Review — awaiting the owner's explicit approval (gate G0)**. Prepared by the coordinator (Senior Software Architect oversight) with the Solutions Architect role after the consistency pass of the architecture package. Nothing in this file is owner approval, and nothing authorizes code, scaffolding, migrations or deployment. The UI/UX design phase starts only after the owner answers Q1–Q7 below and approves the package.
+> Version 1.1 · 4 October 2026 (Asia/Dubai) · Status: **Approved — D74, 4 October 2026 (owner: «approve best practice», «q7 approved»)**. Prepared by the coordinator (Senior Software Architect oversight) with the Solutions Architect role after the consistency pass of the architecture package. The owner's approval at gate G0 is recorded in D74 and in §5 below. This record does not approve UI/UX design (gate G1), provisioning or publication (G5), or content for public display (G6), and it does not guarantee the D55 dates.
 
 ## 1. Is the architecture phase complete?
 
-**Honest answer: the artifacts are complete and internally consistent; the phase is not closed, because closing it needs the owner's explicit approval (AGENTS.md gate table).** Before this pass the drafts carried 15 recorded differences and 47 open points. After it, every difference is resolved, every architect-level point carries a decision, and the only items left are the seven owner questions in §5 and a short list of items deliberately deferred to implementation or provisioning (§4). The owner's approval of this package is gate G0; the design phase (Role 4) follows it.
+**Yes.** The artifacts are complete and internally consistent, and the owner closed the phase with D74 on 4 October 2026. Before this pass the drafts carried 15 recorded differences and 47 open points. After it, every difference is resolved, every architect-level point carries a decision, and the only items left are the seven owner questions in §5 and a short list of items deliberately deferred to implementation or provisioning (§4). The owner's approval of this package is gate G0; the design phase (Role 4) follows it. **Update, 4 October 2026: the owner approved the package (D74), so the architecture phase closed on that date.**
 
 ## 2. The architecture package (what the owner approves)
 
 | Artifact | Version | What it contains | Status |
 |---|---|---|---|
-| [Database-schema.md](Database-schema.md) | 1.1 | 3 ERDs, 36 tables, RLS and grants, 19 `srv_*` functions, 6 `app_*` commit functions (design), migration order | Needs Review |
-| [API-spec.md](API-spec.md) | 1.1 | 30 HTTP operations (E01–E30), access matrix, validation, error codes, limits, CLI interface, keep-awake job, traceability | Needs Review |
-| [Qatra-build-plan.md](Qatra-build-plan.md) | 14 | 45 work packages, complexity, estimates, calendar, scope options A/B/C, coordinator calibration, keep-awake design | Needs Review |
-| [Implementation-contract.md](Implementation-contract.md) | 1.3 approved (D69) + §13 proposed v1.4 amendments | Cross-package interfaces; the 8 amendments in §3.3 below are appended as a proposal and do not alter the approved body | v1.3 Approved; §13 Needs Review |
-| [Architecture-and-data.md](Architecture-and-data.md), [PWA-design.md](PWA-design.md), [Authentication-and-privacy.md](Authentication-and-privacy.md), [QA-and-evaluation.md](QA-and-evaluation.md), [Programming-guide.md](Programming-guide.md) | bumped by one each | Aligned to the contract and D66–D73 on the points listed in §3.1 | changed sections Needs Review |
+| [Database-schema.md](Database-schema.md) | 1.1 | 3 ERDs, 36 tables, RLS and grants, 19 `srv_*` functions, 6 `app_*` commit functions (design), migration order | Approved (D74) |
+| [API-spec.md](API-spec.md) | 1.1 | 30 HTTP operations (E01–E30), access matrix, validation, error codes, limits, CLI interface, keep-awake job, traceability | Approved (D74) |
+| [Qatra-build-plan.md](Qatra-build-plan.md) | 14 | 45 work packages, complexity, estimates, calendar, scope options A/B/C, coordinator calibration, keep-awake design | Approved (D74) |
+| [Implementation-contract.md](Implementation-contract.md) | 1.4 | Cross-package interfaces; the 9 amendments in §3.3 below are applied to the body (D74) | v1.4 Approved (D74) |
+| [Architecture-and-data.md](Architecture-and-data.md), [PWA-design.md](PWA-design.md), [Authentication-and-privacy.md](Authentication-and-privacy.md), [QA-and-evaluation.md](QA-and-evaluation.md), [Programming-guide.md](Programming-guide.md) | bumped by one each | Aligned to the contract and D66–D73 on the points listed in §3.1 | Approved (D74) |
 
 Governing inputs, unchanged: PRD v14 (D71, approved analysis), D66–D73, the D36/D54/D60/D61/D65 stack and design direction.
 
@@ -34,7 +34,7 @@ The rule applied everywhere: **the approved contract plus the owner's D-decision
 | C-12 | Monitoring window and executor | D70/D72: liveness ping 6–15 Oct (22 Oct if qualified), readiness check through 31 Oct, GitHub Actions |
 | C-15 | May demo accounts call `POST /api/plans`? | No (`403 forbidden`, PRD v14 roles matrix); the read-only estimate stays allowed |
 
-### 3.2 Architect-level decisions (all Needs Review at G0)
+### 3.2 Architect-level decisions (approved by D74)
 
 | ID | Decision | Plain-language meaning |
 |---|---|---|
@@ -43,10 +43,10 @@ The rule applied everywhere: **the approved contract plus the owner's D-decision
 | A-03 | Login throttle in one-minute buckets, progressive delay, bounded opportunistic purge inside the recording function | Brute-force protection works without a scheduler on the free plan |
 | A-04 | Revoked text is refused by the API and redacted from stored snapshots by `srv_redact_revoked_content`, run by the operator `withdraw` command | Withdrawn text does not survive inside offline copies |
 | A-05 | Value sets fixed with `CHECK` constraints (statuses, error kinds, AI usage status) | The database rejects unknown states |
-| A-06 | Keep-awake: liveness ping every 10 minutes (`4-59/10 * * * *`); readiness check Mon and Thu 06:23 Dubai (`23 2 * * 1,4`), **pending Q3**; dates and URL as non-secret repository variables; target the frontend origin | 5-minute margin against the 15-minute idle stop instead of 1 minute |
+| A-06 | Keep-awake: liveness ping every 10 minutes (`4-59/10 * * * *`); readiness check Mon and Thu 06:23 Dubai (`23 2 * * 1,4`), confirmed by D74 (Q3); dates and URL as non-secret repository variables; target the frontend origin | 5-minute margin against the 15-minute idle stop instead of 1 minute |
 | A-07 | The plan's `sessionMinutes` governs the daily goal; the profile value is the default for new plans; a change applies from the next learning day | One clear source for "how many minutes today" |
-| A-08 | Plan lifecycle defaults: `POST /api/plans/{id}/resume`; auto-complete when every passage is confirmed; maintenance reviews continue; completed plans cannot be revised. **Owner confirms, Q5** | Fills gaps the analysis left open |
-| A-09 | Demo limits defaults: 5 demo accounts per IP per day, 10 demo plans per account per day, agent budget then rules fallback. **Owner confirms, Q6** | Protects the free quotas during judging |
+| A-08 | Plan lifecycle defaults: `POST /api/plans/{id}/resume`; auto-complete when every passage is confirmed; maintenance reviews continue; completed plans cannot be revised. confirmed by D74 (Q5) | Fills gaps the analysis left open |
+| A-09 | Demo limits defaults: 5 demo accounts per IP per day, 10 demo plans per account per day, agent budget then rules fallback. confirmed by D74 (Q6) | Protects the free quotas during judging |
 | A-10 | `POST /api/account/delete` replaces `DELETE /api/account` with a body | Some proxies drop bodies on DELETE |
 | A-11 | `in_process` content execution removed from the MVP; the operator CLI is the only path | One workflow path to test |
 | A-12 | The remaining open points adopt their proposed defaults with concrete, configurable values (limits, rate classes, orderings, time rules, offline caps, enumerations) | Implementation has no undefined behaviour; numbers are settings, not promises |
@@ -54,7 +54,7 @@ The rule applied everywhere: **the approved contract plus the owner's D-decision
 
 Details: Database-schema §15, API-spec §8.2, and the coordinator brief applied in both.
 
-### 3.3 Proposed Implementation-contract v1.4 amendments (not applied before approval)
+### 3.3 Implementation-contract v1.4 amendments (applied after D74)
 
 1. `POST /api/plans/{id}/resume` (A-08).
 2. `POST /api/account/delete` replaces `DELETE /api/account` (A-10).
@@ -76,17 +76,17 @@ Details: Database-schema §15, API-spec §8.2, and the coordinator brief applied
 | Supabase facts: custom role through the pooler, PostgreSQL version, default grants (OPEN-15) | Provisioning | Cannot be checked without a project |
 | Embeddings (OPEN-12), feedback feature (OPEN-13), English labels (OPEN-10) | Postponed by D69, D45, D28 | Owner decisions already taken |
 
-## 5. Owner questions (answer to close gate G0)
+## 5. Owner questions and recorded answers (gate G0 closed by D74)
 
-| # | Question | Default if you answer "best practice" |
-|---|---|---|
-| Q1 | Scope: **A** (one surah + one hadith), **B** (full sample: Juz' Amma + the Forty, extras deferred), or **C** (full basic version, later)? | B |
-| Q2 | Levers: may the pause-after-every-screen rule become a pause after each of 4 screen batches (R1), may up to 4 backend workers run after the migrations (R2), and is the backend scope (G3) granted together with G0? | Yes to all three |
-| Q3 | Readiness check twice a week (Mon and Thu) instead of weekly (amends D72's "weekly")? | Twice weekly |
-| Q4 | Under the reverse Juz' Amma order, passages inside one surah stay in mushaf order? | Yes |
-| Q5 | Plan lifecycle defaults of A-08 (resume endpoint, auto-completion, completed plans not revisable)? | Accept |
-| Q6 | Demo limits of A-09 (5 accounts per IP per day, 10 demo plans per account per day, agent budget then rules fallback)? | Accept |
-| Q7 | **Approve the architecture package** in §2 (schema v1.1, API v1.1, build plan v14, contract v1.4 amendments) so the UI/UX design phase can start? | — (explicit approval needed; silence is not approval) |
+| # | Question | Default if you answer "best practice" | Answer (D74) |
+|---|---|---|---|
+| Q1 | Scope: **A** (one surah + one hadith), **B** (full sample: Juz' Amma + the Forty, extras deferred), or **C** (full basic version, later)? | B | **B.** Full sample: Juz' Amma (37 surahs) and the Forty (41/42 hadiths); offline PWA, demo path and AI comparison deferred |
+| Q2 | Levers: may the pause-after-every-screen rule become a pause after each of 4 screen batches (R1), may up to 4 backend workers run after the migrations (R2), and is the backend scope (G3) granted together with G0? | Yes to all three | **Yes.** R1 (pause after each of 4 screen batches), R2 (up to 4 backend workers after the migrations) and G3 (backend scope) granted together with G0. G1 (explicit design approval before any frontend screen) and the per-batch pauses remain; G5 and G6 remain separate gates |
+| Q3 | Readiness check twice a week (Mon and Thu) instead of weekly (amends D72's "weekly")? | Twice weekly | **Twice weekly.** Readiness check Mon and Thu 02:23 UTC (06:23 Dubai), `23 2 * * 1,4`, amending D72's "weekly"; liveness `4-59/10 * * * *` replaces D72's "about every 14 minutes" |
+| Q4 | Under the reverse Juz' Amma order, passages inside one surah stay in mushaf order? | Yes | **Yes.** Under `reverse`, passages inside one surah stay in mushaf order |
+| Q5 | Plan lifecycle defaults of A-08 (resume endpoint, auto-completion, completed plans not revisable)? | Accept | **Accepted.** A-08: resume (E30), auto-completion, completed plans not revisable, maintenance reviews continue |
+| Q6 | Demo limits of A-09 (5 accounts per IP per day, 10 demo plans per account per day, agent budget then rules fallback)? | Accept | **Accepted.** A-09: 5 demo accounts per IP per day, 10 demo plans per account per day, agent budget then rules fallback |
+| Q7 | **Approve the architecture package** in §2 (schema v1.1, API v1.1, build plan v14, contract v1.4 amendments) so the UI/UX design phase can start? | — (explicit approval needed; silence is not approval) | **Approved** («q7 approved»): schema v1.1, API v1.1, build plan v14, contract v1.4 amendments (9 items, now applied to the body), the aligned sections, A-01 to A-13 |
 
 ## 6. Timeline, said plainly
 
@@ -95,8 +95,8 @@ Details: Database-schema §15, API-spec §8.2, and the coordinator brief applied
 - The coordinator's calibration: the package hours may be pessimistic by up to about 2x for routine coding, but even at 2x capacity the close is reached **only** with the R2 levers (Q2) and an approval this evening, and then with a margin of roughly 13 hours. That is a calculation on unmeasured capacity, not a forecast. The first calibration point (CP1, after the first migrations and the frontend foundation) remeasures it.
 - Whether updates after the close count is unknown and is a question for the organizers.
 
-## 7. What happens after approval
+## 7. What happens now
 
-1. Record the approval as D74 (Approved) with the answers to Q1–Q7; apply the contract v1.4 amendments to the body; mark the package Approved.
+1. **Done in this record (4 October 2026):** the approval is recorded as D74 (Approved) with the answers to Q1–Q7 (§5); the contract v1.4 amendments are to be applied to the body; the package is marked Approved.
 2. Start the UI/UX design phase (Role 4): screen inventory, the six description dimensions, navigation, design system, responsive and interaction states, with the design gate (G1) before any frontend work.
 3. In parallel and only if G3 is granted: backend foundation and migrations (B0–B2), Supabase provisioning (G5), content acquisition and verification (C1–C3).
