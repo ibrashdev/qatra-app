@@ -1,0 +1,11 @@
+# Qatra — current agent instruction tracker
+
+Updated: 2026-10-04 (Asia/Dubai). Scope: current instruction state only; application phase status belongs in the readiness tracker.
+
+| Artifact | Current status | Owner / source | Next action |
+|---|---|---|---|
+| `AGENTS.md` and `CLAUDE.md` | Current process, approval gates, mandatory development-assistant routing, and stack responsibilities | Owner reaffirmation 2026-10-04; D36, D48, D54, D60, D61, D65 | Apply on future tasks and keep aligned with current owner decisions |
+| Roles 01–07 | Current role instructions | Named role standards and current project authority | Apply only to bounded, approved work |
+| Application phase authority | Analysis, architecture, and design approval gates remain in force; `frontend/` and `backend/` remain Planned | Owner phase policy; D61 and current readiness tracker | Read current authority and approvals before application work |
+
+Use [the application readiness tracker](../docs/Readiness.tracker.md) for artifact approvals, unanswered inputs, and application evidence. Keep credentials, personal data, and local agent/session state out of project context. Read current authority documents before each assigned task.

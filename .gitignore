@@ -1,0 +1,52 @@
+# Public redistribution pending specific owner approval: originals stay local
+/challenge/Challenge-guide.pdf
+/challenge/Scientific-source-reference.pdf
+# Repository metadata and secrets
+.git/
+
+# Secrets and local credentials
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.p12
+*.pfx
+
+# Local agent and session state
+.codex/
+.claude/
+.agents/
+**/.codex/
+**/.claude/
+**/.agents/
+
+# Operating system and editor caches
+.DS_Store
+Thumbs.db
+Desktop.ini
+.vscode/
+.idea/
+.history/
+*.swp
+*.swo
+
+# Generated application and test artifacts
+**/node_modules/
+**/.next/
+**/out/
+**/.vercel/
+**/.venv/
+**/venv/
+**/__pycache__/
+**/.pytest_cache/
+**/.mypy_cache/
+**/coverage/
+
+# Local databases and journals
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+*.sqlite-journal
+
