@@ -28,7 +28,7 @@ The owner wrote, in answer to the coordinator's questions UQ-01 and UQ-02 of [UI
 
 Earlier the same day the owner asked that the plan screen be titled «ما هي خطتك؟», that every selection be written into the «الهدف والموعد» box, that the text be sent to the Teaching Agent, that the screen then become a chat-like screen to discuss the plan before the learner's final confirmation, and that the plan be easy to read and divided into sections (الهدف الكلي، الزمن الكلي، الزمن اليومي، …).
 
-**What this amends.** D17 (no account or learning data to an external model) is narrowed, not dropped: learner-authored plan text, and for a plan revision the learner's anonymized learning record and answers, leave the server under disclosure and under a temporary conversation id; account identifiers never do (§2.4, §2.6). D26 is unchanged and enforced server-side. D38 (the agent chooses ids and timing only; UI text is fixed) is amended: the assistant also writes conversational text, under a server guard, and never the numbers of the plan. D51 (no assistant toggle; fixed transparency line) keeps its rule and changes its text. D72's plan-order field moves from the form to the conversation. Hadith paths stay the three of contract §2.3 (متن، سند، الدرجة): the owner declined takhrij as a path («لا داعي للتخريج»); takhrij is always displayed with the hadith (D68) and never tested. D60 (free models only, rules engine as the permanent fallback) is unchanged and governs every model call.
+**What this amends.** D17 (no account or learning data to an external model) is narrowed, not dropped: learner-authored plan text, and for a plan revision the learner's anonymized learning record and answers, leave the server under disclosure and under a temporary conversation id; account identifiers never do (§2.4, §2.6). D26 is unchanged and enforced server-side. D38 (the agent chooses ids and timing only; UI text is fixed) is amended: the assistant also writes conversational text, under a server guard, and never the numbers of the plan. D51 (no assistant toggle; fixed transparency line) keeps its rule and changes its text; its post-challenge opt-in condition lapses, since the assistant is part of the product. D72's plan-order field moves from the form to the conversation. Hadith paths stay the three of contract §2.3 (متن، سند، الدرجة): the owner declined takhrij as a path («لا داعي للتخريج»); takhrij is always displayed with the hadith (D68) and never tested. D60 (free models only, rules engine as the permanent fallback) is unchanged and governs every model call.
 
 **What stays.** The rules engine computes every number (estimate, days, words per day, review rhythm); one active plan per account; placement; the four games and D31; the public catalog; the content workflow; every gate G1–G8.
 
@@ -58,7 +58,7 @@ Earlier the same day the owner asked that the plan screen be titled «ما هي 
 
 | Capability | Visitor | Learner | Demo account | Content manager / reviewer |
 |---|---|---|---|---|
-| Plan conversation (create, message, read, confirm) | denied (session required) | allowed; one open conversation at a time | allowed (D71 rights; the model receives synthetic context only, as today's Teaching Agent); confirmation creates the demo plan in `synthetic_demo` mode | denied (no UI) |
+| Plan conversation (create, message, read, confirm) | denied (session required) | allowed; one open conversation at a time | allowed with quick replies only (D29: no free text from a demo account reaches the model; the free-text input is disabled with a note); the model receives synthetic context only; confirmation creates the demo plan in `synthetic_demo` mode | denied (no UI) |
 | Religious question in the conversation | — | fixed D26 message | fixed D26 message | — |
 
 ### 1.4 Open points resolved by this amendment
@@ -160,7 +160,7 @@ Conventions of API-spec §1 apply (envelope, `no-store`, Origin check, session c
 
 ### 2.5 Configuration (contract §8 additions)
 
-`QATRA_OPENROUTER_FREE_REQUESTS_PER_DAY` (default 50, OpenRouter's published daily limit for free models without purchased credits; shared by the plan conversation and the demo planner), `QATRA_OPENROUTER_FREE_REQUESTS_PER_MINUTE` (default 20), `QATRA_CHAT_MODEL_CALLS_PER_ACCOUNT_PER_DAY` (default 10), `QATRA_CHAT_MODEL_TURNS_PER_CHAT` (default 6), `QATRA_CHAT_MODEL_TIMEOUT_SEC` (default 8), `QATRA_CHAT_MAX_TOKENS` (default 400), `QATRA_CHAT_GUARD_VERSION` (default `guard-v1`). `OPENROUTER_API_KEY` becomes required in production for this feature; without it every turn is a rules turn (the journey still completes).
+`QATRA_OPENROUTER_FREE_REQUESTS_PER_DAY` (default 50, OpenRouter's published daily limit for free models without purchased credits; shared by the plan conversation and the demo planner), `QATRA_OPENROUTER_FREE_REQUESTS_PER_MINUTE` (default 20), `QATRA_CHAT_MODEL_CALLS_PER_ACCOUNT_PER_DAY` (default 10), `QATRA_CHAT_MODEL_TURNS_PER_CHAT` (default 6), `QATRA_CHAT_MODEL_TIMEOUT_SEC` (default 8), `QATRA_CHAT_MAX_TOKENS` (default 400), `QATRA_CHAT_GUARD_VERSION` (default `guard-v1`), `QATRA_CHAT_MODEL_FOR_LEARNERS` (default `true`; `false` = rules-only conversation for real accounts, §3 clause-9 risk). `OPENROUTER_API_KEY` becomes required in production for this feature; without it every turn is a rules turn (the journey still completes).
 
 ### 2.6 Privacy, terms and transparency (Authentication-and-privacy amendment)
 
@@ -194,6 +194,7 @@ Estimated added effort 25–38 hours; with the R2 workers the backend part runs 
 | Religious content generated despite instructions | double guard (input and output) with a maintained test set; the fixed D26 message is the only religious answer |
 | Quota abuse | per-account daily cap, per-conversation cap, IP rate class, free-only (D60) |
 | Organizer acceptance of external AI | D60 unchanged (free tier, no billing); disclosure in the terms; the comparison report of option C stays deferred |
+| **Challenge terms clause 9** (as cited in [terms-citation.md](../references/terms-citation.md)): real users' conversations or personal data must not be uploaded to external AI services; testing must use synthetic or anonymized data | **Open risk for the owner (raised 4 October 2026).** The conversation sends learner-typed text under a temporary id with no personal fields, which the coordinator reads as anonymized, but a stricter reading of "conversations" would forbid it during judging. Mitigation built in: a configuration switch `QATRA_CHAT_MODEL_FOR_LEARNERS` (default `true`); when `false`, real accounts get the rules-only conversation (quick replies, templates) and the model serves demo accounts' synthetic context only. The owner decides the value for the judging window, ideally after asking the organizers |
 
 ## 4. Document amendments to apply after approval (owner approval of §9 authorizes these edits only)
 
