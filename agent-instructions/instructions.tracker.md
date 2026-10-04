@@ -1,6 +1,6 @@
 # Qatra — current agent instruction tracker
 
-Updated: 2026-10-04 (Asia/Dubai). Scope: current instruction state only; application phase status belongs in the readiness tracker.
+Updated: 2026-10-04 (Asia/Dubai); reflects owner decisions D66–D69 (AGENTS.md mastery bullet, Roles 01–03). Scope: current instruction state only; application phase status belongs in the readiness tracker.
 
 | Artifact | Current status | Owner / source | Next action |
 |---|---|---|---|
