@@ -1,8 +1,8 @@
-# Qatra — Implementation Contract v1.3
+# Qatra — Implementation Contract v1.4
 
-Version 1.3 · 2026-10-04 · Asia/Dubai · Status: **Approved decisions (D66–D72); remaining architecture deliverables Needs Review; implementation not yet authorized.** Owner: root coordinator.
+Version 1.4 · 2026-10-04 · Asia/Dubai · Status: **Approved — D74, 4 October 2026 (owner: «approve best practice», «q7 approved»); includes the nine v1.4 amendments of §13; implementation beyond the approved gates is not authorized.** Owner: root coordinator.
 
-This file is the single source of truth for **cross-package interfaces**: content bundle, database tables, API DTOs, mastery/session/planning rules, auth flow and configuration. It fills the remaining Needs Review/Needs Input details of the approved package (D01–D73) with concrete, implementable choices. Where it is silent, follow [Architecture-and-data.md](Architecture-and-data.md), [Programming-guide.md](Programming-guide.md) and the owning policy document. The physical database schema (ERD, tables, keys, roles, grants, migration order) is drafted in [Database-schema.md](Database-schema.md) and the full REST API (per-endpoint authentication, authorization, schemas, limits, errors) in [API-spec.md](API-spec.md); both are v1, Needs Review — awaiting owner approval. They refine the interfaces fixed here, and a contradiction between them and this file is returned to the coordinator. A worker that finds a contradiction or gap returns it to the coordinator instead of inventing a rule. Changes to this file are made by the coordinator only.
+This file is the single source of truth for **cross-package interfaces**: content bundle, database tables, API DTOs, mastery/session/planning rules, auth flow and configuration. It fills the remaining Needs Review/Needs Input details of the approved package (D01–D74) with concrete, implementable choices. Where it is silent, follow [Architecture-and-data.md](Architecture-and-data.md), [Programming-guide.md](Programming-guide.md) and the owning policy document. The physical database schema (ERD, tables, keys, roles, grants, migration order) is specified in [Database-schema.md](Database-schema.md) (v1.1) and the full REST API (per-endpoint authentication, authorization, schemas, limits, errors) in [API-spec.md](API-spec.md) (v1.1); both are approved by D74. They refine the interfaces fixed here, and a contradiction between them and this file is returned to the coordinator. A worker that finds a contradiction or gap returns it to the coordinator instead of inventing a rule. Changes to this file are made by the coordinator only.
 
 Non-negotiables that still apply: original religious text is stored and shown verbatim and complete (D03/D20/D25); no generated religious content, explanations or LLM-written questions/answers/distractors (D20/D22/D31); free plans and free AI only, rules engine always available (D48/D54/D60); no secrets, real personal data or source texts committed to git; Arabic RTL first with English LTR UI (UX.md, Design-system.md; English religious terms per D28).
 
@@ -102,7 +102,7 @@ One JSON file per edition (`backend/.content-build/<editionKey>/bundle.json`, gi
 
 ## 3. Database (Supabase Postgres)
 
-Migrations live in `supabase/migrations/` and are applied in order. Every table enables RLS in the migration that creates it. Personal rows cascade on account deletion; published content is never deleted because a learner was deleted. The complete physical schema (ERD, columns, keys, roles, grants, migration order) is drafted in [Database-schema.md](Database-schema.md) (v1, Needs Review); this section lists the interface-level facts.
+Migrations live in `supabase/migrations/` and are applied in order. Every table enables RLS in the migration that creates it. Personal rows cascade on account deletion; published content is never deleted because a learner was deleted. The complete physical schema (ERD, columns, keys, roles, grants, migration order) is specified in [Database-schema.md](Database-schema.md) (v1.1, approved by D74); this section lists the interface-level facts.
 
 ### 3.1 `0001_content.sql` (content worker)
 
@@ -114,7 +114,7 @@ Tables per Architecture "المخطط المنطقي: المحتوى المشت�
 - `public.profiles` with `terms_version`, `terms_accepted_at`, `language`, `time_zone`, `session_minutes (5|10|15)`, `reminder_settings jsonb`, `pending_settings jsonb` (next-learning-day changes, D57), `is_demo` mirror (read-only to the user).
 - `master_plans` (+ `paths text[]`, `plan_order text` constrained to `book`/`reverse`, with `reverse` only for the Quran edition, D72), `plan_versions`, `plan_phases`, `learning_sessions` (+ `steps jsonb` immutable snapshot, `status prepared|open|completed`), `attempts` (+ `assisted bool`, `review_round_id uuid null`), no `reviews` table (dropped from the physical schema by architecture directive 3: the review ladder lives in `target_mastery` and due reviews are derived from `next_review_due`; see [Database-schema.md](Database-schema.md)), `session_activity_intervals`, `daily_progress`, `daily_completions`, `target_mastery` (see §4), `target_part_evidence(user_id, plan_id, passage_id, part_id, attempt_id, learning_date, unique(user_id,plan_id,part_id))`, `offline_snapshots` (+ `payload jsonb`), `ai_usage(provider, model, prompt_version, input_tokens, output_tokens, cost_usd numeric null, status, created_at)` with no learner text.
 - One active plan per account: partial unique index on `master_plans(user_id) where status='active'`.
-- Private access functions live in `public` as `srv_*` `SECURITY DEFINER` functions with `set search_path = ''`; `revoke execute … from public, anon, authenticated, service_role; grant execute …` only to the separate limited database role whose credential is the `QATRA_SERVER_DB` secret on Render (D34, D69; the functions' uses are listed in Architecture-and-data.md, «RLS والحدود»). `service_role` never runs these functions and is not used for learner requests: it is limited to the Supabase Auth Admin API (create user at registration, reset password by recovery, delete account) and content publishing, including content-workflow writes (D34, D37).
+- Private access functions live in `public` as `srv_*` `SECURITY DEFINER` functions with `set search_path = ''`; `revoke execute … from public, anon, authenticated, service_role; grant execute …` only to the separate limited database role whose credential is the `QATRA_SERVER_DB` secret on Render (D34, D69; the functions' uses are listed in Architecture-and-data.md, «RLS والحدود»). One exception (v1.4, A-04): `srv_redact_revoked_content` (Database-schema §8.2 item 19) is executable by `service_role` only (the CLI's publishing role, used by `withdraw`), not by `qatra_server`. `srv_throttle_record(p_key_hashes bytea[], p_outcome text)` takes `p_outcome` (`failure` or `success`, A-03). Apart from that function, `service_role` never runs these functions and is not used for learner requests: it is limited to the Supabase Auth Admin API (create user at registration, reset password by recovery, delete account) and content publishing, including content-workflow writes (D34, D37).
 - Learner tables: RLS `user_id = (select auth.uid())` with parent-ownership checks via composite foreign keys `(id, user_id)`.
 
 ## 4. Mastery engine (D41/D64 as resolved by D66)
@@ -136,6 +136,8 @@ State per `(user, plan, passage)` in `target_mastery`: `status new|learning|revi
 - **Order** (D72): plan order is the plan's `order` (§2.3). `'book'` (default) = sections by ascending ordinal and passages in book order inside a section; `'reverse'` (Juz' Amma only) = sections by descending ordinal with passages in mushaf order inside a surah. New passages are introduced in the chosen order and no passage of the scope is dropped. Any Teaching Agent proposal is also validated for the chosen order and for dropping no passage of the scope (AI-agent.md). Changing `order` is a plan revision effective the next learning day; recorded mastery state and history are kept as for any revision (D57, D66).
 - **Placement** (optional, `kind=placement`): up to 8 passages sampled evenly across the scope, one `word_choice` (continuation) or `word_recall` question each, plus optional self-rating `none|some|most`. Placement time never counts toward daily progress. A correctly answered placement passage is marked `known` for the estimate and is scheduled as an early quick review instead of new learning (no mastery credit).
 - **Capacity** (new words per learning day): 5 min → 12, 10 min → 25, 15 min → 40. A passage larger than capacity is introduced over consecutive days (one passage at a time).
+- **Daily goal (A-07, v1.4)**: `dailyGoalMs` = `Plan.sessionMinutes` of the plan version in force × 60 000. `Profile.sessionMinutes` is only the default pre-filled for a new plan (initial value 10). A plan-level change takes effect from the next learning day (D57) and the pending value is exposed as the optional `Plan.pendingSessionMinutes` (absent or `null` when none); the day boundary is the account time zone at the time of the request.
+- **Plan lifecycle (A-08, v1.4)**: one active plan per account. `POST /plans` (and `POST /demo/plans`) pause the previous active plan; `POST /plans/:id/resume` sets a paused plan active and pauses the current one (progress kept; `currentVersion` unchanged; an already active plan is returned unchanged). A plan becomes `completed` automatically when every passage in its version scope is `confirmed`; maintenance reviews (§4) stay available from a completed plan through the daily session (reviews only, no new passages). A paused plan can be revised and stays paused; a completed plan can be neither revised nor resumed (`409 version_conflict`, `details.reason = "plan_not_active"`). Resume is for learner accounts only; demo accounts get `403 forbidden` and manage plans through `POST /demo/plans`.
 - **Estimate**: `days = ceil((totalWords − knownWords) / capacity × 1.15)` (15% review buffer); `endDate = today + days`. Alternatives: (a) next larger minutes option, (b) scope halved (first half in plan order). `reasonCode`: `fits_preferred_date | exceeds_preferred_date | no_preferred_date`.
 - **Daily session** (`kind=daily`), in order: (1) due review rounds (overdue first), capped at 6/10/14 questions for 5/10/15 min; (2) continue the current `learning` passage or introduce the next passage(s) in plan order up to capacity: a `learn` step showing the full passage with reference, edition, page(s), takhrij and D50 notice, then training questions (one per part, rotating templates) and extra questions until the passage reaches the ≥ 3 streak; (3) end-of-session test of 3/5/7 questions mixing today's passage parts, error parts and uncovered parts. The learner may continue with more practice; nothing force-closes the session.
 - **Absence (PRD R07)**: after 3 or more days of absence the session starts with a light review (the due reviews of step 1) and introduces no new material by default; missed days are not stacked, and due reviews that do not fit the session stay due for the following days (AI-agent.md, QA-and-evaluation.md).
@@ -156,9 +158,9 @@ State per `(user, plan, passage)` in `target_mastery`: `status new|learning|revi
 
 ## 7. API contract (all paths under `/api`, JSON, camelCase)
 
-The complete per-endpoint specification (authentication, authorization, request/response schemas, validation, status codes, errors, limits, examples) is [API-spec.md](API-spec.md) (v1, Needs Review — awaiting owner approval); this section fixes the shared DTOs and the endpoint list it must honor.
+The complete per-endpoint specification (authentication, authorization, request/response schemas, validation, status codes, errors, limits, examples) is [API-spec.md](API-spec.md) (v1.1, approved by D74); this section fixes the shared DTOs and the endpoint list it must honor.
 
-Errors: HTTP status + `{"error": {"code": "snake_case", "message": "safe text", "details": {}}}`. Codes: `validation_error` 422, `invalid_credentials` 401, `unauthenticated` 401, `forbidden_origin` 403, `not_found` 404, `username_taken` 409, `version_conflict` 409, `terms_required` 400, `throttled` 429, `unavailable` 503, `internal` 500. Mutations accept an `Idempotency-Key` header where noted.
+Errors: HTTP status + `{"error": {"code": "snake_case", "message": "safe text", "details": {}}}`. Codes: `validation_error` 422, `invalid_credentials` 401, `unauthenticated` 401, `forbidden_origin` 403, `forbidden` 403 (role-based denial, e.g. a demo account on a learner-only operation), `not_found` 404, `username_taken` 409, `version_conflict` 409 (also for a stale plan version on an offline snapshot), `payload_too_large` 413 (body above the 64 KiB cap), `terms_required` 400, `throttled` 429, `unavailable` 503, `internal` 500. `details` is an object whose keys are documented per endpoint and per code in [API-spec.md](API-spec.md) §1.5 (`{}` when none); values are never echoed. `Idempotency-Key` (UUID, optional) is accepted on `POST /sessions/:id/complete` only; no other mutation uses or requires it in v1.
 
 ```ts
 type ISODate = string;        // YYYY-MM-DD (learning date in the account time zone)
@@ -186,6 +188,7 @@ interface Estimate { days: number; endDate: ISODate; newWordsPerDay: number; tot
 interface Plan { planId: string; editionId: string; titleAr: string; titleEn: string; targetScope: TargetScope;
   paths: Path[]; order: PlanOrder; sessionMinutes: 5 | 10 | 15; preferredDate: ISODate | null;
   agreedEstimate: Estimate; currentVersion: number; status: 'active' | 'paused' | 'completed'; createdAt: ISODateTime;
+  pendingSessionMinutes?: 5 | 10 | 15 | null; // optional (A-07): plan-level change effective the next learning day (D57)
   planner: { source: 'rules' | 'teaching_agent'; model?: string }; }
 
 interface DailyProgress { learningDate: ISODate; dailyActiveMs: number; dailyGoalMs: number; dailyPercent: number;
@@ -227,8 +230,8 @@ interface SessionSnapshot { sessionId: string; kind: 'daily' | 'game' | 'placeme
   steps: Step[]; createdAt: ISODateTime; }
 
 type AnswerPayload = { order: TokenRef[] } | { optionId: string } | { text: string };
-// Replay envelope of an event recorded offline: PWA-design.md §5 "OfflineEvent" names, proposed there and Needs Review (NR below
-// = Needs Review in PWA-design.md). All fields or none; online events omit it. localSequence is ordering input, never a trusted clock.
+// Replay envelope of an event recorded offline (PWA-design.md §5). `SessionEvent` and `EventsResponse` are the only names (C-05/C-06,
+// D74); PWA-design's earlier "OfflineEvent" wording is superseded. NR below = shapes PWA-design.md still leaves open. All fields or none; online events omit it. localSequence is ordering input, never a trusted clock.
 interface OfflineEnvelope { clientRunId: string; snapshotId: string; protocolVersion: 1; planVersion: number; editionId: string;
   bankVersion: number; normalizationPolicyVersion: 'arabic-norm-v1'; scoringPolicyVersion: 'v1'; localSequence: number; }
 type SessionEvent = (
@@ -244,6 +247,11 @@ interface EventsResponse { acknowledged: string[];
   duplicate: string[];                                        // same clientEventId already acknowledged earlier (PWA-design §5; NR)
   pending: { clientEventId: string; reasonCode: string }[];   // disputed/unverifiable: kept without credit (D59; NR)
   rejected: { clientEventId: string; code: string }[]; results: AnswerResult[]; daily: DailyProgress; }
+// O-21 enumerations (API-spec §8.2, A-12, approved D74):
+//   rejected[].code: 'question_not_in_session' | 'out_of_scope' | 'edition_mismatch' | 'bank_version_mismatch' | 'invalid_answer_shape'
+//     | 'activity_out_of_bounds' | 'plan_not_active' | 'session_closed' | 'envelope_mismatch'
+//   pending[].reasonCode: 'plan_changed_unverifiable' | 'content_unverifiable' | 'policy_unsupported' | 'clock_unverifiable'
+//   RevalidationResult.reasonCode: 'current' | 'plan_version_changed' | 'bank_version_changed' | 'content_revoked' | 'validity_ended'
 interface CompleteResponse { summary: { answered: number; correct: number; newPassages: number; reviewsPassed: number;
   reviewsFailed: number; activeMs: number }; daily: DailyProgress; }
 
@@ -282,16 +290,17 @@ interface RevalidationResult { status: OfflineStatus; currentPlanVersion: number
 | POST `/auth/password` | `{currentPassword, newPassword}` (session) | `{profile}` + new cookie (all other sessions revoked) |
 | POST `/auth/logout` | — | 204, cookie cleared |
 | GET/PATCH `/me` | PATCH `{language?, timeZone?, sessionMinutes?, reminderSettings?}` | `Profile` (minutes/zone become `pendingSettings` for the next learning day) |
-| DELETE `/account` | `{password, confirm:'DELETE'}` | 204 |
+| POST `/account/delete` | `{password, confirm:'DELETE'}` (session; replaces `DELETE /account`, A-10) | 204, cookie cleared |
 | GET `/catalog` | — | `{editions: CatalogEdition[]}` — public, no session; metadata only (D71) |
-| POST `/plans/estimate` | `{editionId, targetScope, paths, sessionMinutes, preferredDate?, placementSessionId?}` | `{estimate, alternatives: Estimate[], reasonCode}` (no writes) |
+| POST `/plans/estimate` | `{editionId, targetScope, paths, sessionMinutes, preferredDate?, placementSessionId?, order?}` | `{estimate, alternatives: Estimate[], reasonCode}` (no writes) |
 | POST `/plans` | `{editionId, targetScope, paths, order, sessionMinutes, preferredDate?, placementSessionId?, confirmedEstimate}` | 201 `Plan` (previous active plan → paused) |
-| POST `/plans/:id/revise` | `{expectedVersion, sessionMinutes?, preferredDate?, paths?, order?}` | `Plan` or 409 (`order` is validated as in `POST /plans` and takes effect the next learning day, D72) |
+| POST `/plans/:id/revise` | `{expectedVersion, sessionMinutes?, preferredDate?, paths?, order?, confirmedEstimate?}` | `Plan` or 409 (`order` is validated as in `POST /plans` and takes effect the next learning day, D72; `confirmedEstimate` is sent when the change alters the estimate and replaces `agreedEstimate`; a mismatch is 409 `version_conflict`) |
+| POST `/plans/:id/resume` | — (session, learner accounts) | 200 `Plan`: a paused plan becomes active and the current active plan is paused; 409 `version_conflict` (`details.reason = "plan_not_active"`) for a completed plan; 403 `forbidden` for a demo account (A-08) |
 | GET `/today` | — | `Today` |
 | GET `/progress` | — | `ProgressResponse` |
 | POST `/sessions` | `{kind:'daily', planId, expectedPlanVersion}` · `{kind:'game', planId, expectedPlanVersion, gameType?, passageIds?}` · `{kind:'placement', editionId, targetScope, selfRating?}` | 201 `SessionSnapshot` (daily returns the open session for today if one exists) |
 | POST `/sessions/:id/events` | `{events: SessionEvent[]}` (≤ 100) | `EventsResponse` (idempotent per clientEventId) |
-| POST `/sessions/:id/complete` | — | `CompleteResponse` |
+| POST `/sessions/:id/complete` | — (optional `Idempotency-Key` header, UUID) | `CompleteResponse` |
 | POST `/plans/:id/offline-snapshots` | `{clientOperationId, expectedPlanVersion, downloadTargetRefs}` (`downloadTargetRefs: string[]`; proposed in PWA-design §5, NR) | 201 `PlanSnapshot`; the same input again → 200 with the same snapshot; changed input → 409; invalid reference, version or scope → 422 |
 | GET `/offline-snapshots/:id` | — | 200 `PlanSnapshot`, or a chunked download manifest with positions and hashes (shape NR); `Cache-Control: no-store`; read-only, creates no session |
 | POST `/offline/revalidate` | `{snapshotId, expectedPlanVersion, editionId, bankVersion}` | `RevalidationResult` (`status` is an `OfflineStatus`: available, stale, revoked or expired) |
@@ -337,12 +346,12 @@ Shared file `backend/app/domain/normalization.py` (`arabic-norm-v1`) is owned by
 Items marked ACCEPTED or RESOLVED record owner decisions of 2026-10-04 (D72); the remaining item is still open and must not be resolved by assumption.
 
 - **ACCEPTED for the MVP (D72, owner answer "Accept for MVP"): client-held answer keys and client-reported hint use.** Session snapshots (including offline snapshots) carry each question's `answerKey` to the client (needed for the approved offline feedback), and `hintUsed` is reported by the client, so a modified client can inflate its own progress. The accepted controls are the ones in §7: the server grades every submitted answer, validates events, and never accepts `correct`, mastery or daily totals from the client. This remains a self-study app without certificates; no further mitigation is decided, and any later hardening is a new owner decision.
-- **RESOLVED (D72, owner answer "Offer both, book order default"): reverse Juz' Amma order (surah 114 → 78).** `PlanOrder = 'book' | 'reverse'` (§7): book order is the default for every edition; `'reverse'` ("from An-Nas backwards") is available for the Juz' Amma (Quran) edition only, chosen at plan creation, and a change is a plan revision effective the next learning day (§2.3, §5). Within the chosen order no unit is dropped and the Teaching Agent never reorders new material. Design reading to confirm at architecture approval: passages inside a surah keep mushaf order under `'reverse'`.
+- **RESOLVED (D72, owner answer "Offer both, book order default"): reverse Juz' Amma order (surah 114 → 78).** `PlanOrder = 'book' | 'reverse'` (§7): book order is the default for every edition; `'reverse'` ("from An-Nas backwards") is available for the Juz' Amma (Quran) edition only, chosen at plan creation, and a change is a plan revision effective the next learning day (§2.3, §5). Within the chosen order no unit is dropped and the Teaching Agent never reorders new material. Confirmed by the owner (Q4, D74): passages inside a surah keep mushaf order under `'reverse'`.
 - **Open item: English religious labels (D28).** Category, book, edition and demo-scenario English labels (e.g. `labelEn`, `titleEn`) must come from the Jamhara dictionary; until sourced, the English UI shows numeric section labels only (§2.2) and the remaining labels are listed as gaps.
 
-## 13. Proposed v1.4 amendments (Needs Review — not approved; v1.3 body unchanged)
+## 13. v1.4 amendments (applied; approved by D74, 4 October 2026)
 
-Dated 4 October 2026. This section only lists proposals from the architecture consistency pass; the approved v1.3 text above is unchanged, and the items take effect only after explicit owner approval at G0.
+Dated 4 October 2026. The owner approved the architecture package including these nine amendments (D74: «approve best practice», «q7 approved»); they are applied in the sections above and this list is the change log from v1.3.
 
 1. `POST /api/plans/{id}/resume` (A-08).
 2. `POST /api/account/delete` replaces `DELETE /api/account` (A-10).
