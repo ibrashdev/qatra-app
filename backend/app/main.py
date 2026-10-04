@@ -14,7 +14,8 @@ from app.middleware import (
     NoStoreMiddleware,
     OriginGuardMiddleware,
 )
-from app.routers import health, plan_chats
+from app.routers import catalog, health, plan_chats, plans
+from app.services.plans import build_planning_services
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -35,6 +36,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
     app.state.settings = settings
     app.state.ready_limiter = SlidingWindowLimiter(settings.QATRA_READY_RATE_PER_MIN)
+    # B4: the public catalog and the plan service (memory or supabase, by QATRA_DATA_BACKEND).
+    planning = build_planning_services(settings)
+    app.state.catalog_service = planning.catalog
+    app.state.plan_service = planning.plans
 
     install_error_handlers(app)
 
@@ -47,6 +52,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.add_middleware(NoStoreMiddleware)
 
     app.include_router(health.router)
+    app.include_router(catalog.router)
+    app.include_router(plans.router)
     app.include_router(plan_chats.router)
     return app
 
