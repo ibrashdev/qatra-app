@@ -1,0 +1,50 @@
+{
+  "formatVersion": 1,
+  "tool": "get_hadith",
+  "retrievedAt": "2026-10-04T11:45:00Z",
+  "acquisition": "mcp_tool",
+  "records": [
+    {
+      "hadeethencId": 990001,
+      "fortyNumber": 1,
+      "title": "حديث تجريبي 1",
+      "narration": "عَنْ رَاوٍ أَوَّلَ قَالَ: قَالَ الْمُعَلِّمُ: «كَلِمَةٌ تَجْرِيبِيَّةٌ مِثَالٌ، وَكَلِمَةٌ أُخْرَى مِثَالٌ».",
+      "narrator": "رواه الراوي المثال",
+      "grade": "تجريبي",
+      "url": "https://hadeethenc.com/ar/browse/hadith/990001",
+      "languages": [
+        "ar",
+        "en",
+        "fr"
+      ]
+    },
+    {
+      "hadeethencId": 990002,
+      "fortyNumber": 2,
+      "title": "حديث تجريبي 2",
+      "narration": "عَنْ رَاوٍ ثَانٍ قَالَ: قَالَ الْمُعَلِّمُ: «كَلِمَةٌ تَجْرِيبِيَّةٌ مِثَالٌ، وَكَلِمَةٌ أُخْرَى مِثَالٌ».",
+      "narrator": "رواه الراوي المثال",
+      "grade": "تجريبي",
+      "url": "https://hadeethenc.com/ar/browse/hadith/990002",
+      "languages": [
+        "ar",
+        "en",
+        "fr"
+      ]
+    },
+    {
+      "hadeethencId": 990003,
+      "fortyNumber": 3,
+      "title": "حديث تجريبي 3",
+      "narration": "عَنْ رَاوٍ ثَالِثٍ قَالَ: قَالَ الْمُعَلِّمُ: «كَلِمَةٌ تَجْرِيبِيَّةٌ مِثَالٌ، وَكَلِمَةٌ أُخْرَى مِثَالٌ».",
+      "narrator": "رواه الراوي المثال",
+      "grade": "",
+      "url": "https://hadeethenc.com/ar/browse/hadith/990003",
+      "languages": [
+        "ar",
+        "en",
+        "fr"
+      ]
+    }
+  ]
+}

@@ -57,6 +57,11 @@ logged (no traceback, because messages can contain submitted values).
   records the complete route template.
 - `app/domain/` is pure: no FastAPI, Starlette or database-client imports (tested).
 
+## Content workflow CLI
+
+The operator CLI (`backend/scripts/content_tools.py`, package B7) and its exit codes are documented in
+[`scripts/README.md`](scripts/README.md). It never runs inside the API process.
+
 ## Never commit
 
 Credentials, real personal data, `.env`, or `.content-build/` output.
