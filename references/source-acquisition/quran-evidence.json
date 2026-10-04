@@ -1,0 +1,31 @@
+{
+  "recordVersion": 1,
+  "scope": "QuranEnc candidate assessment / Juz Amma source preparation for Qatra proof of concept",
+  "checkedAt": "2026-10-04",
+  "acquisitionStatus": "not-acquired",
+  "localFiles": [],
+  "sha256": null,
+  "providerReview": {
+    "provider": "QuranEnc",
+    "officialApiDocumentation": "https://quranenc.com/ar/home/api/",
+    "officialHome": "https://quranenc.com/ar/home/index",
+    "check": "One official documentation search and page-open attempt; page open returned HTTP 429 Too Many Requests.",
+    "indexedDocumentationFinding": "Search-indexed API documentation describes translations/list, translation/sura and translation/aya endpoints, including translation and footnotes fields. No Arabic-original-text endpoint was established by the retrieved documentation excerpt.",
+    "exportFinding": "Official home-page search excerpt lists Quran text PDF, EPUB, XML, CSV, Excel, SQLite database, and API among downloads. The excerpt does not identify a direct Arabic-original export/API schema or resolve whether the Arabic original is King Fahd lineage.",
+    "rightsFinding": "Search-indexed API page states re-publication conditions for translation content: no modification/addition/deletion, clear attribution to publisher and QuranEnc, version information, retain transcript/version information, report notes, update to new source versions, and avoid inappropriate ads. These stated terms are expressly for translations; permission for republishing Quran Arabic source text was not verified.",
+    "printedPageMetadata": "not-established",
+    "kingFahdLineage": "not-established",
+    "sourceTextAcquired": false,
+    "limitations": [
+      "The official documentation and home pages returned HTTP 429 on direct open.",
+      "No API live lookup or export download was performed.",
+      "No Quran Arabic text is stored in this record or local acquisition folder."
+    ]
+  },
+  "nextEvidenceNeeded": [
+    "Obtain provider's directly documented Arabic-original export/API route and inspect its metadata/schema.",
+    "Verify whether the Arabic text has documented King Fahd edition lineage and printed mushaf page identifiers; do not infer page mapping from ayah order.",
+    "Verify explicit rights for local storage, redistribution, and application display of Quran Arabic text.",
+    "If files are obtained later, record resolved URL, retrieval timestamp, bytes, SHA-256, schema/counts/ranges, and any published upstream checksum."
+  ]
+}

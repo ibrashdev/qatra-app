@@ -1,6 +1,6 @@
 # قطرة غيث — الوثائق الجارية
 
-الإصدار ١٢ · ٤ أكتوبر ٢٠٢٦ · Asia/Dubai. الجذر qatra-app؛ وثائق ومراجع ضرورية فقط. القرارات المعتمدة تتقدم على التصميم المقترح والصور. الحالات: Approved للقرار المحدد، Needs Input للمتطلب غير المحسوم، Needs Review للتصميم المعد، Implemented/Verified لا تستعملان دون العمل ودليله.
+الإصدار ١٣ · ٤ أكتوبر ٢٠٢٦ · Asia/Dubai. الجذر qatra-app؛ وثائق ومراجع ضرورية فقط. القرارات المعتمدة تتقدم على التصميم المقترح والصور. الحالات: Approved للقرار المحدد، Needs Input للمتطلب غير المحسوم، Needs Review للتصميم المعد، Implemented/Verified لا تستعملان دون العمل ودليله.
 
 | ابدأ بالوثيقة | الغرض |
 |---|---|
@@ -13,6 +13,7 @@
 | [Architecture-and-data.md](Architecture-and-data.md) | البيانات والحدود والخطط وعقود API |
 | [Authentication-and-privacy.md](Authentication-and-privacy.md) | الحساب والاسترجاع والبيانات وشروط الاستخدام |
 | [Content-and-sources.md](Content-and-sources.md) | النص والطبعات والصفحات والحقوق وسير الإعداد |
+| [Source-acquisition.md](Source-acquisition.md) | مراجعة المرجعية الموسعة وخادم MCP، ومرشحو جزء عم والأربعين، وأدلة الاتصال والحقوق والصفحات قبل الاستيراد |
 | [Question-bank-rules.proposal.md](Question-bank-rules.proposal.md) | مقترح Needs Review لقواعد القرآن والحديث والفقه والعبادات ودور AI ومراجعة مدير المحتوى؛ لا يغير القرارات المعتمدة قبل اعتماد المالك |
 | [AI-agent.md](AI-agent.md) | المخطط المقيد والمجاني ومحرك القواعد |
 | [PWA-design.md](PWA-design.md) | التثبيت والخطة المحملة والمزامنة والتحديث |
