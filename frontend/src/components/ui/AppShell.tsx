@@ -17,7 +17,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       <SkipLink />
       <SideRail />
       <div className="flex min-w-0 flex-1 flex-col">
-        <TopBar className="rail:hidden">
+        <TopBar below="rail">
           <Brand href="/today" />
         </TopBar>
         <main

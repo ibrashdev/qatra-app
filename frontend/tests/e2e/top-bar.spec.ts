@@ -11,7 +11,7 @@ type Language = "ar" | "en";
 const DIVIDER = "rgb(215, 230, 240)";
 const TRANSPARENT = "rgba(0, 0, 0, 0)";
 
-// The shells that have a top bar. The app shell hides its bar from 1024 px (the side rail takes over).
+// The shells that have a top bar. The app shell hides its bar from 1024 px (the side rail takes over); the page's scroll padding follows it.
 const PAGES = [
   ["/terms", "public shell: back control and switch"],
   ["/login", "public shell: the switch alone"],
@@ -72,10 +72,13 @@ function problems(state: BarState): string[] {
   const wrapped = state.barHeight > state.oneRow + state.rem / 2;
   if (state.wrapped !== String(wrapped)) found.push(`data-wrapped is ${state.wrapped}, a bar of ${state.barHeight} px with one row ${state.oneRow} px and rem ${state.rem} px is ${wrapped ? "wrapped" : "one row"}`);
   if (state.position !== (wrapped ? "static" : "sticky")) found.push(`position is ${state.position}`);
-  // Below 1024 px the page's scroll padding is meant for a bar that is there (from 1024 px it assumes the side rail, a separate matter).
-  if (state.width < 1024 && state.row > 0) {
+  // The page's scroll padding keeps the room of the bar that is shown at this width (the row is 0 for a bar that is hidden: the app shell's bar from
+  // 1024 px, where the side rail takes over, and the page then keeps half a rem only).
+  if (state.row > 0) {
     if (wrapped && Math.abs(state.padding - (state.safe + state.rem / 2)) > 0.5) found.push(`a static bar, and the scroll padding is ${state.padding} px, not the notch (${state.safe} px) and half a rem (${state.rem / 2} px)`);
     if (!wrapped && state.barHeight + state.safe > state.padding + 0.5) found.push(`a sticky bar of ${state.barHeight + state.safe} px is taller than the scroll padding of ${state.padding} px, so a focused control could hide under it`);
+  } else if (Math.abs(state.padding - state.rem / 2) > 0.5) {
+    found.push(`no bar is shown, and the scroll padding is ${state.padding} px, not half a rem (${state.rem / 2} px)`);
   }
   return found;
 }
