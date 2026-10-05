@@ -146,7 +146,10 @@ export function PlanReviseScreen({ revealForm = false }: { revealForm?: boolean 
         <div className="mt-q16">
           <Notice>{planChatMessages(locale).transparency}</Notice>
         </div>
-        <div className="mt-q16">
+        {/* FC-05: the primary action sits in an action area of at least 80 px (48 px button, 16 px above and below). The inline inset is the 24 px page
+            margin of the shell. The area stays in the flow, so longer labels or larger text push the content down instead of overlapping, and on phones
+            it is the last block above the tab bar, whose own safe-area padding and `scroll-padding-block-end` keep it reachable (not pinned). */}
+        <div data-action-area className="mt-q16 flex min-h-[5rem] flex-col justify-center py-q16">
           <Button
             fullWidth
             loading={revise.starting}

@@ -47,11 +47,15 @@ function FeedbackBody({
     <div
       lang={locale}
       dir={direction}
-      className={cx("flex flex-col gap-q12 rounded-md border p-q16 text-ink", result.correct ? "border-success-edge bg-success-tint" : "border-warning-edge bg-warning-tint")}
+      data-feedback={result.correct ? "correct" : "needs-review"}
+      data-assisted={result.assisted ? "true" : undefined}
+      className={cx("flex min-w-0 flex-col gap-q16 rounded-md border p-q16 text-ink", result.correct ? "border-success-edge bg-success-tint" : "border-warning-edge bg-warning-tint")}
     >
-      <p className={cx("flex items-start gap-q8 text-section", result.correct ? "text-success-ink" : "text-warning-ink")}>
-        {result.correct ? <Icon name="success" size="lg" active /> : <Icon name="refresh" size="lg" />}
-        <span>{result.correct ? messages.feedback.correct : messages.feedback.needsReview}</span>
+      {/* FC-04: 16 px separate the status from the original, the original from the assisted note and the note from the calm lines (a region is 16 px
+          inside, P-18). The icon never shrinks and the phrase wraps, so enlarged text and narrow widths reflow instead of overlapping. */}
+      <p data-feedback-status className={cx("flex items-start gap-q8 text-section", result.correct ? "text-success-ink" : "text-warning-ink")}>
+        <span className="shrink-0">{result.correct ? <Icon name="success" size="lg" active /> : <Icon name="refresh" size="lg" />}</span>
+        <span className="min-w-0 [overflow-wrap:anywhere]">{result.correct ? messages.feedback.correct : messages.feedback.needsReview}</span>
       </p>
       {original !== null ? <OriginalText textKind={textKind} tint>{original}</OriginalText> : null}
       {/* A recall answer is judged before the server names the word: the context with its blank stands there until `expected.word` arrives. */}

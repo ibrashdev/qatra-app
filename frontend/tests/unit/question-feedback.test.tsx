@@ -76,6 +76,49 @@ describe("answer feedback (UI-tokens 6.17, UI-screens P-21 and P-22)", () => {
     expect(region).toHaveTextContent("An answer with help counts as practice, not as independent recall.");
   });
 
+  it("FC-04: separates the status from the original by 16 px and keeps the three states distinct", () => {
+    const states = [
+      { result: { correct: true, assisted: false, expected: { optionId: "o2" } }, state: "correct", tone: "success" },
+      { result: { correct: false, assisted: false, expected: { optionId: "o2" } }, state: "needs-review", tone: "warning" },
+      { result: { correct: false, assisted: true, expected: { optionId: "o2" } }, state: "needs-review", tone: "warning" },
+    ];
+    for (const { result, state, tone } of states) {
+      const { unmount } = renderInLocale(<AnswerFeedback question={wordChoiceQuestion()} result={result} textKind="quran" />);
+      const block = screen.getByRole("status").querySelector<HTMLElement>("[data-feedback]");
+      expect(block).not.toBeNull();
+      expect(block).toHaveAttribute("data-feedback", state);
+      expect(block?.className).toContain("gap-q16");
+      expect(block?.className).not.toContain("gap-q12");
+      expect(block?.className).toContain(`border-${tone}-edge`);
+      expect(block?.querySelector("[data-feedback-status]")?.querySelector("svg")).not.toBeNull();
+      // The status is the first child and the original text follows it in the same 16 px stack, never overlapping.
+      if (!result.correct) expect(block?.children[1]).toHaveAttribute("dir", "rtl");
+      unmount();
+    }
+  });
+
+  it("FC-04: the assisted answer carries the chip and the wording, and the live region keeps focus where it was", async () => {
+    const { rerender } = renderInLocale(
+      <>
+        <button type="button">Continue</button>
+        <AnswerFeedback question={wordChoiceQuestion()} result={null} textKind="quran" />
+      </>,
+    );
+    const next = screen.getByRole("button", { name: "Continue" });
+    next.focus();
+    rerender(
+      <>
+        <button type="button">Continue</button>
+        <AnswerFeedback question={wordChoiceQuestion()} result={{ correct: false, assisted: true, expected: { optionId: "o2" } }} textKind="quran" />
+      </>,
+    );
+    const region = screen.getByRole("status");
+    expect(region).toHaveTextContent("With help");
+    expect(region).toHaveTextContent("An answer with help counts as practice, not as independent recall.");
+    expect(region.querySelector("[tabindex]")).toBeNull();
+    expect(next).toHaveFocus();
+  });
+
   it("shows the calm lines for a rejected or pending answer and for an updated verdict", () => {
     const base = { correct: true, assisted: false, expected: { optionId: "o2" } };
     const { rerender } = renderInLocale(<AnswerFeedback question={wordChoiceQuestion()} result={{ ...base, status: "rejected" }} textKind="quran" />);

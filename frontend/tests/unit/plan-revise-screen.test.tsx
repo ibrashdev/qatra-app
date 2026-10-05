@@ -97,6 +97,20 @@ describe("S-13 Plan revision: the entry", () => {
     expect(screen.queryByRole("combobox")).toBeNull();
   });
 
+  it("FC-05: the primary action sits in an 80 px action area in the flow, and S-13 has no step indicator", async () => {
+    const { container } = renderRevise();
+    const button = await screen.findByRole("button", { name: "ابدأ التعديل مع المساعد" });
+    const area = container.querySelector<HTMLElement>("[data-action-area]");
+    expect(area).not.toBeNull();
+    expect(area).toContainElement(button);
+    expect(area?.className).toContain("min-h-[5rem]");
+    expect(area?.className).toContain("py-q16");
+    // Normal reflow, not pinned to the screen.
+    expect(area?.className).not.toMatch(/\b(sticky|fixed|absolute)\b/);
+    // The approved S-13 specification has no step indicator, so none is shown.
+    expect(screen.queryByRole("list", { name: /step|خطو/i })).toBeNull();
+  });
+
   it("shows the second sentence of the helper to a demo account", async () => {
     renderRevise({ scenario: { isDemo: true } });
     expect(await screen.findByText("في حساب العرض تُعدَّل الخطة بالخيارات الجاهزة فقط.")).toBeInTheDocument();
