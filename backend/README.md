@@ -131,11 +131,15 @@ learning adapter. Without the plan service (supabase mode without `SUPABASE_URL`
 
 ## Privacy and logging
 
-Access logs are one JSON line per request with method, route template, status, latency and
-error code only. Bodies, cookies, tokens, usernames, query strings and IP addresses are never
-logged. uvicorn's own access log (raw IPs and paths) is switched off by the application.
-Unhandled exceptions are answered with `500 internal` and only the exception type is
-logged (no traceback, because messages can contain submitted values).
+Access logs are one JSON line per request with method, route template, status, latency, error
+code and two proxy-chain measures: `xff_entries`, the number of `X-Forwarded-For` entries that
+arrived (0 when the header is absent), and `via_vercel`, whether an `x-vercel-id` header was
+present. They help choose `QATRA_TRUSTED_XFF_DEPTH` (see "Client address and rate limits"). Both
+are a count or a flag only: no header value, address or hash of one is logged. Bodies, cookies,
+tokens, usernames, query strings and IP addresses are never logged. uvicorn's own access log
+(raw IPs and paths) is switched off by the application. Unhandled exceptions are answered with
+`500 internal` and only the exception type is logged (no traceback, because messages can contain
+submitted values).
 
 ## Conventions for later packages
 
