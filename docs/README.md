@@ -19,7 +19,7 @@
 | [Authentication-and-privacy.md](Authentication-and-privacy.md) | الحساب والاسترجاع والبيانات وشروط الاستخدام |
 | [Content-and-sources.md](Content-and-sources.md) | النص والطبعات والصفحات والحقوق وسير الإعداد |
 | [Source-acquisition.md](Source-acquisition.md) | مراجعة المرجعية الموسعة وخادم MCP، ومرشحو جزء عم والأربعين، وأدلة الاتصال والحقوق والصفحات قبل الاستيراد |
-| [Content-expansion.tracker.md](Content-expansion.tracker.md) | دفعة توسعة محتوى تحضيرية من جزء عم والأربعين، بتفويض المالك في ٥ أكتوبر ٢٠٢٦؛ أدلة الاكتساب والفجوات وخطوة التحقق التالية، دون توسيع G6 أو استثناء D83 |
+| [Content-expansion.tracker.md](Content-expansion.tracker.md) | دفعات توسعة المحتوى التحضيرية من جزء عم والأربعين، ومنها نطاق السور ٧٨–١١٤ ومحاولة الأحاديث ١–٤٢، بتفويض المالك في ٥ أكتوبر ٢٠٢٦؛ أدلة الاكتساب والفجوات والتحقق، دون توسيع G6 أو استثناء D83 |
 | [Question-bank-rules.proposal.md](Question-bank-rules.proposal.md) | قواعد القرآن والحديث والفقه والعبادات ودور AI ومراجعة مدير المحتوى، الإصدار ٢، معتمدة في D69؛ QBR-04 إلى QBR-06 بلا أثر في هذا البناء (جزء عم والأربعون فقط) |
 | [AI-agent.md](AI-agent.md) | المخطط المقيد والمجاني ومحرك القواعد |
 | [PWA-design.md](PWA-design.md) | التثبيت والخطة المحملة والمزامنة والتحديث |
