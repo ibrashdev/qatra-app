@@ -62,7 +62,9 @@ def test_access_log_records_the_error_code(client: TestClient, log_lines: list[s
     assert (not_found["status"], not_found["error_code"]) == (404, "not_found")
     assert not_found["route"] == "<unmatched>"
     assert (too_large["status"], too_large["error_code"]) == (413, "payload_too_large")
-    assert "42" not in "\n".join(log_lines)
+    # The raw path never reaches the log. Not a bare "42": latency_ms can contain those digits.
+    joined = "\n".join(log_lines)
+    assert "/42" not in joined and "does-not-exist" not in joined
 
 
 def test_access_log_records_throttling(

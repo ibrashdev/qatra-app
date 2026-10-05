@@ -148,6 +148,10 @@ class PlanChatRepository(Protocol):
     def get(self, user_id: UUID, chat_id: UUID) -> ChatRecord | None:
         """The caller's conversation with its messages, or ``None``."""
 
+    def open_chat_id(self, user_id: UUID) -> UUID | None:
+        """The id of the caller's ``open`` conversation, or ``None`` (an account has at most one:
+        ``plan_chats_user_id_open_key``). E18 shows it as ``Today.openPlanChatId``."""
+
     def append_message(
         self,
         user_id: UUID,
@@ -268,6 +272,10 @@ class InMemoryPlanChatRepository:
             if chat is None or chat.user_id != user_id:
                 return None
             return copy.deepcopy(chat)
+
+    def open_chat_id(self, user_id: UUID) -> UUID | None:
+        with self._lock:
+            return self._open_by_user.get(user_id)
 
     @staticmethod
     def _store(chat: ChatRecord, message: NewMessage, now: datetime) -> None:
@@ -490,6 +498,23 @@ class PostgrestPlanChatRepository:
             token=token,
         )
         return _chat_of(user_id, rows[0], messages)
+
+    def open_chat_id(self, user_id: UUID) -> UUID | None:
+        """One select of the learner's own ``open`` row (the partial unique index allows one)."""
+        self._own(user_id)
+        rows = self._client.select(
+            "plan_chats",
+            columns="id",
+            filters={"user_id": f"eq.{user_id}", "status": "eq.open"},
+            limit=1,
+            token=self._token(),
+        )
+        if not rows:
+            return None
+        try:
+            return UUID(str(rows[0]["id"]))
+        except (KeyError, ValueError):
+            raise _bad_row("chat_id") from None
 
     # -- writes: one database function each -----------------------------------------------------
 

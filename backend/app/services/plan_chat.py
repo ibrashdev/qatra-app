@@ -1070,6 +1070,10 @@ class PlanChatService:
     def read_conversation(self, ctx: SessionContext, chat_id: UUID) -> PlanChat:
         return self._dto(ctx, self._get_chat(ctx, chat_id))
 
+    def open_chat_id(self, ctx: SessionContext) -> UUID | None:
+        """The id of the caller's open conversation, for ``Today.openPlanChatId`` (E18)."""
+        return self._repo.open_chat_id(ctx.user_id)
+
     # ------------------------------------------------------------------ E34
 
     def confirm_plan(
@@ -1342,7 +1346,8 @@ def build_plan_chat_service(
 
 
 class PlanChatApi(Protocol):
-    """The four operations the router calls: a ``PlanChatService`` or a ``PlanChatGateway``."""
+    """What the router calls (E31 to E34) and what E18 reads (``open_chat_id``): a
+    ``PlanChatService`` or a ``PlanChatGateway``."""
 
     def create_conversation(self, ctx: SessionContext, req: CreatePlanChatRequest) -> PlanChat: ...
 
@@ -1355,6 +1360,8 @@ class PlanChatApi(Protocol):
     def confirm_plan(
         self, ctx: SessionContext, chat_id: UUID, proposal_version: int
     ) -> tuple[Plan, bool]: ...
+
+    def open_chat_id(self, ctx: SessionContext) -> UUID | None: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -1425,6 +1432,11 @@ class PlanChatGateway:
         self, ctx: SessionContext, chat_id: UUID, proposal_version: int
     ) -> tuple[Plan, bool]:
         return self._service(ctx).confirm_plan(ctx, chat_id, proposal_version)
+
+    def open_chat_id(self, ctx: SessionContext) -> UUID | None:
+        """The caller's open conversation for E18. One read through the repository of the request;
+        no service is built for it."""
+        return self.binding(ctx).repository.open_chat_id(ctx.user_id)
 
 
 def build_plan_chat_gateway(
