@@ -156,7 +156,10 @@ class _Builder:
         self._single_targets: dict[tuple[tuple[str, ...], tuple[str, ...]], set[str]] = defaultdict(
             set
         )
-        for words in self.words:
+        for p_index, words in enumerate(self.words):
+            # Grade prompts compare whole phrases, so grade words do not compete for blank contexts.
+            if self.index.passages[p_index]["path"] == "grade":
+                continue
             for word in words:
                 self._single_targets[self._single_key(word)].add(word.n)
         self._segment_targets: dict[int, dict[Any, set[tuple[str, ...]]]] = {}
