@@ -72,6 +72,12 @@ describe("main navigation: tab icons (FC-01)", () => {
     expect(container.querySelector("nav")).toHaveClass("pb-[env(safe-area-inset-bottom)]");
     expect(container.querySelector("a")?.className).toContain("min-h-[calc(var(--q-size-tabbar)-1px)]");
   });
+
+  it("keeps the block padding at 4 px so the icon, the gap and the caption fit inside the 64 px bar (UI-tokens 6.6)", () => {
+    const { container } = renderBar("/today");
+    expect(container.querySelector("a")).toHaveClass("py-q4", "gap-q4");
+    expect(container.querySelector("a")).not.toHaveClass("py-q8");
+  });
 });
 
 describe("main navigation: the active tab", () => {

@@ -47,7 +47,7 @@ export function TabBar() {
                 href={href}
                 aria-current={active ? "page" : undefined}
                 className={cx(
-                  "flex h-full min-h-[calc(var(--q-size-tabbar)-1px)] flex-col items-center justify-center gap-q4 border-t-[3px] px-q4 py-q8 text-center text-caption [overflow-wrap:anywhere] transition-[color,background-color,border-color] duration-(--q-duration-fast) hover:bg-selection focus-visible:outline-offset-[-2px]",
+                  "flex h-full min-h-[calc(var(--q-size-tabbar)-1px)] flex-col items-center justify-center gap-q4 border-t-[3px] px-q4 py-q4 text-center text-caption [overflow-wrap:anywhere] transition-[color,background-color,border-color] duration-(--q-duration-fast) hover:bg-selection focus-visible:outline-offset-[-2px]",
                   active ? "border-primary text-primary-deep" : "border-transparent text-ink-secondary",
                 )}
               >
