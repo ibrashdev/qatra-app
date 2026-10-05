@@ -30,10 +30,28 @@ describe("QuestionView dispatcher", () => {
     expect(screen.getByRole("textbox")).toBeInTheDocument();
   });
 
-  it("always shows the source line, with the D50 notice on request", () => {
+  it("shows nothing under the question before it is answered: no source line, no link, no D50 notice (D90)", () => {
     renderInLocale(<Harness question={wordChoiceQuestion()} showD50Notice />, "ar");
+    expect(screen.queryByText(/كتاب اصطناعي/)).toBeNull();
+    expect(screen.queryByRole("link")).toBeNull();
+    expect(screen.queryByText(/تنبيه: نُقل هذا النص حرفيًا/)).toBeNull();
+  });
+
+  it("shows the source line after the answer, with the D50 notice on request, and never the provider or a technical code", () => {
+    const result = { correct: true, assisted: false, expected: { optionId: "o2" } };
+    const { container } = renderInLocale(<Harness question={wordChoiceQuestion()} initialAnswer={{ optionId: "o2" }} result={result} showD50Notice />, "ar");
     expect(screen.getByText(/كتاب اصطناعي/)).toBeInTheDocument();
+    expect(container).toHaveTextContent("كتاب اصطناعي · الحديث الأول · المصدر");
+    expect(screen.getByRole("link", { name: "المصدر: الحديث الأول، يفتح في نافذة جديدة" })).toHaveAttribute("href", "https://example.test/reference/1");
     expect(screen.getByText(/تنبيه: نُقل هذا النص حرفيًا/)).toBeInTheDocument();
+    for (const hidden of ["نسخة اصطناعية", "ناشر اصطناعي", "المرجع ١", "HadeethEnc", "nawawi40"]) expect(container.textContent).not.toContain(hidden);
+  });
+
+  it("shows no source line while the feedback is off, even with a result (S-09 never shows an answer)", () => {
+    const result = { correct: true, assisted: false, expected: { optionId: "o2" } };
+    renderInLocale(<Harness question={wordChoiceQuestion()} initialAnswer={{ optionId: "o2" }} result={result} showFeedback={false} />, "ar");
+    expect(screen.queryByText(/كتاب اصطناعي/)).toBeNull();
+    expect(screen.queryByRole("link")).toBeNull();
   });
 
   describe("modes for S-09 (no hint, no feedback) and S-19 (both)", () => {
@@ -142,8 +160,8 @@ describe("question rules", () => {
     expect(questionPrompt(similarQuestion(), messages)).toBe("Choose the correct one as it appears in the book.");
   });
 
-  it("builds the original only from the question and the expected value", () => {
-    expect(expectedOriginal(wordOrderQuestion(), { expected: { order: ["2:0", "2:1", "2:2"] } })).toBe("كلمة١ كلمة٢ كلمة٣");
+  it("builds the original only from the question and the expected value: the whole passage with the expected words in place (D90)", () => {
+    expect(expectedOriginal(wordOrderQuestion(), { expected: { order: ["2:0", "2:1", "2:2"] } })).toBe("قبل١ كلمة١ كلمة٢ كلمة٣ بعد١");
     expect(expectedOriginal(wordOrderQuestion(), { expected: { order: ["9:9"] } })).toBeNull();
     expect(expectedOriginal(wordOrderQuestion(), { expected: {} })).toBeNull();
     expect(expectedOriginal(wordChoiceQuestion(), { expected: { optionId: "o2" } })).toBe("قبل١ خيار٢ بعد١");

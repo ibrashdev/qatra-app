@@ -23,7 +23,7 @@ export interface ChoicePieceProps<Q extends WordChoiceQuestion | SimilarQuestion
   announce: (text: string) => void;
 }
 
-// S-16 and S-17 share one layout: the context line with the blank, the option group, the error line, then the hint row.
+// S-16 and S-17 share one layout: the whole passage with the blank (D90), the option group, the error line, then the hint row.
 export function ChoicePiece<Q extends WordChoiceQuestion | SimilarQuestion>({
   question,
   answer,
@@ -48,7 +48,7 @@ export function ChoicePiece<Q extends WordChoiceQuestion | SimilarQuestion>({
 
   return (
     <div className="flex flex-col gap-q16">
-      <ContextLine before={question.context.before} after={question.context.after} textKind={textKind} slot={<Blank part={segment} filled={filledText} />} />
+      <ContextLine context={question.context} textKind={textKind} slot={<Blank part={segment} filled={filledText} />} />
       <OptionTiles
         options={options}
         selectedId={optionIdOf(answer)}

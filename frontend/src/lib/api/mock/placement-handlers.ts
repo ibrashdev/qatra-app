@@ -5,9 +5,10 @@
 //   createMockFetch({ handlers: withPlacementMock(mockHandlers) })
 // State lives per mock scenario, so every mock fetch starts clean. A placement session never adds to the day (it is never counted in daily time).
 import { normalizeArabicWord } from "@/components/session/arabic-norm";
-import type { AnswerPayload, AnswerResult, CompleteResponse, DailyProgress, EventsResponse, Question, SessionSnapshot, SourceRef } from "../types";
+import type { AnswerPayload, AnswerResult, CompleteResponse, DailyProgress, EventsResponse, Question, SessionSnapshot } from "../types";
 import { mockCatalog, mockToday } from "./fixtures";
 import type { MockHandler, MockRequest, MockResponse, MockScenario } from "./handlers";
+import { mockContext, mockSource, type MockAyah } from "./question-fixtures";
 
 const failure = (status: number, code: string, message: string, details: Record<string, unknown> = {}): MockResponse => ({ status, body: { error: { code, message, details } } });
 const unauthenticated = (): MockResponse => failure(401, "unauthenticated", "Authentication is required.");
@@ -29,7 +30,11 @@ export const MOCK_PLACEMENT_QUESTION_IDS = {
 // The target of the recall question as the book has it; the answer key keeps only its normalised form.
 export const MOCK_PLACEMENT_RECALL_WORD = "كلمة٨";
 
-const source = (reference: string): SourceRef => ({ publisher: "ناشر اصطناعي", editionLabel: "نسخة اصطناعية", bookTitleAr: "كتاب اصطناعي", reference, url: "https://example.invalid/ref/1", pages: [] });
+const source = (reference: string) => mockSource(reference, "سورة اصطناعية، الآية ١");
+// The whole placeholder passage of each question, as the server sends it (D90).
+const PASSAGE_1: readonly MockAyah[] = [{ unit: 1, words: ["كلمة١", "كلمة٢", "كلمة٣", "كلمة٤"] }];
+const PASSAGE_2: readonly MockAyah[] = [{ unit: 2, words: ["كلمة٧", MOCK_PLACEMENT_RECALL_WORD, "كلمة٩"] }];
+const PASSAGE_3: readonly MockAyah[] = [{ unit: 3, words: ["كلمة١٠", "كلمة١١", "كلمة١٢", "كلمة١٣"] }];
 const policy = { normalizationPolicyVersion: "arabic-norm-v1", scoringPolicyVersion: "v1" } as const;
 
 function buildQuestions(): Question[] {
@@ -41,7 +46,7 @@ function buildQuestions(): Question[] {
       type: "word_choice",
       variant: "word",
       passageId: "bbbbbbbb-bbbb-4bbb-8bbb-000000000001",
-      context: { before: [{ ref: "1:0", text: "كلمة١" }], after: [{ ref: "1:2", text: "كلمة٣" }] },
+      context: mockContext(PASSAGE_1, "1:1"),
       source: source("1:1"),
       options: [
         { optionId: "p-a", text: "كلمة٢" },
@@ -56,7 +61,7 @@ function buildQuestions(): Question[] {
       questionId: MOCK_PLACEMENT_QUESTION_IDS.recall,
       type: "word_recall",
       passageId: "bbbbbbbb-bbbb-4bbb-8bbb-000000000002",
-      context: { before: [{ ref: "2:0", text: "كلمة٧" }], after: [{ ref: "2:2", text: "كلمة٩" }] },
+      context: mockContext(PASSAGE_2, "2:1"),
       source: source("2:1"),
       hintFirstLetter: MOCK_PLACEMENT_RECALL_WORD.charAt(0),
       answerKey: { acceptedNorms: [normalizeArabicWord(MOCK_PLACEMENT_RECALL_WORD)] },
@@ -67,7 +72,7 @@ function buildQuestions(): Question[] {
       type: "word_choice",
       variant: "word",
       passageId: "bbbbbbbb-bbbb-4bbb-8bbb-000000000003",
-      context: { before: [{ ref: "3:0", text: "كلمة١٠" }], after: [{ ref: "3:2", text: "كلمة١٢" }] },
+      context: mockContext(PASSAGE_3, "3:1"),
       source: source("3:1"),
       options: [
         { optionId: "q-a", text: "كلمة١١" },

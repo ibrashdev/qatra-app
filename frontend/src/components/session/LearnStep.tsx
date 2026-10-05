@@ -12,7 +12,8 @@ import type { PassageView } from "@/lib/api/types";
 import { cx } from "@/lib/cx";
 import { needsLegend, segmentUnit } from "./session-model";
 
-// The learn step (UI-screens S-19 c7 to c14): the passage as received, in its whole unit, with today's range marked; the source line; for a hadith the
+// The learn step (UI-screens S-19 c7 to c14): the passage as received, in its whole unit, with today's range marked; the clean reference line (D90: the
+// book, the hadith title or the surah and ayat, and the «المصدر» link, never a provider name, an edition label or a technical code); for a hadith the
 // record block and, only when the snapshot says so, the D50 notice; the hide toggle; the instruction. The primary button lives in the action bar.
 // Hidden text is removed from the page and the accessibility tree, not blurred (UI-tokens 6.12).
 export function LearnStep({ passage, textKind, hidden, onToggle }: { passage: PassageView; textKind: TextKind; hidden: boolean; onToggle: () => void }) {
@@ -22,6 +23,8 @@ export function LearnStep({ passage, textKind, hidden, onToggle }: { passage: Pa
   const unitSegments = passage.units.map((unit) => ({ unit, segments: segmentUnit(unit, passage.highlight) }));
   const showLegend = needsLegend(unitSegments.map((entry) => entry.segments));
   const hadith = textKind === "hadith";
+  // D90: the learner-facing reference; a server older than D90 has none, and the section title stands in.
+  const referenceAr = passage.referenceAr !== undefined && passage.referenceAr !== "" ? passage.referenceAr : passage.sectionTitleAr;
 
   return (
     <div className="flex flex-col gap-q24">
@@ -30,11 +33,8 @@ export function LearnStep({ passage, textKind, hidden, onToggle }: { passage: Pa
           {t.heading}
         </h2>
         <p className="text-body-compact text-ink-secondary">
-          <bdi lang="ar">{passage.sectionTitleAr}</bdi> {"·"} <bdi lang="ar">{passage.reference}</bdi>
+          <bdi lang="ar">{referenceAr}</bdi>
         </p>
-        {hadith ? (
-          <span className="inline-flex min-h-badge w-fit items-center rounded-sm bg-selection px-q12 text-caption text-primary-deep">{t.paths[passage.path]}</span>
-        ) : null}
       </div>
 
       {hidden ? (

@@ -16,6 +16,12 @@ Deviations from the TypeScript of contract §7, all additive and listed here onc
   makes grading unavailable (``pending``), neither of which may fail the whole request with 422.
 - Option ids of the choice questions encode their token references (``"2:0,2:1"``), see
   ``option_id_for_refs``; the contract only says ``optionId: string``.
+- D90 (owner approvals of 5 Oct 2026): every question's ``context`` carries the WHOLE passage around
+  the blank (``before`` and ``after`` hold every token of the passage outside the target, for every
+  question type, word order included), with the ayah ends of a Quran passage as structured
+  ``ayahEnds`` (never inside a token's text). ``SourceRef.referenceAr`` and
+  ``PassageView.referenceAr`` are the learner-facing reference (the hadith title, or the surah and
+  the ayah range); both default to ``""`` so a session stored before D90 still validates.
 - ``AnswerEvent.durationMs`` is bounded by 30 minutes (API-spec E21 field table, A-12 [O-22]); the
   contract's ``number`` does not say so. A larger value fails the whole request with 422
   (``less_than_equal``): the spec has no per-event code for it. The bounds of an activity event
@@ -120,6 +126,9 @@ class SourceRef(CamelModel):
     reference: str
     url: str
     pages: list[str] = Field(default_factory=list)
+    # What the learner reads (D90): the hadith title or "surah, ayah range". ``publisher``,
+    # ``edition_label`` and the technical ``reference`` stay for compatibility and are not shown.
+    reference_ar: str = ""
 
 
 class PassageUnit(CamelModel):
@@ -138,6 +147,7 @@ class PassageView(CamelModel):
     passage_id: UUID
     path: Path
     reference: str
+    reference_ar: str = ""  # D90: the learner-facing reference, as ``SourceRef.reference_ar``
     section_title_ar: str
     units: list[PassageUnit]
     highlight: Highlight
@@ -147,9 +157,25 @@ class PassageView(CamelModel):
     source: SourceRef
 
 
+class AyahEnd(CamelModel):
+    """Where an ayah of a Quran passage ends, for the number the reader draws after it (D90).
+
+    ``after_ref`` is the last token of the ayah and ``number`` its ayah number. It is decoration
+    around the text and never part of a token. Only the ends between two ayat of the passage are
+    listed, and none inside the blank: an end whose ``after_ref`` is neither in ``before`` nor in
+    ``after`` is the one right after the blank (the blank closes its ayah)."""
+
+    after_ref: str
+    number: int
+
+
 class QuestionContext(CamelModel):
+    """The whole passage around the blank (D90): ``before`` and ``after`` are every token of the
+    question's passage before and after the target, in book order."""
+
     before: list[TokenView] = Field(default_factory=list)
     after: list[TokenView] = Field(default_factory=list)
+    ayah_ends: list[AyahEnd] = Field(default_factory=list)
 
 
 class QuestionPolicy(CamelModel):

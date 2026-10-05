@@ -5,9 +5,10 @@
 //   createMockFetch({ handlers: withGameMock(withPlacementMock(mockHandlers)) })
 // State lives per mock scenario, so every mock fetch starts clean. A game round adds its verified active time to the day (D40), never a completion by itself.
 import { normalizeArabicWord } from "@/components/session/arabic-norm";
-import type { AnswerPayload, AnswerResult, CompleteResponse, DailyProgress, EventsResponse, GameKind, Question, SessionSnapshot, SourceRef } from "../types";
+import type { AnswerPayload, AnswerResult, CompleteResponse, DailyProgress, EventsResponse, GameKind, Question, SessionSnapshot } from "../types";
 import { MOCK_PLAN_ID, MOCK_QURAN_EDITION_ID, mockToday } from "./fixtures";
 import type { MockHandler, MockRequest, MockResponse, MockScenario } from "./handlers";
+import { mockContext, mockSource, type MockAyah } from "./question-fixtures";
 
 const failure = (status: number, code: string, message: string, details: Record<string, unknown> = {}): MockResponse => ({ status, body: { error: { code, message, details } } });
 const unauthenticated = (): MockResponse => failure(401, "unauthenticated", "Authentication is required.");
@@ -25,7 +26,10 @@ export const MOCK_GAME_RECALL_WORDS = ["كلمة٦", "كلمة٩"] as const;
 
 const GAME_KINDS: readonly GameKind[] = ["word_order", "word_choice", "similar_distinction", "word_recall"];
 
-const source = (reference: string): SourceRef => ({ publisher: "ناشر اصطناعي", editionLabel: "نسخة اصطناعية", bookTitleAr: "كتاب اصطناعي", reference, url: "https://example.invalid/ref/1", pages: [] });
+const source = (reference: string) => mockSource(reference, "سورة اصطناعية، الآية ١");
+// The whole placeholder passage of each question, as the server sends it (D90).
+const PASSAGE_1: readonly MockAyah[] = [{ unit: 1, words: ["كلمة١", "كلمة٢", "كلمة٣", "كلمة٤", "كلمة٥"] }];
+const PASSAGE_2: readonly MockAyah[] = [{ unit: 2, words: ["كلمة٥", "كلمة٦", "كلمة٧", "كلمة٨"] }];
 const policy = { normalizationPolicyVersion: "arabic-norm-v1", scoringPolicyVersion: "v1" } as const;
 const base = { role: "game", reviewRoundId: null, policy } as const;
 
@@ -42,7 +46,7 @@ export function mockGameQuestions(kind: GameKind): Question[] {
           questionId: ids("a1", 1),
           type: "word_order",
           passageId: passage(1),
-          context: { before: [{ ref: "1:0", text: "كلمة١" }], after: [{ ref: "1:4", text: "كلمة٥" }] },
+          context: mockContext(PASSAGE_1, "1:1", "1:3"),
           source: source("1:1"),
           tokens: [
             { ref: "1:3", text: "كلمة٤" },
@@ -56,7 +60,7 @@ export function mockGameQuestions(kind: GameKind): Question[] {
           questionId: ids("a1", 2),
           type: "word_order",
           passageId: passage(2),
-          context: { before: [], after: [] },
+          context: mockContext(PASSAGE_2, "2:1", "2:3"),
           source: source("2:1"),
           tokens: [
             { ref: "2:2", text: "كلمة٧" },
@@ -74,7 +78,7 @@ export function mockGameQuestions(kind: GameKind): Question[] {
           type: "word_choice",
           variant: "word",
           passageId: passage(1),
-          context: { before: [{ ref: "1:0", text: "كلمة١" }], after: [{ ref: "1:2", text: "كلمة٣" }] },
+          context: mockContext(PASSAGE_1, "1:1"),
           source: source("1:1"),
           options: [
             { optionId: "w-a", text: "كلمة٢" },
@@ -90,7 +94,7 @@ export function mockGameQuestions(kind: GameKind): Question[] {
           type: "word_choice",
           variant: "segment",
           passageId: passage(2),
-          context: { before: [{ ref: "2:0", text: "كلمة١" }, { ref: "2:1", text: "كلمة٢" }], after: [] },
+          context: mockContext(PASSAGE_2, "2:2", "2:3"),
           source: source("2:1"),
           options: [
             { optionId: "s-a", text: "كلمة٣ كلمة٤" },
@@ -107,7 +111,7 @@ export function mockGameQuestions(kind: GameKind): Question[] {
           questionId: ids("c1", 1),
           type: "similar_distinction",
           passageId: passage(1),
-          context: { before: [{ ref: "1:0", text: "كلمة١" }], after: [{ ref: "1:2", text: "كلمة٣" }] },
+          context: mockContext(PASSAGE_1, "1:1"),
           source: source("1:1"),
           options: [
             { optionId: "m-a", text: "متشابه١" },
@@ -120,7 +124,7 @@ export function mockGameQuestions(kind: GameKind): Question[] {
           questionId: ids("c1", 2),
           type: "similar_distinction",
           passageId: passage(2),
-          context: { before: [{ ref: "2:0", text: "كلمة٥" }], after: [] },
+          context: mockContext(PASSAGE_2, "2:1"),
           source: source("2:1"),
           options: [
             { optionId: "n-a", text: "متشابه٣" },
@@ -135,7 +139,7 @@ export function mockGameQuestions(kind: GameKind): Question[] {
         questionId: ids("d1", position + 1),
         type: "word_recall",
         passageId: passage(position + 1),
-        context: { before: [{ ref: `${position + 1}:0`, text: "كلمة٥" }], after: [{ ref: `${position + 1}:2`, text: "كلمة٧" }] },
+        context: mockContext([{ unit: position + 1, words: ["كلمة٥", word, "كلمة٧", "كلمة٨"] }], `${position + 1}:1`),
         source: source(`${position + 1}:1`),
         hintFirstLetter: word.charAt(0),
         answerKey: { acceptedNorms: [normalizeArabicWord(word)] },

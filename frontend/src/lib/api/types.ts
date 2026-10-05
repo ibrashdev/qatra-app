@@ -54,6 +54,14 @@ export interface TargetScope {
   sectionOrdinals: number[];
 }
 
+// D90: the daily amount of new material in whole units. Exactly one of perDay and everyDays is a number (at least 1), the other is null.
+// Absent or null for a plan stored before D90 and when the catalog gives no unit count: the screens then show the words figure.
+export interface DailyNew {
+  unit: "ayah" | "hadith";
+  perDay: number | null;
+  everyDays: number | null;
+}
+
 export interface Estimate {
   days: number;
   endDate: ISODate;
@@ -64,6 +72,7 @@ export interface Estimate {
   sessionMinutes: 5 | 10 | 15;
   scope: TargetScope;
   paths: Path[];
+  dailyNew?: DailyNew | null;
 }
 
 export interface Plan {
@@ -136,11 +145,14 @@ export interface TokenView {
   text: string;
 }
 
+// D90: what the learner reads is the book and `referenceAr` plus the link; `publisher`, `editionLabel` and the technical `reference` stay in the contract
+// for compatibility and are never shown. `referenceAr` is absent from a server older than D90.
 export interface SourceRef {
   publisher: string;
   editionLabel: string;
   bookTitleAr: string;
   reference: string;
+  referenceAr?: string; // a hadith: its title; the Quran: the surah and the ayah or the ayah range
   url: string;
   pages: string[]; // empty for web editions; the url is always shown
 }
@@ -149,6 +161,7 @@ export interface PassageView {
   passageId: string;
   path: Path;
   reference: string;
+  referenceAr?: string; // D90: the learner-facing reference, as `SourceRef.referenceAr`
   sectionTitleAr: string;
   units: { unitRef: number; kind: "ayah" | "hadith_narration" | "hadith_grade"; reference: string; text: string }[]; // verbatim; a grade passage lies inside the hadith_grade unit
   highlight: { startRef: TokenRef; endRef: TokenRef }; // the passage range inside the units
@@ -158,13 +171,27 @@ export interface PassageView {
   source: SourceRef;
 }
 
+// D90: the whole passage around the blank. `ayahEnds` mark where an ayah of a Quran passage ends, for the number the screen draws after it; they are
+// decoration beside the tokens, never part of their text. An end whose `afterRef` is in neither list is the one right after the blank. Absent from a
+// server older than D90.
+export interface AyahEnd {
+  afterRef: TokenRef;
+  number: number;
+}
+
+export interface QuestionContext {
+  before: TokenView[];
+  after: TokenView[];
+  ayahEnds?: AyahEnd[];
+}
+
 export interface QuestionBase {
   questionId: string;
   type: GameKind;
   passageId: string;
   role: "training" | "review" | "test" | "placement" | "game";
   reviewRoundId: string | null;
-  context: { before: TokenView[]; after: TokenView[] };
+  context: QuestionContext;
   policy: { normalizationPolicyVersion: "arabic-norm-v1"; scoringPolicyVersion: "v1" };
   source: SourceRef;
 }

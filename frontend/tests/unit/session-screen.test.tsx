@@ -295,15 +295,21 @@ describe("S-19 learn step", () => {
     expect(Array.from(text.querySelectorAll("mark")).map((mark) => mark.textContent)).toEqual(["كلمة٢ كلمة٣ كلمة٤", "كلمة٥ كلمة٦"]);
     expect(screen.getByText("The highlighted part is today's passage.")).toBeInTheDocument();
     expect(screen.getByText("Read the passage, then try to recall it.")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /2:1-2/ })).toHaveAttribute("href", "https://example.invalid/ref/1");
+    // D90: a clean reference line (book, surah and ayat) and a «المصدر» link; no edition label, provider name or technical code.
+    const reference = "سورة اصطناعية، الآيات ١\u2013٢";
+    expect(screen.getAllByText(reference)).toHaveLength(2); // under the heading and in the source line
+    expect(screen.getByRole("link", { name: `Source: ${reference}, opens in a new tab` })).toHaveAttribute("href", "https://example.invalid/ref/1");
+    expect(screen.getByRole("link", { name: /^Source:/ })).toHaveTextContent("Source");
+    const page = document.body.textContent ?? "";
+    for (const hidden of ["2:1-2", "نسخة اصطناعية", "ناشر اصطناعي", "example.invalid", "HadeethEnc", "nawawi40"]) expect(page).not.toContain(hidden);
     expect(primary()).toHaveTextContent("Start practice");
-    // The learn stage is "New", and a hadith-only chip is absent for a Quran edition.
+    // The learn stage is "New", and no path chip is shown.
     expect(within(screen.getByRole("list", { name: "Session steps" })).getAllByRole("listitem")[1]).toHaveAttribute("aria-current", "step");
     expect(screen.queryByText("Matn")).toBeNull();
-    expect(screen.queryByText(/HadeethEnc/)).toBeNull();
+    expect(screen.queryByText("Quran")).toBeNull();
   });
 
-  it("shows a hadith with its path chip, the record block, the D50 notice when the snapshot says so, and the hadith font", async () => {
+  it("shows a hadith with the record block without a provider name, no path chip, the D50 notice when the snapshot says so, and the hadith font", async () => {
     const backend = makeBackend({
       [E20]: async (real) => {
         const snapshot = (await (await real()).json()) as { editionId: string; steps: { type: string; passage?: Record<string, unknown> }[] };
@@ -316,9 +322,10 @@ describe("S-19 learn step", () => {
     const user = userEvent.setup();
     renderSession({ backend });
     await toLearn(user);
-    expect(screen.getByText("Matn")).toBeInTheDocument();
-    expect(screen.getByText(/^Takhrij from the HadeethEnc record:/)).toHaveTextContent("Takhrij from the HadeethEnc record: تخريج اصطناعي");
-    expect(screen.getByText(/^Grade from the HadeethEnc record:/)).toHaveTextContent("Grade from the HadeethEnc record: Not stated in the edition");
+    expect(screen.queryByText("Matn")).toBeNull();
+    expect(screen.getByText(/^Takhrij:/)).toHaveTextContent("Takhrij: تخريج اصطناعي");
+    expect(screen.getByText(/^Hadith grade:/)).toHaveTextContent("Hadith grade: Not stated in the edition");
+    expect(document.body.textContent).not.toContain("HadeethEnc");
     expect(screen.getByText("Note: this text was transcribed verbatim from the book, and the hadith's authenticity has not been verified.")).toBeInTheDocument();
     expect(screen.getByRole("group", { name: "Passage text" }).className).toContain("font-hadith");
   });
@@ -462,6 +469,13 @@ describe("S-19 answers, hint and server verdict", () => {
     expect(screen.queryByText("Correct.")).toBeNull();
   });
 
+  // D90: the original is the whole passage of the question with the expected word marked in its place and the ayah end between the two ayat.
+  function expectWholePassageWithWord() {
+    const block = document.querySelector("[data-feedback]") as HTMLElement;
+    expect(within(block).getByText("كلمة٦", { selector: "mark" })).toBeInTheDocument();
+    expect(block).toHaveTextContent("كلمة١ كلمة٢ كلمة٣ كلمة٤ \uFD3F١\uFD3E كلمة٥ كلمة٦ كلمة٧ كلمة٨");
+  }
+
   it("shows the original of a wrong recall answer at once, read from the learn passage, before the server answers", async () => {
     const gate: { release?: () => void } = {};
     const backend = makeBackend({ [E21]: async (real) => (await new Promise<void>((resolve) => (gate.release = resolve)), real()) });
@@ -471,7 +485,7 @@ describe("S-19 answers, hint and server verdict", () => {
     await user.type(screen.getByRole("textbox"), "خطأ");
     await user.click(button("Check"));
     expect(screen.getByText("This spot needs review. The original:")).toBeInTheDocument();
-    expect(screen.getByText("كلمة٥ كلمة٦ كلمة٧")).toBeInTheDocument();
+    expectWholePassageWithWord();
     gate.release?.();
   });
 
@@ -487,7 +501,8 @@ describe("S-19 answers, hint and server verdict", () => {
     await walkUntil(user, "Type the missing word.");
     await user.type(screen.getByRole("textbox"), "خطأ");
     await user.click(button("Check"));
-    expect(await screen.findByText("كلمة٥ كلمة٦ كلمة٧")).toBeInTheDocument();
+    await screen.findByText("كلمة٦", { selector: "mark" });
+    expectWholePassageWithWord();
   });
 
   it("checks a recall answer with Enter in the input, and never moves on with Enter once it is checked", async () => {
