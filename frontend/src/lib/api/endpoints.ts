@@ -1,6 +1,20 @@
 import { HEALTH_REQUEST_TIMEOUT_MS, THROTTLED_REQUEST_TIMEOUT_MS, type ApiClient, type RequestOptions } from "./client";
 import { ConnectivityError } from "./errors";
-import type { CatalogResponse, HealthResponse, LoginRequest, LoginResponse, Profile, RegisterRequest, RegisterResponse, Today } from "./types";
+import type {
+  CatalogResponse,
+  ConfirmPlanChatRequest,
+  CreatePlanChatRequest,
+  HealthResponse,
+  LoginRequest,
+  LoginResponse,
+  Plan,
+  PlanChat,
+  PlanChatTurnRequest,
+  Profile,
+  RegisterRequest,
+  RegisterResponse,
+  Today,
+} from "./types";
 
 type ReadOptions = Pick<RequestOptions, "signal" | "timeoutMs" | "retry">;
 
@@ -18,7 +32,14 @@ export interface Endpoints {
   me(options?: ReadOptions): Promise<Profile>; // E11
   catalog(options?: ReadOptions): Promise<CatalogResponse>; // E14
   today(options?: ReadOptions): Promise<Today>; // E18
+  // Plan conversation (D75). E31, E32 and E34 create rows, so none is retried automatically (P-14); the caller decides what a retry does.
+  createPlanChat(request: CreatePlanChatRequest, options?: Pick<RequestOptions, "signal">): Promise<PlanChat>; // E31
+  sendPlanChatTurn(chatId: string, request: PlanChatTurnRequest, options?: Pick<RequestOptions, "signal">): Promise<PlanChat>; // E32
+  planChat(chatId: string, options?: ReadOptions): Promise<PlanChat>; // E33
+  confirmPlanChat(chatId: string, request: ConfirmPlanChatRequest, options?: Pick<RequestOptions, "signal">): Promise<Plan>; // E34
 }
+
+const chatPath = (chatId: string, suffix = ""): string => `/plan-chats/${encodeURIComponent(chatId)}${suffix}`;
 
 function isHealthResponse(value: unknown): value is HealthResponse {
   return typeof value === "object" && value !== null && (value as { status?: unknown }).status === "ok";
@@ -40,6 +61,10 @@ export function createEndpoints(client: ApiClient): Endpoints {
     me: (options) => client.get<Profile>("/me", options),
     catalog: (options) => client.get<CatalogResponse>("/catalog", options),
     today: (options) => client.get<Today>("/today", options),
+    createPlanChat: (request, options) => client.post<PlanChat>("/plan-chats", request, { signal: options?.signal }),
+    sendPlanChatTurn: (chatId, request, options) => client.post<PlanChat>(chatPath(chatId, "/messages"), request, { signal: options?.signal }),
+    planChat: (chatId, options) => client.get<PlanChat>(chatPath(chatId), options),
+    confirmPlanChat: (chatId, request, options) => client.post<Plan>(chatPath(chatId, "/confirm"), request, { signal: options?.signal }),
   };
 }
 

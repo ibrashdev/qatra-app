@@ -46,7 +46,8 @@ test.describe("axe-core on the transient states", () => {
     await waitForFirstHealthRequest(health);
 
     await page.clock.runFor(1_200);
-    await expect(page.getByText("جارٍ التحميل")).toBeVisible();
+    // The indicator sits in a status region; the built S-11 skeleton carries the same words for screen readers outside any region.
+    await expect(page.getByRole("status").getByText("جارٍ التحميل")).toBeVisible();
     expect(await violations(page), "busy").toEqual([]);
 
     await page.clock.runFor(2_500);

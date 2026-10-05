@@ -60,10 +60,21 @@ test.describe("tab bar below 1024 px, side rail from 1024 px (UA-03)", () => {
   test("the bar reserves its own space: the last content is never hidden behind it, even in a very short window", async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 200 });
     await page.goto("/today");
-    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
-    const lastLine = await page.getByText("هذه الشاشة لم تُبنَ بعد، وستصل في دفعة لاحقة.").boundingBox();
+    // S-11 is built: wait until its content has loaded, scroll to the end, then look at the end of the content inside main.
+    await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+    await expect(page.getByTestId("today-skeleton")).toHaveCount(0);
     const bar = await page.getByRole("navigation", { name: NAV_NAME.ar }).boundingBox();
-    expect((lastLine?.y ?? 0) + (lastLine?.height ?? 0)).toBeLessThanOrEqual(bar?.y ?? 0);
+    await expect
+      .poll(async () => {
+        await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+        return page.evaluate(() => {
+          const main = document.querySelector("main") as HTMLElement;
+          // The toast region at the end of main is fixed and empty; the content is the last child that takes part in the flow.
+          const inFlow = Array.from(main.children).filter((child) => getComputedStyle(child).position !== "fixed");
+          return (inFlow.at(-1) ?? main).getBoundingClientRect().bottom;
+        });
+      })
+      .toBeLessThanOrEqual(bar?.y ?? 0);
   });
 });
 
@@ -157,7 +168,8 @@ test.describe("reduced motion (UI-tokens 8)", () => {
     await controlHealth(page, "gateway");
     await page.goto("/today");
     await expect(page.getByText(WAKE_LINE.ar)).toBeVisible();
-    const spinner = page.getByRole("status").locator("span[aria-hidden=true]").first();
+    // The built S-11 has live regions of its own, so the loader is looked up inside the wake-up line's region.
+    const spinner = page.getByRole("status").filter({ hasText: WAKE_LINE.ar }).locator("span[aria-hidden=true]").first();
     expect(await spinner.evaluate((element) => getComputedStyle(element).animationName)).toBe("spin");
 
     await page.emulateMedia({ reducedMotion: "reduce" });

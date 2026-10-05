@@ -1,6 +1,6 @@
-import { PlaceholderPage } from "@/components/ui/PlaceholderPage";
+import { TodayScreen } from "@/components/today/TodayScreen";
 
-// Placeholder only: the plan and today screen (S-11) is built in Batch 2.
+// S-11 Plan & today (Batch 2, package F7). The screen is a client component: it loads E18 and E19 and opens the session with E20.
 export default function TodayPage() {
-  return <PlaceholderPage screen="today" />;
+  return <TodayScreen />;
 }

@@ -227,10 +227,10 @@ test.describe("layout and design (UI-screens S-04 sections 2, 5 and 6)", () => {
     expect(Math.round((await box(block(page, "ar"))).width)).toBe(480);
   });
 
-  test("the code block is 106 px high with 16 px padding, a 1 px border, the 12 px radius and the white surface, in 20 px mono on a 36 px line", async ({ page }) => {
+  test("the code block is 122 px high with 24 px vertical and 16 px side padding (FC-07, D86), a 1 px border, the 12 px radius and the white surface, in 20 px mono on a 36 px line", async ({ page }) => {
     await reach(page);
     expect(await style(block(page, "ar"), ["padding-top", "padding-left", "border-top-width", "border-top-color", "border-top-left-radius", "background-color", "font-size", "line-height", "color", "user-select", "direction"])).toEqual({
-      "padding-top": "16px",
+      "padding-top": "24px",
       "padding-left": "16px",
       "border-top-width": "1px",
       "border-top-color": "rgb(120, 144, 163)",
@@ -242,7 +242,7 @@ test.describe("layout and design (UI-screens S-04 sections 2, 5 and 6)", () => {
       "user-select": "all",
       direction: "ltr",
     });
-    expect(Math.round((await box(block(page, "ar"))).height)).toBe(106);
+    expect(Math.round((await box(block(page, "ar"))).height)).toBe(122);
     const family = await block(page, "ar").evaluate((element) => getComputedStyle(element).fontFamily);
     expect(family).toContain("monospace");
     expect(family).not.toContain("Cairo");

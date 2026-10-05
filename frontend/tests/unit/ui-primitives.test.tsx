@@ -13,7 +13,7 @@ import { TextField } from "@/components/ui/TextField";
 import { TextLink } from "@/components/ui/TextLink";
 
 describe("Icon: the one seam to the icon set", () => {
-  const names: IconName[] = ["back", "check", "close", "droplet", "error", "eye", "eye-off", "info", "success", "warning"];
+  const names: IconName[] = ["back", "check", "close", "droplet", "error", "eye", "eye-off", "info", "pause", "success", "warning", "today", "games", "progress", "settings", "order", "clock", "choose", "similar", "recall"];
 
   it.each(names)("renders %s as a decorative line glyph in the current colour", (name) => {
     const { container } = render(<Icon name={name} />);

@@ -1,3 +1,4 @@
+import { mockProfile } from "../../src/lib/api/mock";
 import { expect, NAV_NAME, TAB_NAMES, test, VIEWPORTS } from "./fixtures";
 
 test.describe("direction, language and the four tabs (Arabic default)", () => {
@@ -28,27 +29,32 @@ test.describe("direction, language and the four tabs (Arabic default)", () => {
     await expect(page).toHaveTitle("إنشاء الحساب · قطرة غيث");
   });
 
-  test("the recovery route is a placeholder in the public shell until its screen arrives", async ({ page }) => {
-    for (const [path, name] of [["/recovery", "استرجاع الحساب"]] as const) {
-      await page.goto(path);
-      await expect(page.getByRole("heading", { level: 1 })).toHaveText(name);
-      await expect(page.getByText("هذه الشاشة لم تُبنَ بعد، وستصل في دفعة لاحقة.")).toBeVisible();
-      await expect(page.getByRole("radiogroup", { name: "اللغة" })).toBeVisible();
-      await expect(page.getByRole("navigation")).toHaveCount(0);
-    }
+  test("the recovery route is the built S-05 screen in the public shell: a back control and the switch, no tab bar", async ({ page }) => {
+    await page.goto("/recovery");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("استرجاع الحساب");
+    await expect(page.getByText("هذه الشاشة لم تُبنَ بعد، وستصل في دفعة لاحقة.")).toHaveCount(0);
+    await expect(page.getByRole("radiogroup", { name: "اللغة" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "رجوع إلى تصفّح الكتب" })).toBeVisible();
+    await expect(page.getByRole("navigation")).toHaveCount(0);
   });
 
-  test("the consent and start routes are placeholders in the focus shell: no switch, no tab bar", async ({ page }) => {
-    for (const [path, name] of [
-      ["/consent", "موافقة جديدة على الشروط"],
-      ["/start", "ما هي خطتك؟"],
-    ] as const) {
-      await page.goto(path);
-      await expect(page.getByRole("heading", { level: 1 })).toHaveText(name);
-      await expect(page.getByText("هذه الشاشة لم تُبنَ بعد، وستصل في دفعة لاحقة.")).toBeVisible();
-      await expect(page.getByRole("radiogroup", { name: "اللغة" })).toHaveCount(0);
-      await expect(page.getByRole("navigation")).toHaveCount(0);
-    }
+  test("the consent route is the built S-06 gate in the focus shell: the brand alone in the bar, no switch, no tab bar", async ({ page }) => {
+    // The gate needs a session whose terms version differs from the build's.
+    await page.route("**/api/me", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ...mockProfile, termsVersion: "2025-01-01" }) }));
+    await page.goto("/consent");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("موافقة جديدة على الشروط");
+    await expect(page.getByText("هذه الشاشة لم تُبنَ بعد، وستصل في دفعة لاحقة.")).toHaveCount(0);
+    await expect(page.getByRole("radiogroup", { name: "اللغة" })).toHaveCount(0);
+    await expect(page.getByRole("navigation")).toHaveCount(0);
+  });
+
+  test("the start route is the built S-08 screen in the focus shell: its own language switch, no tab bar, no placeholder", async ({ page }) => {
+    await page.goto("/start");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("ما هي خطتك؟");
+    await expect(page.getByRole("radiogroup", { name: "اللغة" })).toBeVisible();
+    await expect(page.getByRole("radiogroup", { name: "الباب" })).toBeVisible();
+    await expect(page.getByText("هذه الشاشة لم تُبنَ بعد، وستصل في دفعة لاحقة.")).toHaveCount(0);
+    await expect(page.getByRole("navigation")).toHaveCount(0);
   });
 
   test("the shell renders dir=rtl with the four tabs, today first at the start edge (the right)", async ({ page }) => {
@@ -75,7 +81,7 @@ test.describe("direction, language and the four tabs (Arabic default)", () => {
     await expect(page.locator("html")).toHaveAttribute("lang", "en");
     await expect(page.locator("html")).toHaveAttribute("dir", "ltr");
     await expect(page.getByRole("navigation", { name: NAV_NAME.en }).getByRole("link")).toHaveText([...TAB_NAMES.en]);
-    await expect(page).toHaveTitle("Today · Qatra");
+    await expect(page).toHaveTitle("Your step today · Qatra");
     await context.close();
   });
 
@@ -159,41 +165,39 @@ test.describe("language switch «العربية | EN»", () => {
 test.describe("navigation and focus", () => {
   test.use({ viewport: VIEWPORTS.phone });
 
-  test("each tab opens its own placeholder page; focus moves to the heading and the title follows", async ({ page }) => {
+  test("each tab opens its own page (built screens and placeholders); focus moves to the heading and the title follows", async ({ page }) => {
     await page.goto("/today");
     // No autofocus on the first load.
     expect(await page.evaluate(() => document.activeElement?.tagName)).toBe("BODY");
     const nav = page.getByRole("navigation", { name: NAV_NAME.ar });
-    const expected: [string, string][] = [
-      ["الألعاب", "/games"],
-      ["التقدم", "/progress"],
-      ["الإعدادات", "/settings"],
-      ["اليوم", "/today"],
+    // [tab name, path, heading, is it still a placeholder (null: not asserted)]: S-11 and S-21 are built and name their own heading; the games hub
+    // is being built, so its placeholder text is not asserted either way.
+    const expected: [string, string, string, boolean | null][] = [
+      ["الألعاب", "/games", "الألعاب", null],
+      ["التقدم", "/progress", "النتائج والتقدم", false],
+      ["الإعدادات", "/settings", "الإعدادات", true],
+      ["اليوم", "/today", "خطوتك اليوم", false],
     ];
-    for (const [name, path] of expected) {
+    for (const [name, path, heading, placeholder] of expected) {
       await nav.getByRole("link", { name, exact: true }).click();
       await expect(page).toHaveURL(new RegExp(`${path}$`));
-      await expect(page.getByRole("heading", { level: 1 })).toHaveText(name);
+      await expect(page.getByRole("heading", { level: 1 })).toHaveText(heading);
       await expect(page.getByRole("heading", { level: 1 })).toBeFocused();
-      await expect(page).toHaveTitle(`${name} · قطرة غيث`);
+      await expect(page).toHaveTitle(`${heading} · قطرة غيث`);
       await expect(nav.getByRole("link", { name, exact: true })).toHaveAttribute("aria-current", "page");
       await expect(nav.locator("[aria-current=page]")).toHaveCount(1);
-      await expect(page.getByText("هذه الشاشة لم تُبنَ بعد، وستصل في دفعة لاحقة.")).toBeVisible();
+      if (placeholder !== null) await expect(page.getByText("هذه الشاشة لم تُبنَ بعد، وستصل في دفعة لاحقة.")).toHaveCount(placeholder ? 1 : 0);
     }
   });
 
   test("the product name links to the home destination of each shell", async ({ page }) => {
-    await page.goto("/games");
+    await page.goto("/settings");
     await page.getByRole("link", { name: "قطرة غيث" }).first().click();
     await expect(page).toHaveURL(/\/today$/);
 
-    // The public screens that have no lockup of their own and no back control show it in the header. The login page carries it in the page
-    // instead, and the register screen has a back control.
+    // The public screens with a back control (S-02, S-03, S-05) carry no lockup in the header, and the login page carries it in the page itself.
     await page.goto("/recovery");
-    await page.getByRole("link", { name: "قطرة غيث" }).click();
-    // The public home is / until the catalog ships, and / leads to /login.
-    await expect(page).toHaveURL(/\/login$/);
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("الدخول");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("استرجاع الحساب");
     await expect(page.getByRole("link", { name: "قطرة غيث" })).toHaveCount(0);
   });
 
@@ -202,18 +206,18 @@ test.describe("navigation and focus", () => {
     await page.setViewportSize(VIEWPORTS.desktop);
     await page.goto("/today");
     const rail = page.getByRole("navigation", { name: NAV_NAME.en });
-    for (const [name, path] of [
-      ["Games", "/games"],
-      ["Progress", "/progress"],
-      ["Settings", "/settings"],
-      ["Today", "/today"],
+    for (const [name, path, heading] of [
+      ["Games", "/games", "Games"],
+      ["Progress", "/progress", "Results and progress"],
+      ["Settings", "/settings", "Settings"],
+      ["Today", "/today", "Your step today"],
     ] as const) {
       await rail.getByRole("link", { name, exact: true }).click();
       await expect(page).toHaveURL(new RegExp(`${path}$`));
-      await expect(page.getByRole("heading", { level: 1 })).toHaveText(name);
+      await expect(page.getByRole("heading", { level: 1 })).toHaveText(heading);
       await expect(page.getByRole("heading", { level: 1 })).toBeFocused();
       await expect(rail.getByRole("link", { name, exact: true })).toHaveAttribute("aria-current", "page");
-      await expect(page).toHaveTitle(`${name} · Qatra`);
+      await expect(page).toHaveTitle(`${heading} · Qatra`);
     }
   });
 

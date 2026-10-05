@@ -1,6 +1,6 @@
-import { PlaceholderPage } from "@/components/ui/PlaceholderPage";
+import { GamesHubScreen } from "@/components/games/GamesHubScreen";
 
-// Placeholder only: the games hub (S-14) is built in Batch 3.
+// S-14 Games hub: four games to start a round of. The rounds are S-15 to S-18 under (flow)/games.
 export default function GamesPage() {
-  return <PlaceholderPage screen="games" />;
+  return <GamesHubScreen />;
 }

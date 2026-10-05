@@ -214,7 +214,7 @@ describe("S-04 structure (UI-screens S-04 sections 2, 3 and 6)", () => {
     const element = block();
     expect(element).toHaveAttribute("dir", "ltr");
     expect(element).toHaveAttribute("translate", "no");
-    expect(element).toHaveClass("select-all", "font-mono", "border", "border-edge", "bg-surface", "rounded-md", "p-q16", "text-ink");
+    expect(element).toHaveClass("select-all", "font-mono", "border", "border-edge", "bg-surface", "rounded-md", "px-q16", "py-q24", "text-ink");
     expect(element.className).toContain("text-[1.25rem]");
     expect(element.className).toContain("leading-[1.8]");
     const groups = Array.from(element.querySelectorAll("span")).filter((span) => /^[0-9a-f]{4}$/.test(span.textContent ?? ""));
@@ -907,7 +907,7 @@ describe("the screens that receive the note of S-04", () => {
     );
   }
 
-  it("S-08 (a placeholder for now) shows the Info banner once, with the default wording, and not as an alert", () => {
+  it("S-08 shows the Info banner once, with the default wording, and not as an alert", () => {
     raiseCodeUnavailable();
     renderStart();
     const banner = screen.getByText(COPY.ar.unavailable).closest("div.rounded-md") as HTMLElement;
@@ -916,7 +916,6 @@ describe("the screens that receive the note of S-04", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     // The note has done its job: a second visit does not show it again.
     expect(peekCodeUnavailable()).toBe(false);
-    expect(screen.getByText("هذه الشاشة لم تُبنَ بعد، وستصل في دفعة لاحقة.")).toBeInTheDocument();
   });
 
   it("S-08 shows nothing when no note was raised, and nothing once it has expired", () => {

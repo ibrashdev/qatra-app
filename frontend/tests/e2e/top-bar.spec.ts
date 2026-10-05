@@ -1,4 +1,5 @@
 import type { Locator, Page } from "@playwright/test";
+import { mockProfile } from "../../src/lib/api/mock";
 import { axeViolations, controlHealth, expect, test, VIEWPORTS, waitForFirstHealthRequest } from "./fixtures";
 
 // The top bar of the shells is sticky while it is one row and static once it has wrapped (UI-tokens 6.6 and 7; WCAG 1.4.4, 1.4.10, 2.4.11):
@@ -14,8 +15,8 @@ const TRANSPARENT = "rgba(0, 0, 0, 0)";
 const PAGES = [
   ["/terms", "public shell: back control and switch"],
   ["/login", "public shell: the switch alone"],
-  ["/consent", "focus shell: a title"],
-  ["/start", "focus shell: a title"],
+  ["/consent", "focus shell: the brand only (S-06)"],
+  ["/start", "focus shell: a title and the switch (S-08)"],
   ["/today", "app shell: the brand"],
 ] as const;
 
@@ -83,6 +84,10 @@ async function open(page: Page, path: string, { language = "ar", viewport = VIEW
   await page.addInitScript((value) => localStorage.setItem("qatra.language", value), language);
   await page.setViewportSize(viewport);
   const health = await controlHealth(page, "ok");
+  // S-06 needs a session whose terms version differs from the build's; without one it sends the visitor to /login.
+  if (path === "/consent") {
+    await page.route("**/api/me", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ...mockProfile, termsVersion: "2025-01-01" }) }));
+  }
   await page.goto(path);
   await waitForFirstHealthRequest(health);
   await page.evaluate(() => document.fonts.ready);
@@ -146,12 +151,10 @@ test.describe("at normal text size the bar stays where it is (sticky, one row)",
     expect([scrolled.top, scrolled.scrollY]).toEqual([0, 800]);
   });
 
-  test("a title of two lines does not take the bar's place: the focus shell stays sticky (the consent placeholder in English, 320 px, 100 %)", async ({ page }) => {
-    // English «Agree to the updated terms» is two lines at 320 px: 57 px, a little over one row of 56 px.
+  test("S-06's focus bar holds the brand alone: one row, sticky, at 320 px and 100 % in English", async ({ page }) => {
     await open(page, "/consent", { language: "en" });
-    await expectConsistent(page, "two-line title");
+    await expectConsistent(page, "consent bar");
     const state = await barState(page);
-    expect(state.row).toBeGreaterThan(state.oneRow);
     expect([state.wrapped, state.position]).toEqual(["false", "sticky"]);
   });
 });
@@ -214,21 +217,22 @@ test.describe("at 200 % text on 320 px a wrapped bar is static and scrolls away 
       expect([state.wrapped, state.position, state.row]).toEqual(["true", "static", 192]);
     });
 
-    test(`${language}: a focus bar whose title has grown to three lines or more is static (consent, 200 %)`, async ({ page }) => {
-      await open(page, "/consent", { language, zoom: 200 });
-      await expectConsistent(page, "consent at 200 %");
+    test(`${language}: a focus bar with a title and the switch is static once it has wrapped (S-08, 200 %)`, async ({ page }) => {
+      await open(page, "/start", { language, zoom: 200 });
+      await expectConsistent(page, "start at 200 %");
       const state = await barState(page);
       expect([state.wrapped, state.position]).toEqual(["true", "static"]);
       expect(state.row).toBeGreaterThan(state.oneRow + state.rem / 2);
     });
   }
 
-  test("a focus bar whose title is two lines at 200 % keeps its place: 123 px against the 128 px that the page keeps clear (start, ar)", async ({ page }) => {
+  test("S-08's focus bar (a title and the language switch) wraps at 200 % on 320 px, so it is static and the rule stays consistent (start, ar)", async ({ page }) => {
+    // The placeholder had a two-line title alone (123 px, sticky). The built screen adds the switch to the bar, so it is taller than the limit.
     await open(page, "/start", { language: "ar", zoom: 200 });
     await expectConsistent(page, "start at 200 %");
     const state = await barState(page);
-    expect([state.wrapped, state.position]).toEqual(["false", "sticky"]);
-    expect(state.height).toBeLessThanOrEqual(state.padding);
+    expect([state.wrapped, state.position]).toEqual(["true", "static"]);
+    expect(state.height).toBeGreaterThan(state.padding);
   });
 
   test("the app shell's bar holds one item and never wraps, whatever the text size (today)", async ({ page }) => {

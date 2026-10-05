@@ -9,8 +9,17 @@ test.describe("same-origin API through the rewrite (API-spec 1.1)", () => {
     expect(await response.json()).toMatchObject({ status: "ok", version: "e2e-stub" });
   });
 
+  test("the three reads that the built screens make on load (E14, E18, E19) are answered with fixed synthetic data", async ({ request }) => {
+    for (const path of ["/api/catalog", "/api/today", "/api/progress"]) {
+      const response = await request.get(path);
+      expect(response.status(), path).toBe(200);
+      expect(response.headers()["x-stub-backend"], path).toBe("1");
+    }
+    expect(((await (await request.get("/api/catalog")).json()) as { editions: unknown[] }).editions.length).toBeGreaterThan(0);
+  });
+
   test("any other /api path is forwarded too, and the envelope comes back untouched", async ({ request }) => {
-    const response = await request.get("/api/catalog");
+    const response = await request.get("/api/plans/not-served");
     expect(response.status()).toBe(404);
     expect(response.headers()["x-stub-backend"]).toBe("1");
     expect(await response.json()).toEqual({ error: { code: "not_found", message: "Not found.", details: {} } });

@@ -1,6 +1,6 @@
 # Figma polish: code handoff
 
-Version 1.1 · 2026-10-05 · Asia/Dubai · Status: **Draft / Needs Review**
+Version 1.3 · 2026-10-05 · Asia/Dubai · Status: **Draft / Needs Review**. v1.3 updates the status column to Implemented locally (D86, D87; unit tests only, branch batch2-core-journey, not on main, no browser or e2e result yet) and FC-03 stays pending until Settings is built. v1.2 only updated the backlog status column to record the owner's approval to implement FC-01 to FC-14, P1 first (D86); the written specification still governs behavior, accessibility and wording.
 
 **Merge alignment note (5 October 2026):** this v1.1 record preserves the original source inspection at 821bedf. Readiness at 4c8b766 now records S-04 as Implemented locally/on main. This documentation merge performs no visual code implementation and does not grant G2.
 
@@ -38,20 +38,20 @@ Priorities are delivery order within this polish backlog. **P1** means a high im
 
 | ID | Priority and rationale | Current code scope | Status for this request |
 |---|---|---|---|
-| FC-01 | P1 · high: navigation reachability | Existing MainNav | Not implemented in this request |
-| FC-02 | P1 · high: session/source controls | Future Session and Source | Not implemented in this request |
-| FC-03 | P1 · high: settings reachability | Existing placeholder route; future screen | Not implemented in this request |
-| FC-04 | P1 · high: feedback readability | Future shared feedback | Not implemented in this request |
-| FC-05 | P1 · high: revision action reachability | Future Plan Revision | Not implemented in this request |
-| FC-06 | P2 · medium: login density and learning cue | Existing Login | Not implemented in this request |
-| FC-07 | P2 · medium: recovery-code density | Existing Recovery Code | Not implemented in this request |
-| FC-08 | P2 · medium: account-flow density | Existing placeholders; approved future screens | Not implemented in this request |
-| FC-09 | P2 · medium: placement clarity | Future Placement | Not implemented in this request |
-| FC-10 | P2 · medium: Today hierarchy | Existing placeholder route; future screen | Not implemented in this request |
-| FC-11 | P2 · medium: overview hierarchy | Future Plan Overview | Not implemented in this request |
-| FC-12 | P2 · medium: game choice clarity | Existing Games placeholder; future screens | Not implemented in this request |
-| FC-13 | P2 · medium: learning explanation | Future games and feedback | Not implemented in this request |
-| FC-14 | P2 · medium: progress hierarchy | Existing Progress placeholder; future screen | Not implemented in this request |
+| FC-01 | P1 · high: navigation reachability | Existing MainNav | Implemented locally (D86, D87) |
+| FC-02 | P1 · high: session/source controls | Future Session and Source | Implemented locally (D86, D87), session part; Source not built |
+| FC-03 | P1 · high: settings reachability | Existing placeholder route; future screen | Approved (D86), applies when Settings is built |
+| FC-04 | P1 · high: feedback readability | Future shared feedback | Implemented locally (D86, D87) |
+| FC-05 | P1 · high: revision action reachability | Future Plan Revision | Implemented locally (D86, D87), action area; no step indicator per spec |
+| FC-06 | P2 · medium: login density and learning cue | Existing Login | Implemented locally (D86, D87) |
+| FC-07 | P2 · medium: recovery-code density | Existing Recovery Code | Implemented locally (D86, D87) |
+| FC-08 | P2 · medium: account-flow density | Existing placeholders; approved future screens | Implemented locally (D86, D87) |
+| FC-09 | P2 · medium: placement clarity | Future Placement | Implemented locally (D86, D87), no min-height |
+| FC-10 | P2 · medium: Today hierarchy | Existing placeholder route; future screen | Implemented locally (D86, D87), no overall value per spec |
+| FC-11 | P2 · medium: overview hierarchy | Future Plan Overview | Implemented locally (D86, D87) |
+| FC-12 | P2 · medium: game choice clarity | Existing Games placeholder; future screens | Implemented locally (D86, D87) |
+| FC-13 | P2 · medium: learning explanation | Future games and feedback | Implemented locally (D86, D87) |
+| FC-14 | P2 · medium: progress hierarchy | Existing Progress placeholder; future screen | Implemented locally (D86, D87) |
 
 Status means no implementation was performed in this documentation request; it is not a status claim about unrelated work.
 

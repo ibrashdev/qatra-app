@@ -14,6 +14,8 @@ export interface LoginMessages {
   createAccount: string; // c8 link
   invalidCredentials: string; // G-04
   arrival: { sessionEnded: string; resetDone: string; accountDeleted: string }; // P-09
+  // The static strip of the Figma polish (FC-06, owner-approved wording of 5 October 2026): a heading and three steps, in reading order.
+  helperStrip: { heading: string; practise: string; review: string; secure: string };
 }
 
 // S-02. The label and the helper of a field are separate strings: the spec joins them with a dash, which is never written on screen.
@@ -64,6 +66,7 @@ export const authAr: AuthMessages = {
       resetDone: "تم تعيين كلمة مرور جديدة. سجّل الدخول بها.",
       accountDeleted: "تم حذف حسابك.",
     },
+    helperStrip: { heading: "حفظٌ بخطوات واضحة", practise: "تدرّب", review: "راجع", secure: "ثبّت حفظك" },
   },
   register: {
     backDestination: "تصفّح الكتب",
@@ -114,6 +117,7 @@ export const authEn: AuthMessages = {
       resetDone: "Your new password is set. Log in with it.",
       accountDeleted: "Your account was deleted.",
     },
+    helperStrip: { heading: "Memorize in clear steps", practise: "Practise", review: "Review", secure: "Secure your memorization" },
   },
   register: {
     backDestination: "Browse books",

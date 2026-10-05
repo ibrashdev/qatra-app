@@ -78,6 +78,15 @@ export async function controlHealth(page: Page, initial: HealthMode) {
       await route.fallback();
     }
   });
+  // The built screens read E14, E18 and E19 on load. A sleeping server fails them too: were the stub to answer one first, the page would take the
+  // server for awake and drop the wake-up line before the test could see it.
+  await page.route(/\/api\/(catalog|today|progress)$/, async (route: Route) => {
+    if (state.mode === "gateway") {
+      await route.fulfill({ status: 502, contentType: "text/html", body: "<html><body>Bad gateway</body></html>" });
+    } else {
+      await route.fallback();
+    }
+  });
   return state;
 }
 
