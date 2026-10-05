@@ -12,6 +12,7 @@ import { PageTitle } from "@/components/ui/PageTitle";
 import { PasswordField } from "@/components/ui/PasswordField";
 import { TextField } from "@/components/ui/TextField";
 import { TextLink } from "@/components/ui/TextLink";
+import { LoginHelperStrip } from "@/components/auth/LoginHelperStrip";
 import { useLocale } from "@/i18n/LocaleProvider";
 import { formatInteger } from "@/i18n/format";
 import type { LoginMessages } from "@/i18n/auth-messages";
@@ -296,6 +297,16 @@ export function LoginForm() {
           <TextLink href="/register">{text.createAccount}</TextLink>
         </p>
       </div>
+
+      <LoginHelperStrip
+        className="mt-q16"
+        heading={text.helperStrip.heading}
+        steps={[
+          { icon: "order", label: text.helperStrip.practise },
+          { icon: "clock", label: text.helperStrip.review },
+          { icon: "check", label: text.helperStrip.secure },
+        ]}
+      />
     </div>
   );
 }
