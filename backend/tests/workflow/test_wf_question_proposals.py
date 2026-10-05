@@ -1,4 +1,4 @@
-"""Model-assisted question words (D90): the request, the validation, the store, the builder, the
+"""Model-assisted question words (D92): the request, the validation, the store, the builder, the
 CLI step and the reusable free-only OpenRouter call.
 
 Synthetic text only (``tests/data/synthetic_bundle.json``); no network (``httpx.MockTransport`` and
@@ -763,11 +763,11 @@ def test_the_step_writes_the_store_and_the_review_sheet_then_build_bank_uses_the
     assert by["ai"] + by["partial"] >= 1 and by["ai"] + by["partial"] + by["rules"] == 4
     assert summary["proposals"]["models"] == [MODEL]
     report = (edition_dir(build) / "report.md").read_text(encoding="utf-8")
-    assert "## Question proposals (D90)" in report and "proposedBy ai" in report
+    assert "## Question proposals (D92)" in report and "proposedBy ai" in report
     assert_no_source_text(report)
     # the bank stays valid and the same store gives the same bank (nothing changes)
     assert run_cli(quran_args("validate"), build) == 0
-    assert "## Question proposals (D90)" in (edition_dir(build) / "report.md").read_text("utf-8")
+    assert "## Question proposals (D92)" in (edition_dir(build) / "report.md").read_text("utf-8")
     capsys.readouterr()
     assert run_cli(quran_args("build-bank"), build) == 0
     assert "changed=no" in capsys.readouterr().out

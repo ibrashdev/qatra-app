@@ -8,7 +8,7 @@ export interface TodayMessages {
   goal: { label: string; withDate: string }; // c3; withDate has {title} and {date}
   daily: {
     label: string;
-    text: (minutes: string, minutesCount: number, amount: string) => string; // c4; amount is the clause of dailyAmountText (whole ayat or hadith, D90)
+    text: (minutes: string, minutesCount: number, amount: string) => string; // c4; amount is the clause of dailyAmountText (whole ayat or hadith, D92)
     barLabel: string;
     unit: (count: number) => string; // the noun after the goal minutes
     percent: (formatted: string) => string;

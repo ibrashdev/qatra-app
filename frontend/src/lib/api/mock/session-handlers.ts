@@ -35,7 +35,7 @@ export const MOCK_QUESTION_IDS = {
 // The target of the recall question as the book has it (the second word of the second unit of the learn passage); the answer key keeps only its normalised form.
 export const MOCK_RECALL_WORD = "كلمة٦";
 
-// The placeholder passages as the server sends them (D90): every question carries the whole passage of its own around the blank.
+// The placeholder passages as the server sends them (D92): every question carries the whole passage of its own around the blank.
 const REVIEW_PASSAGE: readonly MockAyah[] = [{ unit: 1, words: ["كلمة١", "كلمة٢", "كلمة٣", "كلمة٤"] }];
 const NEW_PASSAGE: readonly MockAyah[] = [
   { unit: 1, words: ["كلمة١", "كلمة٢", "كلمة٣", "كلمة٤"] },

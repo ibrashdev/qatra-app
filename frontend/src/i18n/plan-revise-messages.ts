@@ -30,7 +30,7 @@ export interface PlanReviseMessages {
   preview: {
     heading: string;
     total: (daysText: string, endDate: string) => string;
-    daily: (formattedMinutes: string, minutes: number, amount: string) => string; // amount is the clause of dailyAmountText (D90)
+    daily: (formattedMinutes: string, minutes: number, amount: string) => string; // amount is the clause of dailyAmountText (D92)
     next: string;
     exceeds: string;
     fits: string;

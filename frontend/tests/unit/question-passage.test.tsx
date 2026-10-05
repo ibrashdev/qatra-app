@@ -5,7 +5,7 @@ import { ContextLine, Blank } from "@/components/questions/OriginalText";
 import type { QuestionContext } from "@/lib/api/types";
 import { Harness, recallQuestion, renderInLocale, wordChoiceQuestion, wordOrderQuestion } from "./question-support";
 
-// D90: every question shows the whole passage around the blank; the ayah ends are structured data drawn beside the text.
+// D92: every question shows the whole passage around the blank; the ayah ends are structured data drawn beside the text.
 const OPEN = "﴿";
 const CLOSE = "﴾";
 
@@ -25,7 +25,7 @@ function marks(root: HTMLElement): HTMLElement[] {
   return Array.from(root.querySelectorAll<HTMLElement>("[data-ayah-end]"));
 }
 
-describe("the whole passage around the blank (D90)", () => {
+describe("the whole passage around the blank (D92)", () => {
   it("draws every token before the blank, the blank, then every token after it, in one line", () => {
     const { container } = renderInLocale(<ContextLine context={TWO_AYAT} textKind="quran" slot={<Blank />} />, "ar");
     expect(container).toHaveTextContent(`أول١ أول٢ أول٣ ${OPEN}١${CLOSE} ثان١ ثان٣`);
@@ -68,7 +68,7 @@ describe("the whole passage around the blank (D90)", () => {
     expect(container).toHaveTextContent(`أول١ أول٢ ${OPEN}١${CLOSE} ثان١`);
   });
 
-  it("shows a passage with no ayah ends (a hadith) and a server older than D90 without any mark", () => {
+  it("shows a passage with no ayah ends (a hadith) and a server older than D92 without any mark", () => {
     const hadith: QuestionContext = { before: [{ ref: "1:6", text: "قبل" }], after: [{ ref: "1:8", text: "بعد" }], ayahEnds: [] };
     const older: QuestionContext = { before: [{ ref: "1:6", text: "قبل" }], after: [{ ref: "1:8", text: "بعد" }] };
     for (const context of [hadith, older]) {

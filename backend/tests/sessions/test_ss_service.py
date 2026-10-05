@@ -103,14 +103,14 @@ def test_the_first_daily_session_is_learn_then_training_then_the_end_test() -> N
     assert snapshot.edition_id == QURAN_EDITION and snapshot.bank_version == 1
     assert snapshot.learning_date == TODAY and snapshot.created_at == NOW
     # 10 minutes: capacity 25 words takes the 12-word first passage (the next one would make 35);
-    # D90: two training batches (word choice, then word order) over its four parts, then the end
+    # D92: two training batches (word choice, then word order) over its four parts, then the end
     # test of five questions.
     assert kinds(snapshot) == ["learn"] + ["training"] * 8 + ["test"] * 5
 
 
 @pytest.mark.parametrize(
     ("minutes", "passages_learned", "drills", "test_questions"),
-    # D90: 2/2/3 training batches over every part. 15 minutes: the second passage has six parts but
+    # D92: 2/2/3 training batches over every part. 15 minutes: the second passage has six parts but
     # a merged question can cover two of them and serve both, so a batch may be one question
     # shorter.
     [(5, 1, (8, 8), 3), (10, 1, (8, 8), 5), (15, 2, (26, 28), 7)],
@@ -197,12 +197,12 @@ def test_question_text_comes_from_the_units_and_the_context_surrounds_the_blank(
         before = [tuple(map(int, t["ref"].split(":"))) for t in context["before"]]
         after = [tuple(map(int, t["ref"].split(":"))) for t in context["after"]]
         assert all(ref < min(target) for ref in before) and all(ref > max(target) for ref in after)
-        # D90: the stored window of six words is inside the whole passage that is shown
+        # D92: the stored window of six words is inside the whole passage that is shown
         assert set(bank["contextRefs"]) <= {t["ref"] for t in context["before"] + context["after"]}
         for token in context["before"] + context["after"]:
             assert token["text"] == surface(QURAN, token["ref"])
         if question["type"] == "word_order":
-            # D90: the passage with the part's place as the gap (see test_ss_whole_passage.py)
+            # D92: the passage with the part's place as the gap (see test_ss_whole_passage.py)
             assert context["before"] or context["after"]
             tokens = question["tokens"]
             assert [t["ref"] for t in tokens] != bank["tokenRefs"]  # shuffled, never in order
@@ -464,7 +464,7 @@ def test_new_material_comes_first_then_due_reviews_with_a_round_id_then_the_end_
     roles = kinds(snapshot)
     review = [q for q in questions_json(snapshot) if q["role"] == "review"]
     assert len(review) == 2  # a 4-part passage: a round of two questions
-    # D90: the lesson and its training batches, then the due round, then the end test
+    # D92: the lesson and its training batches, then the due round, then the end test
     assert roles[0] == "learn"
     first_review = roles.index("review")
     assert roles[1:first_review] and set(roles[1:first_review]) == {"training"}
@@ -523,7 +523,7 @@ def test_a_passage_known_from_placement_gets_a_quick_drill_instead_of_a_learn_st
     assert len(first) >= 2  # a 4-part passage: a drill of two questions, no learn step
     assert all(q["role"] != "review" and q["reviewRoundId"] is None for q in first[:2])
     assert [v["passageId"] for v in learn_json(snapshot)] == [str(QURAN_PASSAGES[1])]
-    # D90: the new passage is taught first; the known passage's quick drill comes after it
+    # D92: the new passage is taught first; the known passage's quick drill comes after it
     assert steps[0]["type"] == "learn"
     drill_at = next(
         i

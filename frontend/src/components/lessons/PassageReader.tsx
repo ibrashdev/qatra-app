@@ -10,7 +10,7 @@ import { questionMessages } from "@/i18n/question-messages";
 import type { LessonSectionDetail } from "@/lib/api/types";
 import { ayahNumberOf, hadithRecordOf, readerBlocks, sectionSource, textKindOfSection } from "./lessons-model";
 
-// The text of one section, read only (D90): the verses or the hadith exactly as the book has them, in the original-text font, then the line of the book and
+// The text of one section, read only (D92): the verses or the hadith exactly as the book has them, in the original-text font, then the line of the book and
 // the «المصدر» link, and for a hadith its takhrij and grade. There is no question, no answer, no game and no way into a session from here. A surah is shown
 // passage by passage under the passage's own reference (the ayat), with the ayah numbers drawn as decoration after each ayah, as a question shows them; a
 // hadith is one block, its narration shown once however many paths the plan reads it on.

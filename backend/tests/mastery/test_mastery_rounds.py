@@ -97,7 +97,7 @@ def test_rule3_question_types_rotate_across_reviews() -> None:
             index[q.question_id].type
             for q in questions_of(compose([p], banks, minutes=5, rows=rows, seed=seed), "review")
         ]
-        # D90: a day's reviews prefer one game type, which changes with the seed (so it rotates
+        # D92: a day's reviews prefer one game type, which changes with the seed (so it rotates
         # across days); the bank has no similar_distinction question, so the usual rotation then
         # gives a round three different templates.
         day_type = review_game_type(seed)

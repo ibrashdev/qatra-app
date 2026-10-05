@@ -160,7 +160,7 @@ export const mockToday: Today = {
       sessionMinutes: 10,
       scope: { sectionOrdinals: [1, 2] },
       paths: ["quran"],
-      dailyNew: { unit: "ayah", perDay: 3, everyDays: null }, // a placeholder like the other numbers of this plan (D90)
+      dailyNew: { unit: "ayah", perDay: 3, everyDays: null }, // a placeholder like the other numbers of this plan (D92)
     },
     currentVersion: 1,
     status: "active",

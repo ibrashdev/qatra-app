@@ -12,7 +12,7 @@ What lives here
   ``days = ceil((totalWords - knownWords) / capacity * 1.15)`` computed with exact integer
   arithmetic (1.15 = 23/20), ``endDate = today + days``, the two alternatives (the next larger
   minutes option and the scope halved with ``plan_chat_policy.halve_scope``) and the reason code;
-- the learner-facing daily amount in whole units (D90, ``Estimate.daily_new``): the pace itself
+- the learner-facing daily amount in whole units (D92, ``Estimate.daily_new``): the pace itself
   stays in words (the passage split of D66 depends on it), and the amount shown to the learner is
   derived from the same estimate: the scope's whole ayat (Quran) or hadith (the Forty) spread over
   the estimated days, never splitting a unit (see ``daily_new_amount``);
@@ -123,7 +123,7 @@ class SectionData:
     title_en: str
     path_words: Mapping[str, int]
     path_passages: Mapping[str, int]
-    # D90: the whole ayat of a surah section; ``None`` when the catalog does not say (no hadith
+    # D92: the whole ayat of a surah section; ``None`` when the catalog does not say (no hadith
     # needs it: a hadith section is one hadith).
     unit_count: int | None = None
 
@@ -326,7 +326,7 @@ def daily_new_amount(
     total_words: int,
     known_words: int,
 ) -> DailyNew | None:
-    """The daily amount in whole units (D90): the scope's units spread over the estimated days.
+    """The daily amount in whole units (D92): the scope's units spread over the estimated days.
 
     The remaining units are the scope's units in proportion to the words that are not known yet
     (all of them when nothing is known). Rounded half up: ``perDay`` whole units a day when there
@@ -444,7 +444,7 @@ def estimate_with_alternatives(
 def estimates_equal(left: Estimate, right: Estimate) -> bool:
     """Every field equal (API-spec E16); the order of ``scope`` and ``paths`` does not matter.
 
-    ``daily_new`` (D90) is not compared: it is derived from the compared fields and the catalog,
+    ``daily_new`` (D92) is not compared: it is derived from the compared fields and the catalog,
     so a client that predates it, or echoes a stale value, still confirms the same estimate."""
     return (
         left.days == right.days

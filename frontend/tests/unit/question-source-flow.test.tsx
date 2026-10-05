@@ -14,7 +14,7 @@ import { clearLoginArrival } from "@/lib/auth/flash";
 import { installDialogPolyfill } from "./dialog-polyfill";
 import { makeGamesBackend, PLAN, renderWithBackend } from "./games-support";
 
-// D90 in a game round: the whole passage is in the question from the start, and the source line (book, human reference, «المصدر» link) comes only
+// D92 in a game round: the whole passage is in the question from the start, and the source line (book, human reference, «المصدر» link) comes only
 // with the feedback after the answer, never before it, and never with the provider name, the edition label or a technical code.
 async function renderRound(gameType: GameKind) {
   const backend = makeGamesBackend();
@@ -44,7 +44,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("a game round, source line (D90)", () => {
+describe("a game round, source line (D92)", () => {
   it("shows the whole passage with the part's place for word order, and the source only after the answer", async () => {
     await renderRound("word_order");
     const user = userEvent.setup();

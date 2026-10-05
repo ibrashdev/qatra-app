@@ -149,7 +149,7 @@ describe("answer feedback (UI-tokens 6.17, UI-screens P-21 and P-22)", () => {
 });
 
 describe("question source line (P-20)", () => {
-  it("joins the book and the human reference with a dot and a «المصدر» link to the canonical URL in a new tab (D90)", () => {
+  it("joins the book and the human reference with a dot and a «المصدر» link to the canonical URL in a new tab (D92)", () => {
     const { container } = renderInLocale(<QuestionSource source={SOURCE} />, "ar");
     expect(container).toHaveTextContent("كتاب اصطناعي · الحديث الأول · المصدر");
     const link = screen.getByRole("link", { name: "المصدر: الحديث الأول، يفتح في نافذة جديدة" });

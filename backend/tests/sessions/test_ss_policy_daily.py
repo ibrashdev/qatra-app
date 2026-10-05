@@ -77,7 +77,7 @@ def test_the_numbers_of_contract_section_5() -> None:
     assert REVIEW_QUESTION_CAP == {5: 6, 10: 10, 15: 14}
     assert END_TEST_QUESTIONS == {5: 3, 10: 5, 15: 7}
     assert ABSENCE_THRESHOLD_DAYS == 3
-    assert TRAINING_BATCHES == {5: 2, 10: 2, 15: 3}  # D90
+    assert TRAINING_BATCHES == {5: 2, 10: 2, 15: 3}  # D92
 
 
 @pytest.mark.parametrize(
@@ -172,7 +172,7 @@ def test_new_passages_are_introduced_in_plan_order_up_to_capacity(
     result = compose(passages, minutes=minutes)
     expected: list[tuple[str, str]] = []
     for name in introduced:
-        # D90: the lesson, then TRAINING_BATCHES game batches of one question per part
+        # D92: the lesson, then TRAINING_BATCHES game batches of one question per part
         expected += [("learn", name)] + [("training", name)] * (3 * TRAINING_BATCHES[minutes])
     kinds = describe(result)
     assert kinds[: len(expected)] == expected  # passage by passage: learn, then its batches
@@ -523,7 +523,7 @@ def test_a_known_passage_gets_a_quick_drill_without_a_learn_step_or_capacity_use
     fresh = passage("fresh", section=2, words=(4, 4, 4))
     result = compose([known, fresh], minutes=5, known=[known.id])  # capacity 12 is for "fresh"
     kinds = describe(result)
-    assert kinds[0] == ("learn", "fresh")  # D90: the new passage first, with its two batches
+    assert kinds[0] == ("learn", "fresh")  # D92: the new passage first, with its two batches
     assert kinds[1:7] == [("training", "fresh")] * 6
     assert kinds[7:10] == [("training", "known")] * 3  # then the quick drill
     assert ("learn", "known") not in kinds
@@ -683,7 +683,7 @@ def test_a_completed_plan_with_nothing_due_has_an_empty_session() -> None:
     assert calls == []  # nothing to load
 
 
-# --- D90: lesson first, then game batches, then reviews, then the end test ------------------------
+# --- D92: lesson first, then game batches, then reviews, then the end test ------------------------
 
 ROTATION_ORDER = ["word_choice", "word_recall", "word_order", "similar_distinction"]
 

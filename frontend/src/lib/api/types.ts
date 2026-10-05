@@ -54,8 +54,8 @@ export interface TargetScope {
   sectionOrdinals: number[];
 }
 
-// D90: the daily amount of new material in whole units. Exactly one of perDay and everyDays is a number (at least 1), the other is null.
-// Absent or null for a plan stored before D90 and when the catalog gives no unit count: the screens then show the words figure.
+// D92: the daily amount of new material in whole units. Exactly one of perDay and everyDays is a number (at least 1), the other is null.
+// Absent or null for a plan stored before D92 and when the catalog gives no unit count: the screens then show the words figure.
 export interface DailyNew {
   unit: "ayah" | "hadith";
   perDay: number | null;
@@ -145,8 +145,8 @@ export interface TokenView {
   text: string;
 }
 
-// D90: what the learner reads is the book and `referenceAr` plus the link; `publisher`, `editionLabel` and the technical `reference` stay in the contract
-// for compatibility and are never shown. `referenceAr` is absent from a server older than D90.
+// D92: what the learner reads is the book and `referenceAr` plus the link; `publisher`, `editionLabel` and the technical `reference` stay in the contract
+// for compatibility and are never shown. `referenceAr` is absent from a server older than D92.
 export interface SourceRef {
   publisher: string;
   editionLabel: string;
@@ -161,7 +161,7 @@ export interface PassageView {
   passageId: string;
   path: Path;
   reference: string;
-  referenceAr?: string; // D90: the learner-facing reference, as `SourceRef.referenceAr`
+  referenceAr?: string; // D92: the learner-facing reference, as `SourceRef.referenceAr`
   sectionTitleAr: string;
   units: { unitRef: number; kind: "ayah" | "hadith_narration" | "hadith_grade"; reference: string; text: string }[]; // verbatim; a grade passage lies inside the hadith_grade unit
   highlight: { startRef: TokenRef; endRef: TokenRef }; // the passage range inside the units
@@ -171,9 +171,9 @@ export interface PassageView {
   source: SourceRef;
 }
 
-// D90: the whole passage around the blank. `ayahEnds` mark where an ayah of a Quran passage ends, for the number the screen draws after it; they are
+// D92: the whole passage around the blank. `ayahEnds` mark where an ayah of a Quran passage ends, for the number the screen draws after it; they are
 // decoration beside the tokens, never part of their text. An end whose `afterRef` is in neither list is the one right after the blank. Absent from a
-// server older than D90.
+// server older than D92.
 export interface AyahEnd {
   afterRef: TokenRef;
   number: number;
@@ -495,7 +495,7 @@ export interface ErrorEnvelope {
   error: { code: string; message: string; details?: Record<string, unknown> };
 }
 
-// The lessons reader (D90, owner approval of 5 October 2026): GET /api/lessons and GET /api/lessons/{sectionId}. A session without questions or games that only
+// The lessons reader (D92, owner approval of 5 October 2026): GET /api/lessons and GET /api/lessons/{sectionId}. A session without questions or games that only
 // shows the verses or hadiths of the learner's active plan, read only. `sectionId` is the ordinal of the section in the plan's edition. The text is the
 // PassageView of a learn step, verbatim.
 export type LessonKind = "surah" | "hadith";

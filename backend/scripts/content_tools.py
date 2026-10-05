@@ -8,7 +8,7 @@ Run from ``backend/``::
 Commands: ``acquire``, ``verify``, ``segment``, ``propose-questions``, ``build-bank``,
 ``validate``, ``approve``, ``publish``, ``withdraw``, ``archive``, ``delete-unused-draft``. B7
 implemented ``acquire`` and ``verify``; B8 added ``segment``, ``build-bank`` and ``validate``;
-``approve`` and ``publish`` are implemented below. ``propose-questions`` (D90) is an optional step
+``approve`` and ``publish`` are implemented below. ``propose-questions`` (D92) is an optional step
 between ``segment`` and ``build-bank``: a free model picks the question words, the program checks
 them, and the owner reads ``question-proposals.md`` before ``approve`` (it writes no job row).
 ``withdraw``, ``archive`` and ``delete-unused-draft`` are registered,
@@ -288,7 +288,7 @@ def build_parser() -> argparse.ArgumentParser:
     propose = sub.add_parser(
         "propose-questions",
         parents=[common],
-        help="a free model proposes the question words; the program checks them (D90); read "
+        help="a free model proposes the question words; the program checks them (D92); read "
         "question-proposals.md before approve; needs segment, writes no job row",
     )
     propose.add_argument(
@@ -608,7 +608,7 @@ def _proposal_settings(rt: CliRuntime) -> Settings:
 
 
 def _cmd_propose_questions(ctx: _Context) -> int:
-    """D90: send the published source text, one passage at a time, to a FREE model that picks
+    """D92: send the published source text, one passage at a time, to a FREE model that picks
     the question words (by reference). Without a free model nothing is sent or written and
     ``build-bank`` keeps using the rules."""
     args = ctx.args

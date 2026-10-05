@@ -12,7 +12,7 @@ import { postSessionEvents, startDailySession } from "@/lib/api/session-endpoint
 export const READING_SETTLE_MS = 5000;
 export const READING_RETRY_MS = 30_000;
 
-// Reading counts toward the daily goal (D40, D90): the time the reader is on screen is credited like any other verified active time, as E21 activity events
+// Reading counts toward the daily goal (D40, D92): the time the reader is on screen is credited like any other verified active time, as E21 activity events
 // of today's daily session. The reader has no session of its own and no schema change was made for it: it uses the daily session of the day.
 //
 // - The session comes from E18 (`openSessionId`). Only when E18 shows no session and no activity yet today (`dailyActiveMs` 0 and the day not completed) does the

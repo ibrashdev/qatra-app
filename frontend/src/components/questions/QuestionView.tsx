@@ -43,7 +43,7 @@ export interface QuestionViewProps {
 }
 
 // The piece, hint row, feedback block, source line and notice of one question (UI-screens P-18 order, without the H2 and the action bar, which the
-// screen owns). D90: nothing is shown under the question before it is answered; the source line and the notice come with the feedback. Controlled: props in, callbacks out. Give it key={question.questionId} when the screen moves to the next question, so no
+// screen owns). D92: nothing is shown under the question before it is answered; the source line and the notice come with the feedback. Controlled: props in, callbacks out. Give it key={question.questionId} when the screen moves to the next question, so no
 // focus position or announcement carries over.
 export function QuestionView({
   question,

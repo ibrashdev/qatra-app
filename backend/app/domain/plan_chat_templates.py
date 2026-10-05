@@ -187,7 +187,7 @@ def _daily_new_en(daily: DailyNew) -> str:
 
 
 def daily_new_text(estimate: Estimate, language: Lang) -> str | None:
-    """The daily amount of new material in whole units (D90), as a clause that follows the daily
+    """The daily amount of new material in whole units (D92), as a clause that follows the daily
     time («نحو 3 آيات جديدة في اليوم», «a new hadith every 2 days»); ``None`` when the estimate
     carries no unit amount, and the caller then states the words figure."""
     daily = estimate.daily_new
@@ -371,7 +371,7 @@ def build_sections(
                 "narrow the scope or move the date."
             )
 
-    # Daily time: the amount in whole ayat or hadith (D90); the words figure only when the
+    # Daily time: the amount in whole ayat or hadith (D92); the words figure only when the
     # estimate has no unit amount.
     amount = daily_new_text(estimate, language)
     if ar:

@@ -23,7 +23,7 @@ export interface ChoicePieceProps<Q extends WordChoiceQuestion | SimilarQuestion
   announce: (text: string) => void;
 }
 
-// S-16 and S-17 share one layout: the whole passage with the blank (D90), the option group, the error line, then the hint row.
+// S-16 and S-17 share one layout: the whole passage with the blank (D92), the option group, the error line, then the hint row.
 export function ChoicePiece<Q extends WordChoiceQuestion | SimilarQuestion>({
   question,
   answer,

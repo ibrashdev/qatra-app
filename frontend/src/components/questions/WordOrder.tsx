@@ -16,7 +16,7 @@ const CHIP_BASE =
   "inline-flex min-h-target min-w-target items-center justify-center gap-q8 rounded-sm py-q8 text-token transition-[color,background-color,border-color] duration-(--q-duration-fast)";
 
 // S-15: the learner puts the words of one part back in the book's order by tapping. The whole passage stands above with a dashed place where the part
-// goes (D90); the answer line and the tiles below are where the part is built. A tap places a pool chip or removes a placed one; undo
+// goes (D92); the answer line and the tiles below are where the part is built. A tap places a pool chip or removes a placed one; undo
 // removes the last unlocked chip. There is no drag in this build, so the tap path is the only path (WCAG 2.5.7).
 export function WordOrder({
   question,

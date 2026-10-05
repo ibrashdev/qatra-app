@@ -8,7 +8,7 @@ import { questionMessages } from "@/i18n/question-messages";
 import type { QuestionContext, TokenView } from "@/lib/api/types";
 import type { TextKind } from "./types";
 
-// The font of the book text (UI-screens P-20): the original-text font (Scheherazade New, D90) at the token size, for a Quran edition and a hadith
+// The font of the book text (UI-screens P-20): the original-text font (Scheherazade New, D92) at the token size, for a Quran edition and a hadith
 // edition alike. `font-quran` and `font-hadith` stay two names so each kind keeps its own size token.
 export function originalFontClass(textKind: TextKind): string {
   return textKind === "quran" ? "font-quran" : "font-hadith";
@@ -45,7 +45,7 @@ export function Blank({ part = false, filled }: { part?: boolean; filled?: strin
   );
 }
 
-// D90: the number of an ayah end between two ayat of a Quran passage, in Arabic-Indic digits inside ornate brackets. It is decoration beside the text
+// D92: the number of an ayah end between two ayat of a Quran passage, in Arabic-Indic digits inside ornate brackets. It is decoration beside the text
 // (the reference line already names the ayat), so it is hidden from assistive technology and is never part of a token.
 export function AyahEndMark({ number }: { number: number }) {
   return (
@@ -80,7 +80,7 @@ function TokenRun({ tokens, ends }: { tokens: readonly TokenView[]; ends: Readon
   );
 }
 
-// The whole passage with `slot` where the target sits (D90): everything before it, the slot, everything after it. Context words are plain text around
+// The whole passage with `slot` where the target sits (D92): everything before it, the slot, everything after it. Context words are plain text around
 // the interactive area for orientation; they are not coverage (D64). The passage text is never altered: the ayah ends come from `context.ayahEnds`.
 // An end that belongs to neither side is the one that closes the blank's own ayah, so it is drawn right after the slot.
 export function PassageRuns({ context, slot }: { context: QuestionContext; slot: ReactNode }) {

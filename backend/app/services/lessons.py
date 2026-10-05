@@ -1,4 +1,4 @@
-"""The lessons reader: ``GET /api/lessons`` and ``GET /api/lessons/{sectionId}`` (D90, owner
+"""The lessons reader: ``GET /api/lessons`` and ``GET /api/lessons/{sectionId}`` (D92, owner
 approval of 5 Oct 2026: a session without games that only shows the verses or hadiths of the
 learner's own plan, read only).
 

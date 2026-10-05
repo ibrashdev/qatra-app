@@ -31,7 +31,7 @@ local job rows. `publish` writes no local row (the `published` row is in its SQL
 | `acquire` | `acquired` | implemented |
 | `verify` | `verified` | implemented, with the source-only mode `--source-only-decision D83` |
 | `segment` | `segmented` | implemented (B8) |
-| `propose-questions` | none (optional, between `segment` and `build-bank`) | implemented (D90) |
+| `propose-questions` | none (optional, between `segment` and `build-bank`) | implemented (D92) |
 | `build-bank` | `bank_built` | implemented (B8) |
 | `validate` | `validated` | implemented (B8) |
 | `approve` | `approved` | implemented: records the owner's approval from explicit inputs |
@@ -166,14 +166,14 @@ uv run python -m scripts.content_tools validate --edition <key> --bank-version 1
   a `grade_path_unavailable` flag. A full build still makes every grade passage, so a grade that
   cannot be tested stays a `validate` failure (`part_uncovered`). No other validation rule changed.
 
-## `propose-questions` (optional, D90)
+## `propose-questions` (optional, D92)
 
 ```bash
 uv run python -m scripts.content_tools propose-questions --edition <key> --bank-version 1 \
     [--max-requests 30] [--timeout 90] [--pause 3.5] [--refresh] [--dry-run]
 ```
 
-The owner approved (D90) that a free AI model proposes the question words, the program checks the
+The owner approved (D92) that a free AI model proposes the question words, the program checks the
 answers and the owner reviews them before publishing. The model never changes the religious text
 and never invents information: it answers with **references** to words of the source (never a new
 word), and every pick is checked by the program.

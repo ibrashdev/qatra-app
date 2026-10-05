@@ -31,7 +31,7 @@ class TargetScopeInput(RequestModel):
 
 
 class DailyNewInput(RequestModel):
-    """The ``dailyNew`` of an echoed estimate (D90). Optional and never compared: it is derived
+    """The ``dailyNew`` of an echoed estimate (D92). Optional and never compared: it is derived
     from the same inputs as the other fields, so a client that predates it, or one that echoes a
     stale value, is judged on the nine compared fields alone."""
 

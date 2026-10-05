@@ -1,7 +1,7 @@
 import type { ApiClient, RequestOptions } from "./client";
 import type { LessonSectionDetail, LessonsResponse } from "./types";
 
-// The lessons reader (D90): two reads, no body, no query. Kept apart from endpoints.ts like the session and games modules; they take the client of the
+// The lessons reader (D92): two reads, no body, no query. Kept apart from endpoints.ts like the session and games modules; they take the client of the
 // runtime, so the mock layer and the real server behave alike. A read changes nothing, so both may be repeated by the client.
 
 type ReadOptions = Pick<RequestOptions, "signal" | "timeoutMs" | "retry">;

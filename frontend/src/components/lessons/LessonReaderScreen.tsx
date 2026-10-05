@@ -24,7 +24,7 @@ const SKELETON_DELAY_MS = 300; // UI-tokens 6.14
 
 const asTodayFailure = (failure: LessonsFailure): TodayFailure => (failure.kind === "not_found" ? { kind: "revoked" } : failure);
 
-// The reader of one section (D90): a focus screen, so no tab bar and no rail, with a back control to the list. It shows the text read only and credits the
+// The reader of one section (D92): a focus screen, so no tab bar and no rail, with a back control to the list. It shows the text read only and credits the
 // time on screen to today's daily session (use-reading-activity.ts). The title is the surah or the hadith, once the section is in.
 export function LessonReaderScreen({ rawId }: { rawId: string }) {
   const { locale, messages } = useLocale();

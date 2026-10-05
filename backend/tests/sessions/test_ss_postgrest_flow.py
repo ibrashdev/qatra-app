@@ -139,7 +139,7 @@ def test_the_same_holds_with_a_learners_history_shaping_the_session() -> None:
     assert got.snapshot == expected
     steps = steps_json(got.snapshot)
     roles = [s["question"]["role"] for s in steps if s["type"] == "question"]
-    assert steps[0]["type"] == "learn"  # D90: the lesson leads, then its game batches
+    assert steps[0]["type"] == "learn"  # D92: the lesson leads, then its game batches
     first_review = roles.index("review")
     assert first_review > 0 and set(roles[:first_review]) == {"training"}
     assert roles[first_review : first_review + 2] == ["review", "review"]  # then the due round

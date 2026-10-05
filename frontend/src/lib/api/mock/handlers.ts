@@ -144,7 +144,7 @@ export const mockHandlers: Readonly<Record<string, MockHandler>> = {
   ...planChatHandlers,
   ...todayMockHandlers, // E19 and E20 `daily` (S-11)
   ...planMockHandlers, // E15, E17 and E30 (S-12, S-13)
-  ...lessonMockHandlers, // the lessons reader (D90): GET /lessons and GET /lessons/:sectionId
+  ...lessonMockHandlers, // the lessons reader (D92): GET /lessons and GET /lessons/:sectionId
   ...sessionMockHandlers, // E20 daily snapshot, E21, E22 (S-19); after today's handlers so its POST /sessions wins
   "GET /catalog": () => ({ status: 200, body: mockCatalog }),
   "GET /today": (_request, scenario) => {

@@ -13,7 +13,7 @@ import type { QuestionResult, TextKind } from "./types";
 
 // UI-tokens 6.17 and UI-screens P-21, P-22: the block after an answer. The region is always present and only its content comes and goes, so the
 // polite status is announced without moving focus. Correct uses the success tokens; needs review uses the warning tokens with a gentle phrase, never
-// an error tone, and shows the correct original: the whole passage of the question with the expected words marked in the blank (D90). No percentage,
+// an error tone, and shows the correct original: the whole passage of the question with the expected words marked in the blank (D92). No percentage,
 // score or blame appears here. The source line follows the block (QuestionSource), and only an answered question has it.
 export function AnswerFeedback({ question, result, textKind }: { question: Question; result: QuestionResult | null; textKind: TextKind }) {
   const { locale, direction } = useLocale();

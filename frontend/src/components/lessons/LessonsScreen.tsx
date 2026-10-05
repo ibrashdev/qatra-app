@@ -26,7 +26,7 @@ const SKELETON_DELAY_MS = 300; // UI-tokens 6.14
 // The list shows a withdrawn edition (404) with the banner of G-20, like the other learner screens.
 const asTodayFailure = (failure: LessonsFailure): TodayFailure => (failure.kind === "not_found" ? { kind: "revoked" } : failure);
 
-// The lessons tab (D90, owner approval of 5 October 2026): the surahs or hadiths of the learner's own plan, to read. One card per section, in the plan's
+// The lessons tab (D92, owner approval of 5 October 2026): the surahs or hadiths of the learner's own plan, to read. One card per section, in the plan's
 // order, each a link to the reader. There is no question, no game, no score and no way into a session here; reading time counts toward the day (the
 // reader sends it). An account without an active plan keeps the tab and is pointed to the start of one.
 export function LessonsScreen() {

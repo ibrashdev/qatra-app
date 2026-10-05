@@ -347,7 +347,7 @@ def test_e16_creates_the_plan_exactly_as_confirmed(client: TestClient, env: Env)
 def test_e16_accepts_a_confirmed_estimate_without_the_daily_amount(
     client: TestClient, env: Env
 ) -> None:
-    """A client that predates D90 echoes no ``dailyNew``; the plan is saved with the fresh one."""
+    """A client that predates D92 echoes no ``dailyNew``; the plan is saved with the fresh one."""
     confirmed = {key: value for key, value in EXAMPLE_ESTIMATE.items() if key != "dailyNew"}
     response = client.post("/api/plans", json=create_body(confirmedEstimate=confirmed))
     assert response.status_code == 201

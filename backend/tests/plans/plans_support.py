@@ -87,7 +87,7 @@ EXAMPLE_ESTIMATE: dict[str, Any] = {
     "sessionMinutes": 5,
     "scope": {"sectionOrdinals": [1, 2]},
     "paths": ["quran"],
-    # D90: surahs 78 and 79 hold 40 + 46 ayat; 160 of 180 words remain (76 ayat) over 16 days
+    # D92: surahs 78 and 79 hold 40 + 46 ayat; 160 of 180 words remain (76 ayat) over 16 days
     "dailyNew": {"unit": "ayah", "perDay": 5, "everyDays": None},
 }
 EXAMPLE_ALTERNATIVES: list[dict[str, Any]] = [

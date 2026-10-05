@@ -1,7 +1,7 @@
-"""Model-assisted choice of the tested words (D90 item 2): a free model picks, the program checks,
+"""Model-assisted choice of the tested words (D92 item 2): a free model picks, the program checks,
 the owner reviews before ``approve``.
 
-What the owner approved (D90, 5 October 2026): the program sends the published source text to an
+What the owner approved (D92, 5 October 2026): the program sends the published source text to an
 AI model so that it proposes the question words (the recall keyword, the word to blank in a
 multiple-choice question, and its distractors); the program then checks that the answers are
 correct and stay inside the source, and the owner reviews them before publishing. The model never
@@ -676,7 +676,7 @@ def render_summary_section(summary: Mapping[str, Any]) -> str:
     models = ", ".join(summary["models"]) or "-"
     return "\n".join(
         [
-            "## Question proposals (D90)",
+            "## Question proposals (D92)",
             "",
             "Counts only; the per-part detail with the text is in `question-proposals.md`.",
             "",
@@ -714,7 +714,7 @@ def render_review_markdown(
     lines = [
         f"# Question proposals: {builder.edition} (bank version {bank_version})",
         "",
-        "Model-assisted choice of the tested words (D90). The model only picked words of the "
+        "Model-assisted choice of the tested words (D92). The model only picked words of the "
         "source by reference; the program checked each pick and the rules engine fills every "
         "part that was rejected. Read this before `approve`. This file holds source text: it "
         "stays in the local build area and is never committed.",

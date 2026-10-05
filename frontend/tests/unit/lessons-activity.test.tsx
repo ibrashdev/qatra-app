@@ -13,7 +13,7 @@ import { MOCK_SESSION_ID } from "@/lib/api/mock/today-handlers";
 import type { EventsResponse, SessionEvent } from "@/lib/api/types";
 import { apiError, E18, E20, E21, jsonResponse, makeGamesBackend, renderWithBackend, type GamesBackend, type Override } from "./games-support";
 
-// Reading counts toward the daily goal (D40, D90): the reader sends E21 activity events to today's daily session. The mock layer answers E18, E20 and E21;
+// Reading counts toward the daily goal (D40, D92): the reader sends E21 activity events to today's daily session. The mock layer answers E18, E20 and E21;
 // time is faked, so a test moves it by hand. Synthetic data only.
 
 const OPEN_SESSION_ID = "55555555-5555-4555-8555-0000000000aa";

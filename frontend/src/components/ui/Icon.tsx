@@ -19,7 +19,7 @@ const GLYPHS = {
   half: Contrast, // a circle with one half filled: the lucide set has no circle-half, and this is its closest glyph
   hint: Lightbulb,
   info: Info,
-  lessons: BookOpen, // main navigation, the Lessons destination (D90)
+  lessons: BookOpen, // main navigation, the Lessons destination (D92)
   lock: Lock,
   order: ListOrdered, // the "order" glyph the Figma handoff names for the first step of the login helper strip (FC-06)
   pause: Pause,

@@ -292,7 +292,7 @@ describe("S-09 question steps", () => {
     expect(button("تجاوز السؤال")).toBeInTheDocument();
   });
 
-  it("shows the whole passage around the blank and no source line or link, before or after an answer (D90)", async () => {
+  it("shows the whole passage around the blank and no source line or link, before or after an answer (D92)", async () => {
     renderTest();
     const user = userEvent.setup();
     await startTest(user);

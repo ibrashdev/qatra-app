@@ -611,14 +611,14 @@ def redact_contact_details(text: str) -> str:
 _DAY_UNIT = re.compile(r"^\s*[-–]?\s*(?:days?\b|يوم|ايام|أيام|يوما|يومًا)")
 _MINUTE_UNIT = re.compile(r"^\s*[-–]?\s*(?:minutes?\b|mins?\b|دقيق|دقائق|دقايق)")
 _WORD_UNIT = re.compile(r"^\s*[-–]?\s*(?:words?\b|كلمة|كلمات)")
-# D90: the daily amount in whole ayat or hadith. "حديث" also begins the dual and accusative forms
+# D92: the daily amount in whole ayat or hadith. "حديث" also begins the dual and accusative forms
 # the Arabic text may use (حديثان, حديثين, حديثًا); "أحاديث" is the plural.
 _AYAH_UNIT = re.compile(r"^\s*[-–]?\s*(?:ayahs?\b|ayat\b|verses?\b|[آأا]ي[ةه]|[آأا]يات)")
 _HADITH_UNIT = re.compile(r"^\s*[-–]?\s*(?:hadiths?\b|ahadith\b|حديث|[أا]حاديث)")
 
 
 def _daily_new_numbers(estimate: Estimate) -> set[int]:
-    """The number of the whole-unit daily amount (D90): ``perDay`` or ``everyDays``."""
+    """The number of the whole-unit daily amount (D92): ``perDay`` or ``everyDays``."""
     daily = estimate.daily_new
     if daily is None:
         return set()
@@ -631,7 +631,7 @@ def _every_days(estimate: Estimate) -> set[int]:
 
 
 def _unit_count_matches(value: int, after: str, estimate: Estimate) -> bool:
-    """Does ``value``, followed by ayat or hadith (``after``), match the daily amount (D90)? Only
+    """Does ``value``, followed by ayat or hadith (``after``), match the daily amount (D92)? Only
     the proposal's own number for its own unit; "1 hadith" is also right when the amount is one
     hadith every N days."""
     daily = estimate.daily_new

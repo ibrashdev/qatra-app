@@ -3,7 +3,7 @@ import { classifyTodayError, type TodayFailure } from "@/components/today/today-
 import { ApiError } from "@/lib/api/errors";
 import type { LessonSectionDetail, PassageView, SourceRef } from "@/lib/api/types";
 
-// The lessons reader (D90). Pure helpers: the route id, the failures of the two reads, and what the reader shows of a section.
+// The lessons reader (D92). Pure helpers: the route id, the failures of the two reads, and what the reader shows of a section.
 
 const SECTION_ID = /^[1-9]\d{0,8}$/u;
 
@@ -60,7 +60,7 @@ export function hadithRecordOf(detail: Pick<LessonSectionDetail, "passages">): {
   };
 }
 
-// The line under the text (D90): the book, the surah or the hadith title, and the «المصدر» link to the section's canonical page. No provider name, edition
+// The line under the text (D92): the book, the surah or the hadith title, and the «المصدر» link to the section's canonical page. No provider name, edition
 // label or technical code is ever shown: QuestionSource reads only these three values and the (empty) pages.
 export function sectionSource(detail: Pick<LessonSectionDetail, "sectionId" | "referenceAr" | "bookTitleAr" | "sourceUrl">): SourceRef {
   return {

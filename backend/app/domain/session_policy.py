@@ -5,7 +5,7 @@ Three compositions, all deterministic given their inputs. Anything that varies b
 (rotation, shuffling, tie-breaks) comes from the integer ``seed`` the caller passes in, through a
 hash, never through a random number generator, so a result does not depend on the Python version.
 
-**Daily** (``compose_daily``), in this order (owner decision D90, 5 October 2026: the lesson first,
+**Daily** (``compose_daily``), in this order (owner decision D92, 5 October 2026: the lesson first,
 then the game batches, then the due reviews, then the end test; D64 and D41 stay in force):
 
 1. *New material*: the passages still being learned, then the next new passages, in plan order
@@ -88,13 +88,13 @@ ABSENCE_THRESHOLD_DAYS: Final = 3  # PRD R07
 END_TEST_MAX_PASSAGES: Final = 12
 GAME_LOAD_CHUNK: Final = 10
 
-# D90 (owner, 5 October 2026): a new passage is trained in batches of one game type each, over all
+# D92 (owner, 5 October 2026): a new passage is trained in batches of one game type each, over all
 # of its parts. How many batches the passage gets, by session minutes.
 TRAINING_BATCHES: Final[Mapping[int, int]] = {5: 2, 10: 2, 15: 3}
 
 # The order in which question types rotate (only the types a part actually has take part).
 _ROTATION: Final[tuple[str, ...]] = (WORD_CHOICE, WORD_RECALL, WORD_ORDER, SIMILAR_DISTINCTION)
-# The order of the training batches of D90: from the easiest game to the hardest.
+# The order of the training batches of D92: from the easiest game to the hardest.
 _TRAINING_PROGRESSION: Final[tuple[str, ...]] = (
     WORD_CHOICE,
     WORD_ORDER,
@@ -402,7 +402,7 @@ def _training_questions(
     used: set[UUID],
     seed: int,
 ) -> list[PlannedQuestion]:
-    """The training batches of a new passage (D90).
+    """The training batches of a new passage (D92).
 
     A batch is one game type over every ranked part: one unused question of that type per part,
     a question covering several parts serving them all, a part with no unused question of the type
@@ -654,7 +654,7 @@ def _end_test_questions(
 def compose_daily(inputs: DailyInputs, load: PassageLoader) -> DailyComposition:
     """The daily session of ``inputs.learning_date`` (see the module docstring).
 
-    Step order (D90): each new passage (learn step, then its training batches), the due review
+    Step order (D92): each new passage (learn step, then its training batches), the due review
     rounds, the quick drills of known passages, the end test. A light-review day and a completed
     plan hold the review rounds only.
 
@@ -674,7 +674,7 @@ def compose_daily(inputs: DailyInputs, load: PassageLoader) -> DailyComposition:
     full = active and not light
 
     # Selection: due rounds (overdue first, within the question cap), quick drills, new material
-    # and the end-test pools. The steps are built below in the order of D90.
+    # and the end-test pools. The steps are built below in the order of D92.
     due = sorted(
         (p for p in ordered if (row := mastery.get(p.id)) is not None and row.is_due(today)),
         key=lambda p: (mastery[p.id].next_review_due or today, index[p.id]),
@@ -722,7 +722,7 @@ def compose_daily(inputs: DailyInputs, load: PassageLoader) -> DailyComposition:
     review_type = review_game_type(inputs.seed)
     used: set[UUID] = set()
     steps: list[PlannedStep] = []
-    # (1) new material first: the lesson, then its game batches (D90)
+    # (1) new material first: the lesson, then its game batches (D92)
     for passage in new_passages:
         steps.append(PlannedLearn(passage.id))
         steps += _training_questions(

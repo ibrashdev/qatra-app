@@ -1,4 +1,4 @@
-"""The lessons reader over HTTP (D90, owner approval of 5 Oct 2026): ``GET /api/lessons`` and
+"""The lessons reader over HTTP (D92, owner approval of 5 Oct 2026): ``GET /api/lessons`` and
 ``GET /api/lessons/{sectionId}``. Every scenario runs over the memory repositories and over the
 PostgREST adapters. Synthetic bundles only; no network, no database."""
 

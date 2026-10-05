@@ -68,7 +68,7 @@ describe("main navigation: tab icons (FC-01)", () => {
     expect(links[3]).toHaveClass("border-t-[3px]", "border-primary");
   });
 
-  it("reaches the five tabs with the keyboard, in the order of the bar, each as a link with the name of its label (D90)", async () => {
+  it("reaches the five tabs with the keyboard, in the order of the bar, each as a link with the name of its label (D92)", async () => {
     const user = userEvent.setup();
     const { container } = renderBar("/lessons");
     const visited: string[] = [];
@@ -98,7 +98,7 @@ describe("main navigation: the active tab", () => {
     expect(activeTabs("/today")).toEqual(["/today", "/today"]);
   });
 
-  it("marks the lessons tab on the list and on the reader of a section (D90), in the bar and in the rail", () => {
+  it("marks the lessons tab on the list and on the reader of a section (D92), in the bar and in the rail", () => {
     expect(activeTabs("/lessons")).toEqual(["/lessons", "/lessons"]);
     document.body.innerHTML = "";
     expect(activeTabs("/lessons/3")).toEqual(["/lessons", "/lessons"]);

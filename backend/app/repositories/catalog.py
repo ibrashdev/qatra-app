@@ -13,7 +13,7 @@ Two sources behind the same small protocols:
   read with the learner's access token under row-level security (the passage table holds ids,
   paths and counts, no text).
 
-Whole-unit counts (D90): a surah section carries its ayah count (``SectionData.unit_count``) so
+Whole-unit counts (D92): a surah section carries its ayah count (``SectionData.unit_count``) so
 that the plan can tell the learner "3 ayat a day". Memory mode counts the bundle's ayah units. The
 public views do not expose units (and this package adds no migration), so Supabase mode uses
 ``QURAN_AYAH_COUNTS``, the table the content workflow validates every published surah against
@@ -104,7 +104,7 @@ _KINDS = frozenset({"surah", "hadith"})
 
 
 def _ayah_count(kind: str, reference: str, counted: int | None) -> int | None:
-    """The ayat of a surah section (D90): the ``counted`` units when the source has them, else the
+    """The ayat of a surah section (D92): the ``counted`` units when the source has them, else the
     validated per-surah table (the section ``reference`` is the surah number). ``None`` for a
     hadith section or a surah the table does not know."""
     if kind != "surah":

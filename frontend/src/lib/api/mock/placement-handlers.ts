@@ -31,7 +31,7 @@ export const MOCK_PLACEMENT_QUESTION_IDS = {
 export const MOCK_PLACEMENT_RECALL_WORD = "كلمة٨";
 
 const source = (reference: string) => mockSource(reference, "سورة اصطناعية، الآية ١");
-// The whole placeholder passage of each question, as the server sends it (D90).
+// The whole placeholder passage of each question, as the server sends it (D92).
 const PASSAGE_1: readonly MockAyah[] = [{ unit: 1, words: ["كلمة١", "كلمة٢", "كلمة٣", "كلمة٤"] }];
 const PASSAGE_2: readonly MockAyah[] = [{ unit: 2, words: ["كلمة٧", MOCK_PLACEMENT_RECALL_WORD, "كلمة٩"] }];
 const PASSAGE_3: readonly MockAyah[] = [{ unit: 3, words: ["كلمة١٠", "كلمة١١", "كلمة١٢", "كلمة١٣"] }];

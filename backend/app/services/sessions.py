@@ -295,7 +295,7 @@ def _shuffled(items: Sequence[T], key: Callable[[T], str], seed: int, salt: obje
 def _question_ordinals(question: BankQuestion) -> set[int]:
     """Ordinals of every unit a question reads text from (options may lie outside the passage and
     even outside the plan scope: technical distractors, D31). The passage text around the blank
-    (D90) is loaded separately, from the passage's own references."""
+    (D92) is loaded separately, from the passage's own references."""
     refs = [
         *question.token_refs,
         *question.correct_ref,
@@ -320,7 +320,7 @@ def _ayah_number(reference: str) -> int | None:
 @dataclass(frozen=True, slots=True)
 class _PassageText:
     """Every token of a passage in book order, and where its ayat end: the whole passage that each
-    of its questions shows around the blank (D90). Built once per passage from the loaded units;
+    of its questions shows around the blank (D92). Built once per passage from the loaded units;
     token text is never altered."""
 
     tokens: tuple[tuple[tuple[int, int], TokenView], ...]
@@ -941,7 +941,7 @@ class SessionService:
     def _reference_ar(
         edition: EditionInfo, section: BankSection | None, passage: BankPassage, units: _Units
     ) -> str:
-        """What the learner reads as the reference (D90): the hadith title, or for the Quran the
+        """What the learner reads as the reference (D92): the hadith title, or for the Quran the
         surah with the ayah or the ayah range of the passage, in Arabic-Indic digits."""
         name = section_reference_ar(edition, section)
         if edition.content_format != "quran" or not name:
@@ -972,7 +972,7 @@ class SessionService:
         text: _PassageText,
     ) -> QuestionDto:
         target = sorted(_ref_key(ref) for ref in question.token_refs)
-        # D90: the whole passage around the blank, for every type; the bank's ``contextRefs`` (a
+        # D92: the whole passage around the blank, for every type; the bank's ``contextRefs`` (a
         # window of six words) are no longer used for display.
         context = text.around(target[0], target[-1])
         common: dict[str, Any] = {
@@ -1040,7 +1040,7 @@ class SessionService:
 
 
 def section_reference_ar(edition: EditionInfo, section: BankSection | None) -> str:
-    """The section's own reference line (D90): the hadith title, or for the Quran the surah name
+    """The section's own reference line (D92): the hadith title, or for the Quran the surah name
     with the word «سورة» in front when the title lacks it. Empty when the section has no title."""
     title = section.title_ar.strip() if section is not None else ""
     if edition.content_format != "quran" or not title:
@@ -1052,7 +1052,7 @@ def build_passage_view(edition: EditionInfo, passage: BankPassage, units: _Units
     """The ``PassageView`` of a passage, verbatim: the units it spans, the range to mark, the
     takhrij and grade of its hadith and the clean source line. ``units`` must hold the units of the
     passage's section (``load_section_units``). Shared by the learn step of a session and by the
-    lessons reader (D90), so both show the same text."""
+    lessons reader (D92), so both show the same text."""
     first, _ = _ref_key(passage.start_ref)
     last, _ = _ref_key(passage.end_ref)
     spanned = [units.unit(ordinal) for ordinal in range(first, last + 1)]

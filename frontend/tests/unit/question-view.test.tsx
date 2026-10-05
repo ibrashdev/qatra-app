@@ -30,7 +30,7 @@ describe("QuestionView dispatcher", () => {
     expect(screen.getByRole("textbox")).toBeInTheDocument();
   });
 
-  it("shows nothing under the question before it is answered: no source line, no link, no D50 notice (D90)", () => {
+  it("shows nothing under the question before it is answered: no source line, no link, no D50 notice (D92)", () => {
     renderInLocale(<Harness question={wordChoiceQuestion()} showD50Notice />, "ar");
     expect(screen.queryByText(/كتاب اصطناعي/)).toBeNull();
     expect(screen.queryByRole("link")).toBeNull();
@@ -160,7 +160,7 @@ describe("question rules", () => {
     expect(questionPrompt(similarQuestion(), messages)).toBe("Choose the correct one as it appears in the book.");
   });
 
-  it("builds the original only from the question and the expected value: the whole passage with the expected words in place (D90)", () => {
+  it("builds the original only from the question and the expected value: the whole passage with the expected words in place (D92)", () => {
     expect(expectedOriginal(wordOrderQuestion(), { expected: { order: ["2:0", "2:1", "2:2"] } })).toBe("قبل١ كلمة١ كلمة٢ كلمة٣ بعد١");
     expect(expectedOriginal(wordOrderQuestion(), { expected: { order: ["9:9"] } })).toBeNull();
     expect(expectedOriginal(wordOrderQuestion(), { expected: {} })).toBeNull();

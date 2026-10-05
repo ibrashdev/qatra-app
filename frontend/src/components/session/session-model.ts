@@ -18,7 +18,7 @@ export function stageOfStep(step: Step): Stage {
   }
 }
 
-// The stages the snapshot holds, in the order they first occur. D90 puts the new passage and its drills first, then the due reviews, then the end test;
+// The stages the snapshot holds, in the order they first occur. D92 puts the new passage and its drills first, then the due reviews, then the end test;
 // a snapshot stored with the earlier order (reviews first) and a light review (no new passage) keep their own order too.
 export function stagesOf(steps: readonly Step[]): Stage[] {
   const stages: Stage[] = [];

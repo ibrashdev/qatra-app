@@ -8,7 +8,7 @@ import { cx } from "@/lib/cx";
 import { Brand } from "./Brand";
 import { Icon } from "./Icon";
 
-// The five destinations, in DOM order: today is first, at the start edge in both directions. The lessons tab (D90, owner approval of 5 October 2026) sits
+// The five destinations, in DOM order: today is first, at the start edge in both directions. The lessons tab (D92, owner approval of 5 October 2026) sits
 // second: it is read-only text of the learner's own plan, with no questions and no games.
 export const TAB_ITEMS: readonly { id: TabId; href: string }[] = [
   { id: "today", href: "/today" },

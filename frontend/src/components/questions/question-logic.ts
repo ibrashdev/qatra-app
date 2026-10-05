@@ -129,7 +129,7 @@ export function expectedFiller(question: Question, result: Pick<QuestionResult, 
   }
 }
 
-// The correct original as plain text (D90): the whole passage of the question with the expected words in the blank.
+// The correct original as plain text (D92): the whole passage of the question with the expected words in the blank.
 export function expectedOriginal(question: Question, result: Pick<QuestionResult, "expected">): string | null {
   const filler = expectedFiller(question, result);
   return filler === null ? null : withBlankFilled(question, filler);

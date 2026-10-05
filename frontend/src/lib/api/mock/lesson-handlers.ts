@@ -1,4 +1,4 @@
-// Mock handlers for the lessons reader (D90): GET /api/lessons and GET /api/lessons/{sectionId}. Synthetic data only: the words are placeholders
+// Mock handlers for the lessons reader (D92): GET /api/lessons and GET /api/lessons/{sectionId}. Synthetic data only: the words are placeholders
 // («كلمة١»), never a verse or a hadith. The plan is the mock plan of the E18 fixture (two sections), the edition is the Quran one. Registered in
 // mockHandlers next to the other learner reads; an account without a plan gets the 409 the server gives (`plan_not_active`).
 import type { LessonSectionDetail, LessonsResponse, PassageView } from "../types";

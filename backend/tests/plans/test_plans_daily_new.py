@@ -1,4 +1,4 @@
-"""The daily amount in whole units (D90): ``Estimate.daily_new``. Synthetic data only.
+"""The daily amount in whole units (D92): ``Estimate.daily_new``. Synthetic data only.
 
 The pace stays in words; the learner is told whole ayat or hadith a day (or one hadith every N
 days). Fixtures: surah 112 has 4 ayat in the validated table; one long hadith of 66 words takes
@@ -241,7 +241,7 @@ def test_daily_new_needs_exactly_one_positive_rate(values: dict[str, Any]) -> No
 
 
 def test_estimates_equal_ignores_daily_new() -> None:
-    """A client that predates D90 (or echoes a stale value) still confirms the same estimate."""
+    """A client that predates D92 (or echoes a stale value) still confirms the same estimate."""
     edition, _ = quran_edition([(1, "surah", "112", "Surah 112")], [(1, 1, "quran", 1, 15)])
     fresh = estimate(edition, [1], 15)
     assert fresh.daily_new is not None

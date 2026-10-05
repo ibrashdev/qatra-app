@@ -33,7 +33,7 @@ describe("E15 mock (POST /plans/estimate)", () => {
   it("answers with the capacity of the minutes and the review buffer of API-spec 4.5", async () => {
     const answer = await estimatePlan(clientFor(), base);
     expect(answer.estimate).toMatchObject({ newWordsPerDay: 25, totalWords: 100, days: 5, sessionMinutes: 10, knownWords: 0 });
-    // D90: the pace stays in words; the learner-facing amount is whole ayat (20 synthetic ayat over 5 days)
+    // D92: the pace stays in words; the learner-facing amount is whole ayat (20 synthetic ayat over 5 days)
     expect(answer.estimate.dailyNew).toEqual({ unit: "ayah", perDay: 4, everyDays: null });
     expect(answer.alternatives).toEqual([]);
     expect(answer.reasonCode).toBe("no_preferred_date");

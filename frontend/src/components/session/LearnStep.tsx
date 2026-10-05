@@ -13,7 +13,7 @@ import { cx } from "@/lib/cx";
 import { HadithRecord } from "./HadithRecord";
 import { needsLegend, segmentUnit } from "./session-model";
 
-// The learn step (UI-screens S-19 c7 to c14): the passage as received, in its whole unit, with today's range marked; the clean reference line (D90: the
+// The learn step (UI-screens S-19 c7 to c14): the passage as received, in its whole unit, with today's range marked; the clean reference line (D92: the
 // book, the hadith title or the surah and ayat, and the «المصدر» link, never a provider name, an edition label or a technical code); for a hadith the
 // record block and, only when the snapshot says so, the D50 notice; the hide toggle; the instruction. The primary button lives in the action bar.
 // Hidden text is removed from the page and the accessibility tree, not blurred (UI-tokens 6.12).
@@ -24,7 +24,7 @@ export function LearnStep({ passage, textKind, hidden, onToggle }: { passage: Pa
   const unitSegments = passage.units.map((unit) => ({ unit, segments: segmentUnit(unit, passage.highlight) }));
   const showLegend = needsLegend(unitSegments.map((entry) => entry.segments));
   const hadith = textKind === "hadith";
-  // D90: the learner-facing reference; a server older than D90 has none, and the section title stands in.
+  // D92: the learner-facing reference; a server older than D92 has none, and the section title stands in.
   const referenceAr = passage.referenceAr !== undefined && passage.referenceAr !== "" ? passage.referenceAr : passage.sectionTitleAr;
 
   return (

@@ -1,5 +1,5 @@
-// The daily amount of new material in whole units (D90): "about 3 ayat a day", "a new hadith every 2 days".
-// The server counts the pace in words; the learner is told whole ayat or hadith, never a split unit. A plan stored before D90 and an edition without
+// The daily amount of new material in whole units (D92): "about 3 ayat a day", "a new hadith every 2 days".
+// The server counts the pace in words; the learner is told whole ayat or hadith, never a split unit. A plan stored before D92 and an edition without
 // a unit count carry no `dailyNew`: the words figure is shown then, as before.
 import type { DailyNew, Estimate } from "@/lib/api/types";
 import { formatInteger } from "./format";

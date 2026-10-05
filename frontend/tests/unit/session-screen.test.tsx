@@ -295,7 +295,7 @@ describe("S-19 learn step", () => {
     expect(Array.from(text.querySelectorAll("mark")).map((mark) => mark.textContent)).toEqual(["كلمة٢ كلمة٣ كلمة٤", "كلمة٥ كلمة٦"]);
     expect(screen.getByText("The highlighted part is today's passage.")).toBeInTheDocument();
     expect(screen.getByText("Read the passage, then try to recall it.")).toBeInTheDocument();
-    // D90: a clean reference line (book, surah and ayat) and a «المصدر» link; no edition label, provider name or technical code.
+    // D92: a clean reference line (book, surah and ayat) and a «المصدر» link; no edition label, provider name or technical code.
     const reference = "سورة اصطناعية، الآيات ١\u2013٢";
     expect(screen.getAllByText(reference)).toHaveLength(2); // under the heading and in the source line
     expect(screen.getByRole("link", { name: `Source: ${reference}, opens in a new tab` })).toHaveAttribute("href", "https://example.invalid/ref/1");
@@ -469,7 +469,7 @@ describe("S-19 answers, hint and server verdict", () => {
     expect(screen.queryByText("Correct.")).toBeNull();
   });
 
-  // D90: the original is the whole passage of the question with the expected word marked in its place and the ayah end between the two ayat.
+  // D92: the original is the whole passage of the question with the expected word marked in its place and the ayah end between the two ayat.
   function expectWholePassageWithWord() {
     const block = document.querySelector("[data-feedback]") as HTMLElement;
     expect(within(block).getByText("كلمة٦", { selector: "mark" })).toBeInTheDocument();

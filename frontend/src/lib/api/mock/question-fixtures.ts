@@ -1,5 +1,5 @@
 // Shared synthetic pieces of the question mocks (session, games, placement): the placeholder words are «كلمة١», never a verse or a hadith.
-// `mockContext` builds the context of a question the way the server does (D90): every token of the passage before and after the target, with the ayah
+// `mockContext` builds the context of a question the way the server does (D92): every token of the passage before and after the target, with the ayah
 // ends as structured data between two ayat of the passage and none inside the blank.
 import type { AyahEnd, QuestionContext, SourceRef, TokenRef, TokenView } from "../types";
 

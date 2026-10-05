@@ -1,4 +1,4 @@
-"""D90: every question shows the whole passage around its blank, and the learner-facing reference is
+"""D92: every question shows the whole passage around its blank, and the learner-facing reference is
 the book plus a human reference (no provider name, no technical code). Synthetic bundles only."""
 
 from __future__ import annotations

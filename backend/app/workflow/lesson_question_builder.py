@@ -1,9 +1,9 @@
 """Lessons and the deterministic question bank (API-spec §5.3 ``build-bank``, contract §2.4,
-D20, D22, D31, D64, D66, D90). No model writes anything: every question is made of token
+D20, D22, D31, D64, D66, D92). No model writes anything: every question is made of token
 references of the same edition, and the same bundle (with the same reviewed proposal store) always
 gives the same bank.
 
-D90: a free model may only PICK which words of a part are tested (the recall keyword, the
+D92: a free model may only PICK which words of a part are tested (the recall keyword, the
 word-choice target and its 3 distractors) by reference; ``workflow/question_proposals.py``
 validates the picks against the rules below and hands the accepted ones in as ``proposals``. A
 part with no accepted pick, or a pick that fails, keeps the rules choice (the permanent fallback).
@@ -113,7 +113,7 @@ class BankResult:
 
 @dataclass(frozen=True, slots=True)
 class PartPick:
-    """A validated model pick for one part (D90): token references only, never text. A missing
+    """A validated model pick for one part (D92): token references only, never text. A missing
     keyword or choice keeps the rules choice for that question."""
 
     keyword_ref: str | None = None
@@ -321,7 +321,7 @@ class _Builder:
             self._segment_targets[length] = table
         return self._segment_targets[length]
 
-    # --- proposals (D90) ----------------------------------------------------------------
+    # --- proposals (D92) ----------------------------------------------------------------
 
     # Set by ``build_question_bank``; the defaults keep a direct ``_Builder(bundle).build()`` on
     # the rules alone.
@@ -636,7 +636,7 @@ def build_question_bank(
     """Build the lessons and the question bank of a segmented bundle (deterministic).
 
     ``proposals`` maps a part key (``<path>:<passage ordinal>:<part ordinal>``) to the validated
-    pick of a model (D90); without it, or for a part with no pick, the rules choose the words.
+    pick of a model (D92); without it, or for a part with no pick, the rules choose the words.
     """
     builder = _Builder(bundle)
     if proposals:

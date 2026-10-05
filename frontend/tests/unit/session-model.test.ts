@@ -45,7 +45,7 @@ describe("stages of a session (UI-tokens 6.23)", () => {
     expect(stagesOf([])).toEqual([]);
   });
 
-  it("lists the stages in the order the session runs them: the new passage, then the reviews, then the end test (D90)", () => {
+  it("lists the stages in the order the session runs them: the new passage, then the reviews, then the end test (D92)", () => {
     const [review, learn, ...rest] = stepsOf();
     const test = rest[rest.length - 1];
     const drills = rest.slice(0, -1);

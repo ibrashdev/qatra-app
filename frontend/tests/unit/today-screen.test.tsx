@@ -153,7 +153,7 @@ describe("S-11 Plan and today: the five sections", () => {
     expect(screen.queryByText("الإنجاز الكلي للخطة")).toBeNull();
   });
 
-  it("tells the daily amount in whole units, one hadith every two days, and falls back to words without a unit amount (D90)", async () => {
+  it("tells the daily amount in whole units, one hadith every two days, and falls back to words without a unit amount (D92)", async () => {
     const estimate = (mockToday.plan as Plan).agreedEstimate;
     const planWith = (dailyNew: NonNullable<Plan["agreedEstimate"]["dailyNew"]> | null) => withPlan({ agreedEstimate: { ...estimate, dailyNew } });
     const hadith = { unit: "hadith", perDay: null, everyDays: 2 } as const;

@@ -10,7 +10,7 @@ const hadith = (perDay: number): DailyNew => ({ unit: "hadith", perDay, everyDay
 const hadithEvery = (everyDays: number): DailyNew => ({ unit: "hadith", perDay: null, everyDays });
 const text = (locale: "ar" | "en", dailyNew: DailyNew | null | undefined) => dailyAmountText(locale, { newWordsPerDay: 25, dailyNew });
 
-describe("the daily amount in whole units (D90), Arabic", () => {
+describe("the daily amount in whole units (D92), Arabic", () => {
   it.each([
     [ayat(1), "وآية جديدة في اليوم"],
     [ayat(2), "وآيتان جديدتان في اليوم"],
@@ -42,7 +42,7 @@ describe("the daily amount in whole units (D90), Arabic", () => {
   });
 });
 
-describe("the daily amount in whole units (D90), English", () => {
+describe("the daily amount in whole units (D92), English", () => {
   it.each([
     [ayat(1), "a new ayah a day"],
     [ayat(2), "2 new ayat a day"],
@@ -64,7 +64,7 @@ describe("the daily amount in whole units (D90), English", () => {
 });
 
 describe("the fallback to the words figure", () => {
-  it("is used when the estimate carries no unit amount, as for a plan stored before D90", () => {
+  it("is used when the estimate carries no unit amount, as for a plan stored before D92", () => {
     for (const absent of [undefined, null]) {
       expect(text("ar", absent)).toBe("وحتى ٢٥ كلمة جديدة في اليوم");
       expect(text("en", absent)).toBe("up to 25 new words a day");

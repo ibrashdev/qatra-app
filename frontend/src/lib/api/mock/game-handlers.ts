@@ -27,7 +27,7 @@ export const MOCK_GAME_RECALL_WORDS = ["كلمة٦", "كلمة٩"] as const;
 const GAME_KINDS: readonly GameKind[] = ["word_order", "word_choice", "similar_distinction", "word_recall"];
 
 const source = (reference: string) => mockSource(reference, "سورة اصطناعية، الآية ١");
-// The whole placeholder passage of each question, as the server sends it (D90).
+// The whole placeholder passage of each question, as the server sends it (D92).
 const PASSAGE_1: readonly MockAyah[] = [{ unit: 1, words: ["كلمة١", "كلمة٢", "كلمة٣", "كلمة٤", "كلمة٥"] }];
 const PASSAGE_2: readonly MockAyah[] = [{ unit: 2, words: ["كلمة٥", "كلمة٦", "كلمة٧", "كلمة٨"] }];
 const policy = { normalizationPolicyVersion: "arabic-norm-v1", scoringPolicyVersion: "v1" } as const;

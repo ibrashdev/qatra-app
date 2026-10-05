@@ -1,4 +1,4 @@
-// The lessons tab (D90, owner approval of 5 October 2026): a read-only session that shows the verses or hadiths of the learner's own plan, with no
+// The lessons tab (D92, owner approval of 5 October 2026): a read-only session that shows the verses or hadiths of the learner's own plan, with no
 // questions and no games. Arabic and English are proposed copy (UI-tokens A7), except that the tab name «الدروس» and the rule that it only reads are the
 // owner's words. Kept out of messages.ts, which another package owns: the screens read their catalog with lessonsMessages(locale).
 // Where a line would hold a dash it is built from two elements instead (antislop R-02, no dash in new text).

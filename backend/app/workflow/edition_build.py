@@ -1,5 +1,5 @@
 """Runner handlers of ``segment``, ``build-bank`` and ``validate`` (API-spec §5.3, B8), and the
-``propose-questions`` run between ``segment`` and ``build-bank`` (D90).
+``propose-questions`` run between ``segment`` and ``build-bank`` (D92).
 
 Files written under ``<build>/<editionKey>/`` (gitignored; they contain source text except
 ``report.md``): ``bundle.json`` (the structure after ``segment``, the full bundle after
@@ -102,7 +102,7 @@ def _write_outputs(
     proposals: Mapping[str, Any] | None = None,
 ) -> None:
     """Write ``bundle.json`` (optionally), ``publish.sql`` and ``report.md``. ``proposals`` is the
-    count summary of a build that used a proposal store (D90); it adds a section to the report."""
+    count summary of a build that used a proposal store (D92); it adds a section to the report."""
     key, bank = bundle["editionKey"], bundle["bankVersion"]
     if write_bundle:
         write_text(paths.bundle_json(key), dumps_bundle(bundle))
@@ -390,7 +390,7 @@ def make_validate_handler(
     return handler
 
 
-# --- propose-questions (D90) ---------------------------------------------------------------
+# --- propose-questions (D92) ---------------------------------------------------------------
 
 
 def proposals_store_path(paths: BuildPaths, edition_key: str) -> Path:

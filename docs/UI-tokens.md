@@ -1,6 +1,6 @@
 # Qatra — UI design tokens and component specification
 
-> Version 1.4 · 5 October 2026 (Asia/Dubai) · Status: Approved — D78 (owner, gate G1, 4 October 2026, about 19:12 Asia/Dubai); version 1.2 adds component 6.26 for the owner's S-08 adjustment (cascading select lists) and changes no token value; version 1.3 (D88) updates 6.26 and also changes no token value; version 1.4 (D90, owner, 5 October 2026) changes the value of `--q-font-quran` and `--q-font-hadith` to Scheherazade New (sections 3.1, 3.2 and 3.4). Prepared by the Senior Product Designer role (Role 4); extends Design-system.md v10 without changing its approved identity; nothing here is implemented.
+> Version 1.4 · 5 October 2026 (Asia/Dubai) · Status: Approved — D78 (owner, gate G1, 4 October 2026, about 19:12 Asia/Dubai); version 1.2 adds component 6.26 for the owner's S-08 adjustment (cascading select lists) and changes no token value; version 1.3 (D88) updates 6.26 and also changes no token value; version 1.4 (D92, owner, 5 October 2026) changes the value of `--q-font-quran` and `--q-font-hadith` to Scheherazade New (sections 3.1, 3.2 and 3.4). Prepared by the Senior Product Designer role (Role 4); extends Design-system.md v10 without changing its approved identity; nothing here is implemented.
 
 ## 1. Authority and how to use
 
@@ -20,7 +20,7 @@ This file fixes the design system the frontend will implement and the Figma file
 - Version 1.1 (4 October 2026) adds 6.18–6.25, the 480 px form column, the header language switch exception and the coordinator decisions in section 10, for the open points O-05, O-06 and O-22 of [UI-screens.md](UI-screens.md).
 - Version 1.2 (4 October 2026, D78) adds 6.26, the cascading selection with a multi-select list, for the owner's adjustment at G1 on screen S-08 of [UI-screens.md](UI-screens.md); it adds no token and changes no value.
 - Version 1.3 (5 October 2026, D88) updates 6.26 for the owner's S-08 amendment: juz' then surah for the Quran, groups of 10 with «تخصيص» for books; it adds no token and changes no value.
-- Version 1.4 (5 October 2026, D90) replaces Amiri Quran and Amiri with Scheherazade New for original text (Quran and hadith), because Amiri draws a final alef maqsura after lam like a fatha («إلَى» looked like «إلَ»); only the values of `--q-font-quran` and `--q-font-hadith` and the font package change; line heights are unchanged. Implemented locally on branch question-bank-fixes, local tests only, not deployed.
+- Version 1.4 (5 October 2026, D92) replaces Amiri Quran and Amiri with Scheherazade New for original text (Quran and hadith), because Amiri draws a final alef maqsura after lam like a fatha («إلَى» looked like «إلَ»); only the values of `--q-font-quran` and `--q-font-hadith` and the font package change; line heights are unchanged. Implemented locally on branch question-bank-fixes, local tests only, not deployed.
 - No decoration: no patterns, 3D water effects, certificates, leaderboards, translation toggle or AI toggle (D49, D51).
 
 ## 2. Colour tokens
@@ -134,17 +134,17 @@ Findings:
 |---|---|---|
 | `--q-font-ui-ar` | "Cairo", "Noto Sans Arabic", "Segoe UI", Tahoma, system-ui, sans-serif | Arabic UI (Cairo approved) |
 | `--q-font-ui-en` | "Inter", system-ui, -apple-system, "Segoe UI", Roboto, Arial, "Cairo", sans-serif | English UI (Inter approved) |
-| `--q-font-quran` | "Scheherazade New", "Noto Naskh Arabic", "Traditional Arabic", serif | Quran text (D90; replaces Amiri Quran) |
-| `--q-font-hadith` | "Scheherazade New", "Noto Naskh Arabic", "Traditional Arabic", serif | Hadith text (D90; replaces Amiri) |
+| `--q-font-quran` | "Scheherazade New", "Noto Naskh Arabic", "Traditional Arabic", serif | Quran text (D92; replaces Amiri Quran) |
+| `--q-font-hadith` | "Scheherazade New", "Noto Naskh Arabic", "Traditional Arabic", serif | Hadith text (D92; replaces Amiri) |
 | `--q-font-mono` | ui-monospace, "SF Mono", Menlo, Consolas, monospace | Recovery code only (**proposed**) |
 
-Packages (D69, SIL OFL-1.1, self-hosted from npm, no font CDN), version 5.3.0 on 4 October 2026: `@fontsource/cairo` 400, 600, 700 (Arabic about 14 KB per weight), `@fontsource/inter` 400, 600, 700 latin (about 24 KB), `@fontsource/scheherazade-new` 400 only, arabic subset (D90, version 5.3.0; replaces `@fontsource/amiri-quran` and `@fontsource/amiri`). Import only the arabic and latin subset entry files (`arabic-400.css`, `latin-400.css`). Weights (**proposed**): 400 body, 600 labels and buttons, 700 titles.
+Packages (D69, SIL OFL-1.1, self-hosted from npm, no font CDN), version 5.3.0 on 4 October 2026: `@fontsource/cairo` 400, 600, 700 (Arabic about 14 KB per weight), `@fontsource/inter` 400, 600, 700 latin (about 24 KB), `@fontsource/scheherazade-new` 400 only, arabic subset (D92, version 5.3.0; replaces `@fontsource/amiri-quran` and `@fontsource/amiri`). Import only the arabic and latin subset entry files (`arabic-400.css`, `latin-400.css`). Weights (**proposed**): 400 body, 600 labels and buttons, 700 titles.
 
 ### 3.2 Original-text rules
 
 The original-text font never alters letters (contract §1). Rules are **proposed** unless stated.
 
-- Coverage (D90: Scheherazade New, SIL OFL 1.1, Fontsource 5.3.0 arabic subset, weight 400; the cmap lookup of 4 October 2026 was made on Amiri Quran and Amiri, the claim for Scheherazade New is the coordinator's check for D90): Scheherazade New contains all six required marks, U+06E1, U+06E5, U+06E6, U+06E2, U+06ED and U+06DF; Cairo contains none. Cairo is therefore never used for original text and is absent from the religious stacks. This proves coverage only; shaping is checked by the screenshot test below.
+- Coverage (D92: Scheherazade New, SIL OFL 1.1, Fontsource 5.3.0 arabic subset, weight 400; the cmap lookup of 4 October 2026 was made on Amiri Quran and Amiri, the claim for Scheherazade New is the coordinator's check for D92): Scheherazade New contains all six required marks, U+06E1, U+06E5, U+06E6, U+06E2, U+06ED and U+06DF; Cairo contains none. Cairo is therefore never used for original text and is absent from the religious stacks. This proves coverage only; shaping is checked by the screenshot test below.
 - `dir="rtl" lang="ar"` always, also in the English UI (NFR-14). Show the stored NFC text exactly; never apply grading normalisation to display.
 - `letter-spacing: 0`, `word-spacing: normal`, no `text-transform`, no justify (`text-align: start`), no shadow or stroke, `font-synthesis: none` (Scheherazade New is used at one weight, 400), font features at defaults.
 - Never truncate (no ellipsis, line clamp or fixed-height clipping; D03/D20/D25). Containers use `overflow: visible` with at least 8 px vertical padding so marks are not clipped, chips included.
@@ -174,7 +174,7 @@ Religious text is larger than UI body with generous line height (approved direct
 
 - Numerals (decided, see section 10): the Arabic UI shows Arabic-Indic digits (٠–٩), matching the approved examples («٧/١٠ دقائق = ٧٠٪»); the English UI shows Western digits. One formatter serves both and must request the digit system explicitly (`ar-u-nu-arab`), since a bare `ar-AE` locale does not guarantee it. Username, password, recovery code and URLs always use Western digits, left to right; ayah and hadith numbers are shown as stored.
 - Cairo and Inter: `font-display: swap`, preload the active language's 400 file.
-- Scheherazade New (D90): `font-display: block`, preload the arabic file on routes that show original text; declare `@font-face` in our CSS pointing at the package files (Fontsource defaults to `swap`). Original text never renders in a fallback lacking the marks.
+- Scheherazade New (D92): `font-display: block`, preload the arabic file on routes that show original text; declare `@font-face` in our CSS pointing at the package files (Fontsource defaults to `swap`). Original text never renders in a fallback lacking the marks.
 - Font files belong to the offline shell ([PWA-design.md](PWA-design.md)); no network font requests.
 
 ## 4. Spacing, sizing, shape, elevation

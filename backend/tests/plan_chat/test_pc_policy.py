@@ -402,7 +402,7 @@ def test_numbers_that_contradict_the_proposal_are_replaced_or_the_reply_is_templ
     assert allowed.ok and not allowed.replaced_numbers
 
 
-# --- the daily amount in whole units (D90) ---
+# --- the daily amount in whole units (D92) ---
 
 
 def with_daily(daily: DailyNew | None):

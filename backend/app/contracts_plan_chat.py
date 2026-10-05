@@ -73,7 +73,7 @@ class TargetScope(CamelModel):
 
 
 class DailyNew(CamelModel):
-    """The daily amount of new material in whole learning units (D90).
+    """The daily amount of new material in whole learning units (D92).
 
     The internal pace stays in words (``Estimate.new_words_per_day``, which the passage split of
     D66 relies on); this is how the learner is told: ``perDay`` whole units a day, or one whole
@@ -102,8 +102,8 @@ class Estimate(CamelModel):
     session_minutes: SessionMinutes
     scope: TargetScope
     paths: list[Path]
-    # D90: the learner-facing amount in whole units. ``None`` when the catalog gives no unit count
-    # (and for a plan stored before D90): the client then falls back to the words figure.
+    # D92: the learner-facing amount in whole units. ``None`` when the catalog gives no unit count
+    # (and for a plan stored before D92): the client then falls back to the words figure.
     daily_new: DailyNew | None = None
 
 
