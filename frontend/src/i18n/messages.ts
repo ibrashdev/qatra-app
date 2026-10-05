@@ -2,6 +2,7 @@
 // Arabic is verbatim where docs/UX.md, UI-tokens or UI-screens fix it; the rest is proposed copy (UI-tokens A7), so English wording is not sourced.
 import { authAr, authEn, type AuthMessages } from "./auth-messages";
 import { formAr, formEn, type FormMessages } from "./form-messages";
+import { recoveryCodeAr, recoveryCodeEn, type RecoveryCodeMessages } from "./recovery-code-messages";
 
 export type Locale = "ar" | "en";
 export type Direction = "rtl" | "ltr";
@@ -40,6 +41,7 @@ export interface UiMessages {
   server: { waking: string; retry: string; ready: string; busy: string };
   form: FormMessages;
   auth: AuthMessages;
+  recoveryCode: RecoveryCodeMessages;
 }
 
 const ar: UiMessages = {
@@ -80,6 +82,7 @@ const ar: UiMessages = {
   },
   form: formAr,
   auth: authAr,
+  recoveryCode: recoveryCodeAr,
 };
 
 const en: UiMessages = {
@@ -120,6 +123,7 @@ const en: UiMessages = {
   },
   form: formEn,
   auth: authEn,
+  recoveryCode: recoveryCodeEn,
 };
 
 const CATALOGS: Record<Locale, UiMessages> = { ar, en };

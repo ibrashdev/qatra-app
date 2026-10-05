@@ -441,7 +441,7 @@ test.describe("validation, on submit only (P-03)", () => {
 });
 
 test.describe("sending E04 and leaving (S-01 section 1)", () => {
-  test("a plan: the request is a same-origin JSON POST, the page goes to /today, its heading takes focus, and nothing is stored", async ({ page }) => {
+  test("a plan: the request is a same-origin JSON POST, the page goes to /today, its heading takes focus, and nothing is stored", async ({ page, baseURL }) => {
     await openLogin(page);
     const sent = await serveLogin(page, signedIn());
     await serveHome(page);
@@ -455,7 +455,7 @@ test.describe("sending E04 and leaving (S-01 section 1)", () => {
     await expect(page).toHaveURL(/\/today$/);
     await expect(page.getByRole("heading", { level: 1, name: COPY.ar.todayHeading })).toBeFocused();
     expect(sent).toEqual([{ username: "sample_user_01", password: MOCK_PASSWORD }]);
-    expect(requests).toEqual([`POST http://127.0.0.1:3100 application/json no authorization`]);
+    expect(requests).toEqual([`POST ${new URL(baseURL ?? "").origin} application/json no authorization`]);
     expect(await page.evaluate(() => Object.keys(localStorage))).toEqual(["qatra.language"]);
     expect(await page.evaluate(() => Object.keys(sessionStorage))).toEqual([]);
     expect(await page.evaluate(() => document.cookie)).toBe("");
@@ -487,14 +487,14 @@ test.describe("sending E04 and leaving (S-01 section 1)", () => {
   });
 
   for (const next of ["//evil.example/x", "https://evil.example/x", "javascript:alert(1)", "/login"]) {
-    test(`?next=${next} is ignored and the visitor goes home`, async ({ page }) => {
+    test(`?next=${next} is ignored and the visitor goes home`, async ({ page, baseURL }) => {
       await openLogin(page, { query: `?next=${encodeURIComponent(next)}` });
       await serveLogin(page, signedIn());
       await serveHome(page);
       await fill(page, "ar");
       await submitButton(page, "ar").click();
       await expect(page).toHaveURL(/\/today$/);
-      expect(new URL(page.url()).origin).toBe("http://127.0.0.1:3100");
+      expect(new URL(page.url()).origin).toBe(new URL(baseURL ?? "").origin);
     });
   }
 
