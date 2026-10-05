@@ -1,5 +1,5 @@
 """Startup wiring of the learning core: catalog (E14), plans (E15-E17, E30), sessions and progress
-(E18-E22) and the plan conversation (E31-E34)."""
+(E18-E22) and the plan conversation (E31-E34), and of the content manager web admin (D91)."""
 
 from __future__ import annotations
 
@@ -13,9 +13,15 @@ from fastapi import FastAPI
 from app.config import Settings
 from app.dependencies import SessionContext
 from app.repositories.ai_usage import UsageLedger
+from app.repositories.content_admin import (
+    ContentAdminRepository,
+    MemoryContentAdminRepository,
+    PostgrestContentAdminRepository,
+)
 from app.repositories.learning import InMemoryLearningStore
 from app.repositories.plan_chats import PlanChatRepository
 from app.routers.sessions import install_sessions
+from app.services.content_admin import ContentAdminService
 from app.services.plan_access import PlanServiceAccess, PlanServiceCalendar
 from app.services.plan_chat import PlanChatApi, build_plan_chat_gateway
 from app.services.plans import build_planning_services
@@ -111,4 +117,51 @@ def install_plan_chat(
         repository=repository,
         clock=clock,
         **chosen,
+    )
+
+
+def install_content_admin(
+    app: FastAPI,
+    settings: Settings,
+    *,
+    repository: ContentAdminRepository | None = None,
+    clock: Callable[[], datetime] | None = None,
+    transport: httpx.BaseTransport | None = None,
+) -> None:
+    """Build the content manager admin (D91) and store it on ``app.state.content_admin_service``;
+    include its routes (once).
+
+    Memory mode uses an empty ``MemoryContentAdminRepository``. Supabase mode uses a PostgREST
+    client of its own whose key is ``SUPABASE_SERVICE_ROLE_KEY`` (server side only); without
+    ``SUPABASE_URL`` or that key the service is ``None`` and every admin route answers
+    ``503 unavailable``. The AI status card reads the global counters of the plan conversation's
+    usage ledger when it is reachable from ``app.state`` (looked up per request, so a later
+    ``install_plan_chat`` is seen). ``repository``, ``clock`` and ``transport`` are test seams.
+    """
+    from app.routers import content_admin  # local import: keeps the router out of module import
+
+    if not getattr(app.state, "content_admin_routes_included", False):
+        app.include_router(content_admin.router)
+        app.state.content_admin_routes_included = True
+
+    if repository is None:
+        if settings.QATRA_DATA_BACKEND == "memory":
+            repository = MemoryContentAdminRepository(clock=clock)
+        elif settings.is_missing("SUPABASE_URL") or settings.is_missing(
+            "SUPABASE_SERVICE_ROLE_KEY"
+        ):
+            app.state.content_admin_service = None
+            return
+        else:
+            repository = PostgrestContentAdminRepository.from_settings(
+                settings, transport=transport
+            )
+
+    def usage_ledger() -> UsageLedger | None:
+        gateway = getattr(app.state, "plan_chat_service", None)
+        ledger: UsageLedger | None = getattr(gateway, "ledger", None)
+        return ledger
+
+    app.state.content_admin_service = ContentAdminService(
+        settings, repository, clock=clock, usage_ledger=usage_ledger
     )
