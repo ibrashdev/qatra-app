@@ -263,3 +263,102 @@ def test_cost_is_recorded_only_when_the_provider_reports_it() -> None:
 
 def test_repr_hides_the_key() -> None:
     assert "dummy-key" not in repr(provider(Router()))
+
+
+# -- total wall-clock deadline (httpx timeouts are per phase; keep-alive bytes defeat them) -------
+
+
+class TrickleStream(httpx.SyncByteStream):
+    """A body delivered in chunks; a fake clock advances by ``step`` seconds per chunk."""
+
+    def __init__(self, chunks: list[bytes], now: list[float], step: float) -> None:
+        self.chunks = chunks
+        self.now = now
+        self.step = step
+        self.delivered = 0
+
+    def __iter__(self):
+        for chunk in self.chunks:
+            self.now[0] += self.step
+            self.delivered += 1
+            yield chunk
+
+
+def trickle_router(chunks: list[bytes], now: list[float], step: float):
+    streams: list[TrickleStream] = []
+
+    def reply(request: httpx.Request) -> httpx.Response:
+        stream = TrickleStream(chunks, now, step)
+        streams.append(stream)
+        return httpx.Response(200, headers={"content-type": "application/json"}, stream=stream)
+
+    return Router(reply=reply), streams
+
+
+def good_body() -> bytes:
+    return json.dumps(completion(json.dumps(GOOD))).encode()
+
+
+def test_body_trickling_past_the_deadline_is_a_timeout() -> None:
+    now = [0.0]
+    chunks = [b" "] * 5 + [good_body()]
+    router, streams = trickle_router(chunks, now, step=3.0)
+    with pytest.raises(ProviderUnavailable) as caught:
+        run(provider(router, clock=lambda: now[0]))
+    assert caught.value.reason == "timeout" and caught.value.request_made
+    assert caught.value.usage_status == "timed_out"
+    assert caught.value.model == "free/a:free"
+    # Gave up at the first chunk past 8 s (the third), without reading the rest.
+    assert streams[0].delivered == 3
+
+
+def test_keep_alive_whitespace_then_a_valid_body_within_the_deadline_succeeds() -> None:
+    now = [0.0]
+    chunks = [b" ", b"\n", b" ", good_body()]
+    router, _ = trickle_router(chunks, now, step=1.0)
+    reply = run(provider(router, clock=lambda: now[0]))
+    assert reply.output.parameters.as_patch() == {"sessionMinutes": 15}
+    assert (reply.input_tokens, reply.output_tokens) == (120, 30)
+
+
+def test_a_body_split_across_chunks_is_reassembled() -> None:
+    now = [0.0]
+    body = good_body()
+    router, _ = trickle_router([b"  ", body[:20], body[20:]], now, step=0.5)
+    assert run(provider(router, clock=lambda: now[0])).output.reply == "Done."
+
+
+def test_catalog_lookup_that_uses_up_the_budget_is_a_timeout() -> None:
+    now = [0.0]
+
+    def slow_models(request: httpx.Request) -> httpx.Response:
+        now[0] += 9.0
+        return httpx.Response(200, json={"data": [{"id": "free/a:free", "pricing": ZERO}]})
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/models"):
+            return slow_models(request)
+        raise AssertionError("must not call completions after the budget is gone")
+
+    p = OpenRouterProvider(
+        make_settings(OPENROUTER_API_KEY="k", OPENROUTER_MODELS="free/a:free"),
+        httpx.MockTransport(handler),
+        clock=lambda: now[0],
+    )
+    with pytest.raises(ProviderUnavailable) as caught:
+        run(p)
+    assert caught.value.reason == "timeout" and caught.value.model == "free/a:free"
+
+
+def test_non_200_status_is_an_error_without_reading_the_body() -> None:
+    now = [0.0]
+
+    def reply(request: httpx.Request) -> httpx.Response:
+        stream = TrickleStream([b"secret text"], now, 0.0)
+        streams.append(stream)
+        return httpx.Response(503, stream=stream)
+
+    streams: list[TrickleStream] = []
+    with pytest.raises(ProviderUnavailable) as caught:
+        run(provider(Router(reply=reply), clock=lambda: now[0]))
+    assert caught.value.reason == "error" and streams[0].delivered == 0
