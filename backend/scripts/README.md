@@ -1,8 +1,9 @@
 # Operator CLI: `content_tools` (content workflow, B7)
 
 The content manager and the reviewer (the owner, D70/D71) run the content workflow from a
-developer machine; no HTTP endpoint exposes it (API-spec §5, D48). Seven commands are
-implemented: `acquire`, `verify`, `segment`, `build-bank`, `validate`, `approve` and `publish`.
+developer machine; no HTTP endpoint exposes it (API-spec §5, D48). Eight commands are
+implemented: `acquire`, `verify`, `segment`, `propose-questions`, `build-bank`, `validate`, `approve`
+and `publish`.
 `withdraw`, `archive` and `delete-unused-draft` are registered: they check their preconditions
 and then refuse with exit code 6 until C6.
 
@@ -21,15 +22,16 @@ is **not available in B7**: the `content_jobs` repository lands after B1 is acce
 
 ## Commands and the step each one writes
 
-Ten commands are registered. Six implemented commands write their `content_jobs` step to the
+Eleven commands are registered. Six implemented commands write their `content_jobs` step to the
 local job rows. `publish` writes no local row (the `published` row is in its SQL file, see
-`publish`) and `delete-unused-draft` writes none (API-spec §5.2).
+`publish`), and `propose-questions` and `delete-unused-draft` write none (API-spec §5.2).
 
 | Command | Step written | Status |
 |---|---|---|
 | `acquire` | `acquired` | implemented |
 | `verify` | `verified` | implemented, with the source-only mode `--source-only-decision D83` |
 | `segment` | `segmented` | implemented (B8) |
+| `propose-questions` | none (optional, between `segment` and `build-bank`) | implemented (D90) |
 | `build-bank` | `bank_built` | implemented (B8) |
 | `validate` | `validated` | implemented (B8) |
 | `approve` | `approved` | implemented: records the owner's approval from explicit inputs |
@@ -163,6 +165,64 @@ uv run python -m scripts.content_tools validate --edition <key> --bank-version 1
   grade unit is kept, `segment` prints `grade_passages_omitted=[...]` and the review record lists
   a `grade_path_unavailable` flag. A full build still makes every grade passage, so a grade that
   cannot be tested stays a `validate` failure (`part_uncovered`). No other validation rule changed.
+
+## `propose-questions` (optional, D90)
+
+```bash
+uv run python -m scripts.content_tools propose-questions --edition <key> --bank-version 1 \
+    [--max-requests 30] [--timeout 90] [--pause 3.5] [--refresh] [--dry-run]
+```
+
+The owner approved (D90) that a free AI model proposes the question words, the program checks the
+answers and the owner reviews them before publishing. The model never changes the religious text
+and never invents information: it answers with **references** to words of the source (never a new
+word), and every pick is checked by the program.
+
+- **Where it sits**: after `segment` (needs the `segmented` step), before `build-bank`. It writes
+  no job row. Without it, `build-bank` is exactly the rules engine; the rules engine is also the
+  permanent fallback for every part the model did not or could not pick.
+- **What is sent**: one request per non-grade passage (grade passages have no recall or word
+  question): its parts with word references and the distinct Arabic words of its section (the
+  distractor pool, at most 200). Published source text only; the workflow holds no learner data.
+- **Free models only (D60)**: the request goes through `OpenRouterProvider`, which calls a model
+  only when its live OpenRouter price is zero. Set `OPENROUTER_API_KEY` and `OPENROUTER_MODELS`
+  (free model ids, best first) in the environment or the gitignored `backend/.env`. With no key or
+  no candidate the command prints `rules fallback: no free model configured`, exits 0 and writes
+  nothing. If no listed model is free it stops with `stopped=ineligible` (nothing was sent).
+- **Quota**: the free allowance is per OpenRouter account and shared with the live app (50 a day by
+  default). `--max-requests` (default 30) is also capped by
+  `QATRA_OPENROUTER_FREE_REQUESTS_PER_DAY`; `--pause` spaces requests for the per-minute limit. The
+  run is **resumable**: the store is saved after every passage and a passage whose proposal is
+  current is not asked again, so run it again the next day for the passages still `deferred`.
+  `--refresh` asks again for every passage; `--dry-run` prints the plan (`planned=N`) and sends
+  nothing (no key needed). A failed, timed-out or malformed answer leaves that passage to the rules
+  (counted in `failed`, the reason codes printed as `failures=`); three failures in a row stop the
+  run (`stopped=provider_failing`).
+- **Writes** below `<build>/<editionKey>/`: `question-proposals.json` (the raw proposals: edition,
+  passage key, SHA-256 of the passage text, model id and the references; no source text) and
+  `question-proposals.md`, the review sheet with the part text, the model's keyword, word and
+  distractors, and for each whether it was accepted or why the rules took over. The sheet holds
+  source text: never commit it. **Read it before `approve`.**
+- **Validation** (the same rules the rules engine uses, applied to the model's picks): each
+  reference must exist; the keyword and the word to choose must belong to that part, be Arabic
+  script, not be a stoplist word or a single letter, not be ambiguous (the same shown context
+  elsewhere with another answer), and the keyword must not be a Quran position whose spelling
+  forbids recall; the word to choose must differ from the keyword and, in a part after the first,
+  from the first word (already tested as the continuation point); the 3 distractors must be exactly
+  3 references from the pool, Arabic script, pairwise different after normalization (alternative
+  forms included) and different from the target. The keyword and the choice are accepted or
+  rejected independently; a rejected one is made by the rules for that part.
+- **`build-bank`** reads `question-proposals.json` when it exists and re-validates every proposal,
+  so the same store always gives the same bank (an unchanged result is `changed=no`). An entry whose
+  passage text no longer matches its hash is stale and ignored. The question items, ids, natural keys
+  and option order are unchanged; only which words are tested differs. The report and the job
+  summary record counts only: `proposals.proposedBy` (`ai` both picked, `partial` one of the two,
+  `rules`), the counts of model keywords and choices, stale passages and model ids, and the
+  command prints `parts_ai`, `parts_partial` and `parts_rules`. Nothing is added to the question
+  items or the database.
+- **Exit codes**: 0 ok (including no free model); 2 an unreadable `question-proposals.json`; 3
+  `segment` has not run or the bundle changed; 5 an unreadable configuration (names only).
+  Errors print counts, ids and reason codes only; the API key is never printed.
 
 ## `approve`
 

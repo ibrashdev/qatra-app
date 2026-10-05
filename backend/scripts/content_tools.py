@@ -5,10 +5,13 @@ Run from ``backend/``::
     uv run python -m scripts.content_tools <command> --edition <key> --bank-version <N> [...]
     uv run python scripts/content_tools.py <command> ...        # equivalent
 
-Commands: ``acquire``, ``verify``, ``segment``, ``build-bank``, ``validate``, ``approve``,
-``publish``, ``withdraw``, ``archive``, ``delete-unused-draft``. B7 implemented ``acquire`` and
-``verify``; B8 added ``segment``, ``build-bank`` and ``validate``; ``approve`` and ``publish``
-are implemented below. ``withdraw``, ``archive`` and ``delete-unused-draft`` are registered,
+Commands: ``acquire``, ``verify``, ``segment``, ``propose-questions``, ``build-bank``,
+``validate``, ``approve``, ``publish``, ``withdraw``, ``archive``, ``delete-unused-draft``. B7
+implemented ``acquire`` and ``verify``; B8 added ``segment``, ``build-bank`` and ``validate``;
+``approve`` and ``publish`` are implemented below. ``propose-questions`` (D90) is an optional step
+between ``segment`` and ``build-bank``: a free model picks the question words, the program checks
+them, and the owner reads ``question-proposals.md`` before ``approve`` (it writes no job row).
+``withdraw``, ``archive`` and ``delete-unused-draft`` are registered,
 check their preconditions through ``app.domain.content_policy`` and then exit with code 6 and
 the message "not implemented in B7 (B8/C6)" (C6 implements them).
 
@@ -48,6 +51,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+from collections import Counter
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -55,10 +59,12 @@ from pathlib import Path
 from typing import Any
 
 import httpx
+from pydantic import SecretStr
 
 if __package__ in (None, ""):  # started as ``python scripts/content_tools.py``
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from app.config import Settings, StartupConfigError, load_settings  # noqa: E402
 from app.domain.content_policy import (  # noqa: E402
     ContentPolicyError,
     PublishRefusedError,
@@ -67,6 +73,7 @@ from app.domain.content_policy import (  # noqa: E402
     assert_publishable,
     assert_step_allowed,
 )
+from app.providers.openrouter import build_default_provider  # noqa: E402
 from app.workflow import source_only  # noqa: E402
 from app.workflow.approval import (  # noqa: E402
     is_complete_approval,
@@ -86,6 +93,8 @@ from app.workflow.edition_build import (  # noqa: E402
     make_build_bank_handler,
     make_segment_handler,
     make_validate_handler,
+    proposals_report_path,
+    run_propose_questions,
 )
 from app.workflow.editions import (  # noqa: E402
     EDITION_KEYS,
@@ -100,6 +109,7 @@ from app.workflow.editions import (  # noqa: E402
 from app.workflow.errors import (  # noqa: E402
     ExitCode,
     InputError,
+    NotConfiguredError,
     StepNotImplementedError,
     WorkflowError,
 )
@@ -118,6 +128,12 @@ from app.workflow.publication import (  # noqa: E402
     resolve_sql_out,
     write_sql_file,
 )
+from app.workflow.question_proposals import (  # noqa: E402
+    DEFAULT_MAX_REQUESTS,
+    DEFAULT_PAUSE_SEC,
+    DEFAULT_TIMEOUT_SEC,
+    ProposalProvider,
+)
 from app.workflow.runner import JobResult, run_content_job  # noqa: E402
 from app.workflow.settings import (  # noqa: E402
     SupabaseConfig,
@@ -134,6 +150,7 @@ COMMANDS = (
     "acquire",
     "verify",
     "segment",
+    "propose-questions",
     "build-bank",
     "validate",
     "approve",
@@ -159,6 +176,8 @@ class CliRuntime:
     stdin_isatty: Callable[[], bool] | None = None
     transport: httpx.BaseTransport | None = None
     clock: Callable[[], datetime] | None = None
+    # ``propose-questions`` uses it in place of the OpenRouter provider (tests only).
+    proposal_provider: ProposalProvider | None = None
 
     def now(self) -> datetime:
         return self.clock() if self.clock else datetime.now(UTC)
@@ -179,6 +198,26 @@ def _bank_version(value: str) -> int:
         raise argparse.ArgumentTypeError("must be an integer") from None
     if number < 1:
         raise argparse.ArgumentTypeError("must be 1 or greater")
+    return number
+
+
+def _non_negative_int(value: str) -> int:
+    try:
+        number = int(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError("must be an integer") from None
+    if number < 0:
+        raise argparse.ArgumentTypeError("must be 0 or greater")
+    return number
+
+
+def _seconds(value: str) -> float:
+    try:
+        number = float(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError("must be a number of seconds") from None
+    if not 0 <= number <= 3600:
+        raise argparse.ArgumentTypeError("must be between 0 and 3600")
     return number
 
 
@@ -245,6 +284,40 @@ def build_parser() -> argparse.ArgumentParser:
     segment.add_argument("--labels", type=Path, help="edition labels file (default: packaged)")
     segment.add_argument(
         "--boundaries", type=Path, help="hadith matn/sanad boundaries file (default: packaged)"
+    )
+    propose = sub.add_parser(
+        "propose-questions",
+        parents=[common],
+        help="a free model proposes the question words; the program checks them (D90); read "
+        "question-proposals.md before approve; needs segment, writes no job row",
+    )
+    propose.add_argument(
+        "--max-requests",
+        type=_non_negative_int,
+        default=DEFAULT_MAX_REQUESTS,
+        metavar="N",
+        help=f"most requests this run (default {DEFAULT_MAX_REQUESTS}; also capped by "
+        "QATRA_OPENROUTER_FREE_REQUESTS_PER_DAY, an allowance shared with the live app)",
+    )
+    propose.add_argument(
+        "--timeout",
+        type=_seconds,
+        default=DEFAULT_TIMEOUT_SEC,
+        metavar="S",
+        help=f"seconds per request (default {DEFAULT_TIMEOUT_SEC:g})",
+    )
+    propose.add_argument(
+        "--pause",
+        type=_seconds,
+        default=DEFAULT_PAUSE_SEC,
+        metavar="S",
+        help=f"seconds between requests (default {DEFAULT_PAUSE_SEC:g}, for 20 requests a minute)",
+    )
+    propose.add_argument(
+        "--refresh", action="store_true", help="ask again for passages that already have a proposal"
+    )
+    propose.add_argument(
+        "--dry-run", action="store_true", help="print the plan and send nothing (no key needed)"
     )
     sub.add_parser("build-bank", parents=[common], help="lessons and questions (step bank_built)")
     sub.add_parser("validate", parents=[common], help="fail-closed validation (step validated)")
@@ -511,6 +584,80 @@ def _cmd_segment(ctx: _Context) -> int:
     return int(ExitCode.OK)
 
 
+def _proposal_settings(rt: CliRuntime) -> Settings:
+    """The OpenRouter settings. Normally the process environment and the gitignored
+    ``backend/.env`` (as the app reads them, names only in errors); with an injected
+    ``environ`` (tests) only that mapping, so a real key can never leak into a test."""
+    if rt.environ is None:
+        try:
+            return load_settings()
+        except StartupConfigError as exc:
+            raise NotConfiguredError(str(exc)) from None
+    values: dict[str, Any] = {}
+    key = (rt.environ.get("OPENROUTER_API_KEY") or "").strip()
+    if key:
+        values["OPENROUTER_API_KEY"] = SecretStr(key)
+    if (rt.environ.get("OPENROUTER_MODELS") or "").strip():
+        values["OPENROUTER_MODELS"] = rt.environ["OPENROUTER_MODELS"]
+    daily = (rt.environ.get("QATRA_OPENROUTER_FREE_REQUESTS_PER_DAY") or "").strip()
+    if daily:
+        if not daily.isdecimal():
+            raise NotConfiguredError("QATRA_OPENROUTER_FREE_REQUESTS_PER_DAY must be an integer")
+        values["QATRA_OPENROUTER_FREE_REQUESTS_PER_DAY"] = int(daily)
+    return Settings.model_construct(**values)
+
+
+def _cmd_propose_questions(ctx: _Context) -> int:
+    """D90: send the published source text, one passage at a time, to a FREE model that picks
+    the question words (by reference). Without a free model nothing is sent or written and
+    ``build-bank`` keeps using the rules."""
+    args = ctx.args
+    settings = _proposal_settings(ctx.rt)
+    provider: ProposalProvider | None = None
+    if not args.dry_run:
+        provider = ctx.rt.proposal_provider or build_default_provider(settings, ctx.rt.transport)
+        if provider is None:
+            print("rules fallback: no free model configured")
+            return int(ExitCode.OK)
+    run = run_propose_questions(
+        edition_key=ctx.edition,
+        bank_version=ctx.bank_version,
+        jobs=ctx.jobs(),
+        paths=ctx.paths,
+        provider=provider,
+        timeout_sec=args.timeout,
+        max_requests=args.max_requests,
+        daily_limit=settings.QATRA_OPENROUTER_FREE_REQUESTS_PER_DAY,
+        pause_sec=args.pause,
+        refresh=args.refresh,
+        dry_run=args.dry_run,
+    )
+    counts = " ".join(f"{key}={value}" for key, value in run.counts.items())
+    pieces = [
+        "propose-questions",
+        ctx.edition,
+        f"bank_version={ctx.bank_version}",
+        f"status={'dry_run' if run.dry_run else 'proposed'}",
+        counts,
+    ]
+    if run.stopped:
+        pieces.append(f"stopped={run.stopped}")
+    if run.failures:
+        reasons = Counter(reason for _passage, reason in run.failures)
+        pieces.append("failures=" + ",".join(f"{r}:{n}" for r, n in sorted(reasons.items())))
+    if run.models:
+        pieces.append("models=" + ",".join(run.models))
+    print(" ".join(pieces))
+    if run.dry_run:
+        print("dry run: nothing was sent")
+    elif run.wrote:
+        print(
+            f"review {proposals_report_path(ctx.paths, ctx.edition)} before approve; "
+            "then run build-bank (a part the program rejected keeps the rules choice)"
+        )
+    return int(ExitCode.OK)
+
+
 def _cmd_build_bank(ctx: _Context) -> int:
     jobs = ctx.jobs()
     handler = make_build_bank_handler(
@@ -672,6 +819,8 @@ def _dispatch(args: argparse.Namespace, rt: CliRuntime) -> int:
         return _cmd_verify(ctx)
     if args.command == "segment":
         return _cmd_segment(ctx)
+    if args.command == "propose-questions":
+        return _cmd_propose_questions(ctx)
     if args.command == "build-bank":
         return _cmd_build_bank(ctx)
     if args.command == "validate":
