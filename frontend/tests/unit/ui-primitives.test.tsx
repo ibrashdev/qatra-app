@@ -9,6 +9,7 @@ import { ErrorSummary } from "@/components/ui/ErrorSummary";
 import { Icon, type IconName } from "@/components/ui/Icon";
 import { Notice } from "@/components/ui/Notice";
 import { PasswordField } from "@/components/ui/PasswordField";
+import { SegmentedControl, type SegmentOption } from "@/components/ui/SegmentedControl";
 import { TextField } from "@/components/ui/TextField";
 import { TextLink } from "@/components/ui/TextLink";
 
@@ -502,5 +503,60 @@ describe("Checkbox (UI-tokens 6.3)", () => {
     expect(box).not.toHaveAttribute("aria-invalid");
     expect(box).not.toHaveAttribute("aria-describedby");
     expect(box.parentElement).toHaveClass("border-edge");
+  });
+
+  it("shows no helper line and adds nothing to the markup without a description", () => {
+    const { box } = setup();
+    expect(box.closest("label")?.parentElement?.querySelectorAll("p")).toHaveLength(0);
+  });
+
+  it("shows a description as a small secondary helper line under the row, and the input is described by it", () => {
+    const { box } = setup({ description: "We only use this to remind you." });
+    const helper = document.getElementById(box.getAttribute("aria-describedby") ?? "");
+    expect(helper).toHaveTextContent("We only use this to remind you.");
+    expect(helper?.tagName).toBe("P");
+    expect(helper).toHaveClass("text-small", "text-ink-secondary");
+    // Under the row, outside the label, so pressing the helper does not toggle the box.
+    expect(box.closest("label")).not.toContainElement(helper);
+    expect(box.closest("label")?.nextElementSibling).toBe(helper);
+    expect(box).toHaveAccessibleDescription("We only use this to remind you.");
+    expect(box).not.toHaveAttribute("aria-invalid");
+  });
+
+  it("describes the input by the helper first and the error second when both are shown", () => {
+    const { box } = setup({ description: "We only use this to remind you.", error: "You must agree." });
+    const ids = (box.getAttribute("aria-describedby") ?? "").split(" ");
+    expect(ids).toHaveLength(2);
+    expect(document.getElementById(ids[0] ?? "")).toHaveTextContent("We only use this to remind you.");
+    expect(document.getElementById(ids[1] ?? "")).toHaveTextContent("You must agree.");
+    expect(box).toHaveAttribute("aria-invalid", "true");
+    expect(box).toHaveAccessibleDescription("We only use this to remind you. You must agree.");
+  });
+});
+
+describe("SegmentedControl (UI-tokens 6.4)", () => {
+  function setup(options: readonly SegmentOption<"ar" | "en">[]) {
+    render(<SegmentedControl legend="Language" options={options} value="ar" onChange={() => undefined} />);
+  }
+
+  it("puts the language of a segment on its label, which is also its accessible name", () => {
+    setup([
+      { value: "ar", label: "العربية", lang: "ar" },
+      { value: "en", label: "English", lang: "en" },
+    ]);
+    const arabic = screen.getByRole("radio", { name: "العربية" });
+    const english = screen.getByRole("radio", { name: "English" });
+    expect(arabic.closest("label")).toHaveAttribute("lang", "ar");
+    expect(english.closest("label")).toHaveAttribute("lang", "en");
+    expect(screen.getByText("العربية")).toHaveAttribute("lang", "ar");
+    expect(screen.getByText("English")).toHaveAttribute("lang", "en");
+  });
+
+  it("leaves lang off a segment that has none", () => {
+    setup([
+      { value: "ar", label: "Arabic" },
+      { value: "en", label: "English" },
+    ]);
+    for (const name of ["Arabic", "English"]) expect(screen.getByRole("radio", { name }).closest("label")).not.toHaveAttribute("lang");
   });
 });

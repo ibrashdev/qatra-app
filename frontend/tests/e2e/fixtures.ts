@@ -1,5 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test as base, type ConsoleMessage, type Page, type Route } from "@playwright/test";
+import { mockProfile } from "../../src/lib/api/mock";
 
 interface Options {
   // The wake-up tests make /api/health fail on purpose, and the browser logs those failures.
@@ -45,6 +46,30 @@ export async function axeViolations(page: Page): Promise<string[]> {
   return result.violations.map((violation) => `${violation.id} (${violation.impact}): ${violation.nodes.map((node) => node.target.join(" ")).join(" | ")}`);
 }
 
+// As axeViolations, for long pages in the signed-in shell. axe counts a target that the fixed tab bar partly covers at the current scroll as too
+// small (target-size), although scrolling uncovers it and scroll-padding keeps a focused one clear (2.4.11). Each such target is checked again
+// once scrolled to the middle of the viewport, and only one that is still too small there is reported.
+export async function axeViolationsAtRest(page: Page): Promise<string[]> {
+  const result = await new AxeBuilder({ page }).withTags(WCAG_TAGS).analyze();
+  const lines: string[] = [];
+  for (const violation of result.violations) {
+    let nodes = violation.nodes;
+    if (violation.id === "target-size") {
+      const remaining: typeof nodes = [];
+      for (const node of nodes) {
+        const selector = node.target.join(" ");
+        await page.locator(selector).first().evaluate((element) => element.scrollIntoView({ block: "center" }));
+        const again = await new AxeBuilder({ page }).include(selector).withRules(["target-size"]).analyze();
+        if (again.violations.length > 0) remaining.push(node);
+      }
+      await page.evaluate(() => window.scrollTo(0, 0));
+      nodes = remaining;
+    }
+    if (nodes.length > 0) lines.push(`${violation.id} (${violation.impact}): ${nodes.map((node) => node.target.join(" ")).join(" | ")}`);
+  }
+  return lines;
+}
+
 export const TAB_NAMES = {
   ar: ["اليوم", "الألعاب", "التقدم", "الإعدادات"],
   en: ["Today", "Games", "Progress", "Settings"],
@@ -56,6 +81,19 @@ export const WAKE_LINE = {
   ar: "جارٍ تشغيل الخادم المجاني، قد يستغرق ذلك دقيقة.",
   en: "Starting the free server, this may take about a minute.",
 } as const;
+
+// The settings screens (S-22 to S-27) read E11 on load, and the stub answers E11 as a visitor (401) so the guest screens stay put. A test that
+// opens a settings route signs in for those routes only: E11 asked from a page under /settings gets the synthetic profile, any other falls
+// through. Register it after controlHealth, so this route is consulted first.
+export async function signInOnSettingsRoutes(page: Page) {
+  await page.route("**/api/me", async (route: Route) => {
+    if (new URL(page.url()).pathname.startsWith("/settings")) {
+      await route.fulfill({ status: 200, contentType: "application/json", json: mockProfile });
+    } else {
+      await route.fallback();
+    }
+  });
+}
 
 export type HealthMode = "ok" | "hang" | "gateway";
 
