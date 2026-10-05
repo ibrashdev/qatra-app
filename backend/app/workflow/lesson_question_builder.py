@@ -36,8 +36,10 @@ import hashlib
 from collections import Counter, defaultdict
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
+from functools import cache
 from typing import Any, Final
 
+from app.domain.normalization import is_arabic_script_word
 from app.workflow.bundle_index import CONTEXT_WORDS, BundleIndex, Word, window_key
 from app.workflow.ids import stable_id
 from app.workflow.passages import Tok
@@ -116,6 +118,13 @@ def build_lessons(bundle: Mapping[str, Any]) -> list[dict[str, Any]]:
 
 def _digest(*parts: object) -> str:
     return hashlib.sha256("|".join(str(p) for p in parts).encode("utf-8")).hexdigest()
+
+
+@cache
+def _arabic_choice(normalized: str) -> bool:
+    """A word may be offered as a choice only when every character of its normalized form is
+    Arabic script (never a Latin letter, an ASCII digit or another script)."""
+    return is_arabic_script_word(normalized)
 
 
 def _alt_differs(a: Word, b: Word) -> bool:
@@ -252,6 +261,7 @@ class _Builder:
                     if w.ref != target.ref
                     and abs(len(w.n) - len(target.n)) <= 2
                     and _alt_differs(target, w)
+                    and _arabic_choice(w.n)
                 ),
                 key=lambda w: (abs(len(w.n) - len(target.n)), _digest(target.ref, w.ref)),
             )
@@ -275,7 +285,9 @@ class _Builder:
                     continue
                 for start in range(len(words) - length + 1):
                     window = tuple(words[start : start + length])
-                    if len({w.unit for w in window}) == 1:
+                    if len({w.unit for w in window}) == 1 and all(
+                        _arabic_choice(w.n) for w in window
+                    ):
                         found.append(window)
             self._windows[key] = found
         return self._windows[key]
