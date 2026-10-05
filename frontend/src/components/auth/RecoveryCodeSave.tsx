@@ -13,6 +13,7 @@ import { useLocale } from "@/i18n/LocaleProvider";
 import { raiseCodeUnavailable, raiseLoginArrival } from "@/lib/auth/flash";
 import { nextScreen, RECOVERY_CODE_FILE_NAME, recoveryCodeFileText, wipeRecoveryCode, type RecoveryHost } from "@/lib/auth/recovery-handoff";
 import { reloadPage } from "@/lib/browser";
+import { raiseSettingsArrival } from "@/lib/settings/arrival";
 import { RecoveryCodeBlock } from "./RecoveryCodeBlock";
 import { useRecoveryCodeLeaveGuard } from "./RecoveryCodeLeaveGuard";
 
@@ -76,6 +77,7 @@ export function RecoveryCodeSave({ code, groups, host }: { code: string; groups:
       if (!mounted.current) return;
       if (kind === "continue") {
         if (host === "recovery") raiseLoginArrival("reset_done");
+        else if (host === "settings") raiseSettingsArrival("code_rotated");
       } else if (next === "/login") {
         raiseLoginArrival("code_unavailable");
       } else {

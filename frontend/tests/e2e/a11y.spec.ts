@@ -1,7 +1,29 @@
-import { axeViolations as violations, controlHealth, expect, test, VIEWPORTS, waitForFirstHealthRequest, WAKE_LINE } from "./fixtures";
+import {
+  axeViolations as violations,
+  axeViolationsAtRest,
+  controlHealth,
+  expect,
+  signInOnSettingsRoutes,
+  test,
+  VIEWPORTS,
+  waitForFirstHealthRequest,
+  WAKE_LINE,
+} from "./fixtures";
 
 test.describe("axe-core: no violation on any shell route (NFR-09 baseline)", () => {
-  const routes = ["/login", "/today", "/games", "/progress", "/settings"];
+  const routes = [
+    "/",
+    "/login",
+    "/today",
+    "/games",
+    "/progress",
+    "/settings",
+    "/settings/password",
+    "/settings/recovery-code",
+    "/settings/delete-account",
+    "/settings/sources",
+    "/settings/privacy",
+  ];
   const cases = [
     { language: "ar", viewport: VIEWPORTS.phone },
     { language: "ar", viewport: VIEWPORTS.desktop },
@@ -11,12 +33,14 @@ test.describe("axe-core: no violation on any shell route (NFR-09 baseline)", () 
 
   for (const { language, viewport } of cases) {
     test(`${language} at ${viewport.width} px`, async ({ page }) => {
+      await signInOnSettingsRoutes(page);
       await page.addInitScript((value) => localStorage.setItem("qatra.language", value), language);
       await page.setViewportSize(viewport);
       for (const route of routes) {
         await page.goto(route);
         await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
-        expect(await violations(page), route).toEqual([]);
+        expect(new URL(page.url()).pathname, "the route renders itself, not a redirect").toBe(route);
+        expect(await axeViolationsAtRest(page), route).toEqual([]);
       }
     });
   }

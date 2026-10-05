@@ -7,6 +7,8 @@ import { Icon } from "./Icon";
 export interface SegmentOption<T extends string | number> {
   value: T;
   label: string;
+  // The language of the label when it differs from the page (WCAG 3.1.2): a language switch names each language in its own.
+  lang?: string;
 }
 
 // UI-tokens 6.4: native radios in a labelled radiogroup, equal-width segments at least 44 px high and 88 px wide (136 px for the two segments
@@ -37,6 +39,7 @@ export function SegmentedControl<T extends string | number>({
           return (
             <label
               key={option.value}
+              lang={option.lang}
               className={cx(
                 "relative inline-flex min-h-target flex-1 cursor-pointer items-center justify-center gap-q4 rounded-sm px-q12 text-body-compact font-semibold transition-[color,background-color,border-color] duration-(--q-duration-fast) has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-focus",
                 segmentWidth === "wide" ? "min-w-34" : "min-w-22",

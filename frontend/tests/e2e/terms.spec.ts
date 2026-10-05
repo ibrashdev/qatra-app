@@ -133,7 +133,8 @@ async function pressSegment(page: Page, name: string) {
 // The chunk that holds the text of S-03 (it loads with the route only), so a test can hold it back or make it fail.
 function termsChunk(): string {
   const directory = path.resolve(process.cwd(), ".next/static/chunks");
-  const file = readdirSync(directory).find((name) => name.endsWith(".js") && readFileSync(path.join(directory, name), "utf8").includes("الكتاب كما هو"));
+  // A sentence of the terms text only: the shorter «الكتاب كما هو» is also in the catalog Notice of S-07 and S-25.
+  const file = readdirSync(directory).find((name) => name.endsWith(".js") && readFileSync(path.join(directory, name), "utf8").includes("التطبيق يحفظ الكتاب كما هو"));
   if (file === undefined) throw new Error("the chunk that holds the terms text was not found in the build");
   return file;
 }
@@ -485,16 +486,18 @@ test.describe("the way back (S-03 section 1: back to the opener with its state k
     await expect(page).toHaveURL(/\/login$/);
   });
 
-  test("opened directly, the back control is a link to / and the closing button goes to / too (which leads to /login until the catalog ships)", async ({ page }) => {
+  test("opened directly, the back control is a link to / and the closing button goes to / too, the public catalog (S-07)", async ({ page }) => {
     await openTerms(page);
     const back = page.getByRole("link", { name: COPY.ar.backHome, exact: true });
     await expect(back).toHaveAttribute("href", "/");
     await back.click();
-    await expect(page).toHaveURL(/\/login$/);
+    await expect(page).toHaveURL(/127\.0\.0\.1:\d+\/$/);
+    await expect(heading(page, 1, "تصفّح الكتب")).toBeVisible();
 
     await openTerms(page);
     await page.getByRole("button", { name: COPY.ar.returnHome, exact: true }).click();
-    await expect(page).toHaveURL(/\/login$/);
+    await expect(page).toHaveURL(/127\.0\.0\.1:\d+\/$/);
+    await expect(heading(page, 1, "تصفّح الكتب")).toBeVisible();
   });
 
   test("a reload on S-03 forgets the opener, as it forgets the form: the controls then name the home page", async ({ page }) => {

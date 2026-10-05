@@ -1,4 +1,4 @@
-import { controlHealth, expect, NAV_NAME, test, VIEWPORTS, WAKE_LINE } from "./fixtures";
+import { controlHealth, expect, NAV_NAME, signInOnSettingsRoutes, test, VIEWPORTS, WAKE_LINE } from "./fixtures";
 
 test.describe("tab bar below 1024 px, side rail from 1024 px (UA-03)", () => {
   test("at 390 px the bar is fixed to the bottom edge, full width, 64 px tall, and there is no rail", async ({ page }) => {
@@ -80,14 +80,28 @@ test.describe("tab bar below 1024 px, side rail from 1024 px (UA-03)", () => {
 
 test.describe("no horizontal scroll at any supported width (D67)", () => {
   const widths = [320, 360, 390, 430, 768, 1023, 1024, 1280];
-  const routes = ["/login", "/today", "/games", "/progress", "/settings"];
+  const routes = [
+    "/",
+    "/login",
+    "/today",
+    "/games",
+    "/progress",
+    "/settings",
+    "/settings/password",
+    "/settings/recovery-code",
+    "/settings/delete-account",
+    "/settings/sources",
+    "/settings/privacy",
+  ];
   for (const language of ["ar", "en"] as const) {
     for (const width of widths) {
       test(`${language} at ${width} px`, async ({ page }) => {
+        await signInOnSettingsRoutes(page);
         await page.addInitScript((value) => localStorage.setItem("qatra.language", value), language);
         await page.setViewportSize({ width, height: 700 });
         for (const route of routes) {
           await page.goto(route);
+          await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
           const { scrollWidth, clientWidth } = await page.evaluate(() => ({
             scrollWidth: document.documentElement.scrollWidth,
             clientWidth: document.documentElement.clientWidth,

@@ -18,6 +18,8 @@ import { useRouteFocus } from "./use-page-chrome";
 // moveFocus: a loading or error view turns it off, so the route change is left for the screen that follows (use-page-chrome.ts).
 // reading: a text page; the text measure is the reading column of UI-tokens 5 (640 px, 720 px from 1024) with the page margins outside it,
 // where the default box of --q-column holds its margins inside (UI-screens S-03 section 2).
+// actions: buttons in the header before the language switch from 768 px (S-07). Below that width the screen puts its own copy in the page,
+// so one instance is visible per width.
 export function PublicShell({
   children,
   back,
@@ -25,6 +27,7 @@ export function PublicShell({
   wakeUp = true,
   moveFocus = true,
   reading = false,
+  actions,
 }: {
   children: ReactNode;
   back?: BackTarget;
@@ -32,6 +35,7 @@ export function PublicShell({
   wakeUp?: boolean;
   moveFocus?: boolean;
   reading?: boolean;
+  actions?: ReactNode;
 }) {
   useRouteFocus(moveFocus);
   return (
@@ -39,7 +43,8 @@ export function PublicShell({
       <SkipLink />
       <TopBar>
         {back ? <BackControl {...back} /> : logo ? <Brand href="/" /> : null}
-        <div className="ms-auto">
+        {actions ? <div className="ms-auto hidden items-center gap-q8 tablet:flex">{actions}</div> : null}
+        <div className={actions ? "ms-auto tablet:ms-0" : "ms-auto"}>
           <LanguageSwitch />
         </div>
       </TopBar>

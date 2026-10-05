@@ -1,21 +1,28 @@
 import { mockProfile } from "../../src/lib/api/mock";
-import { expect, NAV_NAME, TAB_NAMES, test, VIEWPORTS } from "./fixtures";
+import { expect, NAV_NAME, signInOnSettingsRoutes, TAB_NAMES, test, VIEWPORTS } from "./fixtures";
+
+// S-22 reads E11 on load; without a session the tab would end on the login screen. Pages outside /settings still see the visitor's 401.
+test.beforeEach(async ({ page }) => {
+  await signInOnSettingsRoutes(page);
+});
 
 test.describe("direction, language and the four tabs (Arabic default)", () => {
   test.use({ viewport: VIEWPORTS.phone });
 
-  test("/ redirects to /login, the login screen in the public shell", async ({ page }) => {
+  test("/ is the S-07 public catalog for a visitor: metadata cards in the public shell, no tab bar", async ({ page }) => {
     const response = await page.goto("/");
-    expect(new URL(page.url()).pathname).toBe("/login");
+    expect(new URL(page.url()).pathname).toBe("/");
     expect(response?.ok()).toBe(true);
     await expect(page.locator("html")).toHaveAttribute("lang", "ar");
     await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("الدخول");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("تصفّح الكتب");
     await expect(page.getByText("هذه الشاشة لم تُبنَ بعد، وستصل في دفعة لاحقة.")).toHaveCount(0);
-    await expect(page.getByLabel("اسم المستخدم")).toBeVisible();
-    await expect(page.getByLabel("كلمة المرور", { exact: true })).toBeVisible();
-    await expect(page.getByRole("button", { name: "دخول" })).toBeVisible();
-    await expect(page).toHaveTitle("الدخول · قطرة غيث");
+    await expect(page.getByRole("heading", { level: 3, name: "عنوان الكتاب (عنصر نائب)" })).toBeVisible();
+    // Below 768 px the two actions sit under the intro; the header instances are hidden.
+    await expect(page.getByRole("link", { name: "إنشاء حساب" })).toHaveCount(1);
+    await expect(page.getByRole("link", { name: "تسجيل الدخول" })).toHaveCount(1);
+    await expect(page.getByRole("link", { name: "إنشاء حساب" })).toHaveAttribute("href", "/register");
+    await expect(page).toHaveTitle("تصفّح الكتب · قطرة غيث");
     await expect(page.getByRole("navigation")).toHaveCount(0);
   });
 
@@ -170,12 +177,12 @@ test.describe("navigation and focus", () => {
     // No autofocus on the first load.
     expect(await page.evaluate(() => document.activeElement?.tagName)).toBe("BODY");
     const nav = page.getByRole("navigation", { name: NAV_NAME.ar });
-    // [tab name, path, heading, is it still a placeholder (null: not asserted)]: S-11 and S-21 are built and name their own heading; the games hub
+    // [tab name, path, heading, is it still a placeholder (null: not asserted)]: S-11, S-21 and S-22 are built and name their own heading; the games hub
     // is being built, so its placeholder text is not asserted either way.
     const expected: [string, string, string, boolean | null][] = [
       ["الألعاب", "/games", "الألعاب", null],
       ["التقدم", "/progress", "النتائج والتقدم", false],
-      ["الإعدادات", "/settings", "الإعدادات", true],
+      ["الإعدادات", "/settings", "الإعدادات", false],
       ["اليوم", "/today", "خطوتك اليوم", false],
     ];
     for (const [name, path, heading, placeholder] of expected) {
@@ -270,6 +277,8 @@ test.describe("not found", () => {
     // The browser itself logs the 404 of the document; nothing else may be logged.
     expect(consoleErrors.filter((message) => !/status of 404/.test(message))).toEqual([]);
     await page.getByRole("link", { name: "الذهاب إلى الصفحة الرئيسية" }).click();
-    await expect(page).toHaveURL(/\/login$/);
+    // A visitor's home is the public catalog (S-07, the link target of the 404 page).
+    await expect(page).toHaveURL(/127\.0\.0\.1:\d+\/$/);
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("تصفّح الكتب");
   });
 });

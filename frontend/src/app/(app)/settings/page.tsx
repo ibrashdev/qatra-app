@@ -1,6 +1,6 @@
-import { PlaceholderPage } from "@/components/ui/PlaceholderPage";
+import { SettingsScreen } from "@/components/settings/SettingsScreen";
 
-// Placeholder only: the settings screen (S-22) is built in Batch 4.
+// S-22 Settings (Batch 4, package F11). A tab root: the signed-in shell around it comes from the (app) layout.
 export default function SettingsPage() {
-  return <PlaceholderPage screen="settings" />;
+  return <SettingsScreen />;
 }
