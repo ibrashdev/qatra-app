@@ -78,6 +78,7 @@ from app.repositories.catalog import (
     PostgrestPassageReader,
 )
 from app.repositories.plans import (
+    LearningZone,
     MemoryPlacementReader,
     MemoryPlanRepository,
     MemoryProfileReader,
@@ -220,6 +221,11 @@ class PlanService:
         self._clock = clock or (lambda: datetime.now(UTC))
 
     # ------------------------------------------------------------------ shared pieces
+
+    def learning_zone(self, ctx: SessionContext) -> LearningZone:
+        """The account time zone and a pending change (D57). E21 reads it to date an activity event
+        by its ``startedAt``."""
+        return self._profiles.learning_zone(ctx)
 
     def learning_date(self, ctx: SessionContext) -> date:
         """Today's learning date in the account time zone (API-spec §1.10)."""

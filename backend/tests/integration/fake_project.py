@@ -42,6 +42,9 @@ class OpenSessionFake(BankFake):
     def __init__(self, plans: PlansFake, bundles: Sequence[dict[str, Any]]) -> None:
         super().__init__(bundles, user_id=USER, token=TOKEN, anon=ANON)
         self.plans = plans
+        # E18 reads the open plan conversation. This project holds none; B13's ``ChatProject``
+        # answers ``plan_chats`` itself and never reaches this table.
+        self.tables.setdefault("plan_chats", [])
 
     def _rpc(self, name: str, args: dict[str, Any]) -> httpx.Response:
         plan_id = args["p_plan_id"]
