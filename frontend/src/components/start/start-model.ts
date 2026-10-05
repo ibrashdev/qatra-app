@@ -7,14 +7,15 @@ import type { StartSelection } from "@/lib/plan/start-selection";
 export const MAX_SECTIONS = 60; // UG-13
 export const GOAL_MAX_CODE_POINTS = 500;
 export const GOAL_WARN_CODE_POINTS = 450;
-// E14 has no juz' field (O-55): the only Quran edition is Juz' Amma, so its one juz' row stands for every section of the edition.
+// E14 has no juz' field (O-55): the only Quran edition is Juz' Amma, so its one juz' stands for every section of the edition.
 export const JUZ_AMMA_NUMBER = 30;
+// A book of more than this many sections lists its sections in groups of this size (D88).
+export const GROUP_SIZE = 10;
 
 export type Minutes = 5 | 10 | 15;
 export const MINUTE_CHOICES: readonly Minutes[] = [5, 10, 15];
 export const DEFAULT_MINUTES: Minutes = 10;
 
-export type SelectionView = "surah" | "juz";
 export type HadithPath = Exclude<Path, "quran">;
 const HADITH_PATHS: readonly HadithPath[] = ["matn", "sanad", "grade"];
 
@@ -22,7 +23,7 @@ const HADITH_PATHS: readonly HadithPath[] = ["matn", "sanad", "grade"];
 export type StartForm = {
   categorySlug: string | null;
   editionId: string | null; // set only when the learner chose a book; a single book is implied
-  view: SelectionView | null; // Quran only
+  juz: number | null; // Quran only; null: the single juz' of the edition is implied (O-55)
   ordinals: number[]; // E14 section ordinals, ascending
   paths: HadithPath[] | null; // null: the default (matn)
   minutes: Minutes | null; // null: the profile default
@@ -34,7 +35,7 @@ export type StartForm = {
 export const EMPTY_FORM: StartForm = {
   categorySlug: null,
   editionId: null,
-  view: null,
+  juz: null,
   ordinals: [],
   paths: null,
   minutes: null,
@@ -50,11 +51,13 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 const isNullOrString = (value: unknown): value is string | null => value === null || typeof value === "string";
 
 // The form that came back in the draft, checked field by field: a draft is only memory, but a shape that does not fit is dropped, not trusted.
+// A draft written before D88 may still carry `view` and no `juz`: the old field is ignored and the juz' is implied, so the draft is kept.
 export function readStartForm(value: unknown): StartForm | null {
   if (!isRecord(value)) return null;
-  const { categorySlug, editionId, view, ordinals, paths, minutes, date, goalEdited, goalText } = value;
+  const { categorySlug, editionId, ordinals, paths, minutes, date, goalEdited, goalText } = value;
+  const juz = value.juz === undefined ? null : value.juz;
   if (!isNullOrString(categorySlug) || !isNullOrString(editionId)) return null;
-  if (view !== null && view !== "surah" && view !== "juz") return null;
+  if (juz !== null && !Number.isInteger(juz)) return null;
   if (!Array.isArray(ordinals) || !ordinals.every((entry) => Number.isInteger(entry))) return null;
   if (paths !== null && !(Array.isArray(paths) && paths.every((entry) => HADITH_PATHS.includes(entry as HadithPath)))) return null;
   if (minutes !== null && !MINUTE_CHOICES.includes(minutes as Minutes)) return null;
@@ -62,7 +65,7 @@ export function readStartForm(value: unknown): StartForm | null {
   return {
     categorySlug,
     editionId,
-    view,
+    juz: juz as number | null,
     ordinals: [...(ordinals as number[])].sort((a, b) => a - b),
     paths: paths === null ? null : [...(paths as HadithPath[])],
     minutes: minutes as Minutes | null,
@@ -77,7 +80,7 @@ export interface CategoryGroup {
   labelAr: string;
   labelEn: string;
   editions: readonly CatalogEdition[];
-  isQuran: boolean; // contentFormat quran: level 2 is the surah or juz' choice
+  isQuran: boolean; // contentFormat quran: level 2 is the juz' choice (D88)
 }
 
 // The distinct categories in E14's order (D78: a category appears when E14 returns an edition for it).
@@ -91,17 +94,54 @@ export function groupCategories(editions: readonly CatalogEdition[]): CategoryGr
   return groups.map((group) => ({ ...group, isQuran: group.editions[0]?.contentFormat === "quran" }));
 }
 
-export type ListMode = "surah" | "juz" | "book";
+export type ListMode = "surah" | "book";
 
-// What is on screen for this form: which levels exist and what level 3 lists. A level with one option counts as chosen (D78).
+// One juz' of a Quran edition (level 2 of the Quran, D88) and the sections that belong to it.
+export interface JuzOption {
+  number: number;
+  sections: readonly CatalogSection[];
+}
+
+// O-55: E14 has no juz' field, so in this build the one Quran edition (Juz' Amma) is juz' 30 and holds every section of the edition. A future
+// edition with a juz' mapping returns one option per juz' here; nothing else in the screen has to change.
+export function juzOptions(edition: CatalogEdition): JuzOption[] {
+  return [{ number: JUZ_AMMA_NUMBER, sections: edition.sections }];
+}
+
+// A display group of a long book (D88): GROUP_SIZE consecutive sections by ordinal. Groups are never sent; the selection stays a set of ordinals.
+export interface SectionGroup {
+  id: string; // "g" and the first ordinal, so it never collides with a section's own id (its ordinal)
+  first: number; // ordinal of the first section
+  last: number; // ordinal of the last section
+  sections: readonly CatalogSection[];
+}
+
+export const isGroupId = (id: string): boolean => id.startsWith("g");
+
+// Groups of ten by position in ascending ordinal order; the last may be shorter. A book of GROUP_SIZE or fewer sections has none.
+export function sectionGroups(sections: readonly CatalogSection[]): SectionGroup[] {
+  if (sections.length <= GROUP_SIZE) return [];
+  const ordered = [...sections].sort((a, b) => a.ordinal - b.ordinal);
+  const groups: SectionGroup[] = [];
+  for (let start = 0; start < ordered.length; start += GROUP_SIZE) {
+    const part = ordered.slice(start, start + GROUP_SIZE);
+    const first = (part[0] as CatalogSection).ordinal;
+    groups.push({ id: `g${first}`, first, last: (part[part.length - 1] as CatalogSection).ordinal, sections: part });
+  }
+  return groups;
+}
+
+// What is on screen for this form: which levels exist and what level 3 lists. A level with one option counts as chosen (D78, D88).
 export interface Cascade {
   category: CategoryGroup | null;
   showBooks: boolean;
   edition: CatalogEdition | null;
-  showView: boolean;
-  view: SelectionView | null;
+  showJuz: boolean; // the Quran's level 2, shown even when it has one option
+  juzList: readonly JuzOption[];
+  juz: JuzOption | null;
   mode: ListMode | null;
   sections: readonly CatalogSection[];
+  groups: readonly SectionGroup[]; // empty unless level 3 is the grouped list of a long book
   pathChoices: readonly HadithPath[]; // the boxes of c13, empty when the group is not shown
 }
 
@@ -116,12 +156,15 @@ export function resolveCascade(form: StartForm, groups: readonly CategoryGroup[]
   // The Quran has one edition (O-56), so there is no book list for it; a second edition would bring the list back.
   const showBooks = category !== null && (!category.isQuran || category.editions.length > 1);
   const edition = category ? findEdition(category, form.editionId) : null;
-  const showView = category?.isQuran === true && edition !== null;
-  const view = showView ? form.view : null;
+  const showJuz = category?.isQuran === true && edition !== null;
+  const juzList = showJuz && edition ? juzOptions(edition) : [];
+  // One juz' is implied; with several, the one the learner chose.
+  const juz = juzList.length === 1 ? (juzList[0] ?? null) : (juzList.find((option) => option.number === form.juz) ?? null);
   let mode: ListMode | null = null;
-  if (edition) mode = category?.isQuran ? view : "book";
+  if (edition) mode = category?.isQuran ? (juz ? "surah" : null) : "book";
+  const sections = mode === "surah" ? (juz?.sections ?? []) : mode === "book" ? (edition?.sections ?? []) : [];
   const pathChoices: HadithPath[] = edition === null || edition.contentFormat === "quran" ? [] : HADITH_PATHS.filter((path) => edition.availablePaths.includes(path));
-  return { category, showBooks, edition, showView, view, mode, sections: mode ? (edition?.sections ?? []) : [], pathChoices };
+  return { category, showBooks, edition, showJuz, juzList, juz, mode, sections, groups: mode === "book" ? sectionGroups(sections) : [], pathChoices };
 }
 
 // The ordinals that are checked and really exist in the edition on screen, ascending.
@@ -130,12 +173,11 @@ export function selectedOrdinals(form: StartForm, cascade: Cascade): number[] {
   return form.ordinals.filter((ordinal) => known.has(ordinal)).sort((a, b) => a - b);
 }
 
-export type ListKind = "surah" | "juz" | "hadith" | "section";
+export type ListKind = "surah" | "hadith" | "section";
 
-// The noun of the level 3 legend and of the helper: «السور»، «الأجزاء»، «الأحاديث» or «الأقسام».
+// The noun of the level 3 legend and of the helper: «السور»، «الأحاديث» or «الأقسام».
 export function listKind(cascade: Cascade): ListKind | null {
   if (cascade.mode === null) return null;
-  if (cascade.mode === "juz") return "juz";
   if (cascade.mode === "surah") return "surah";
   const kinds = new Set(cascade.sections.map((section) => section.kind));
   if (kinds.size === 1 && kinds.has("hadith")) return "hadith";
@@ -147,29 +189,29 @@ export function listKind(cascade: Cascade): ListKind | null {
 export function nextStep(form: StartForm, cascade: Cascade): NextStep | null {
   if (cascade.category === null) return "category";
   if (cascade.showBooks && cascade.edition === null) return "book";
-  if (cascade.showView && cascade.view === null) return "view";
+  if (cascade.showJuz && cascade.juz === null) return "juz"; // only reachable once an edition has several juz' (O-55)
   if (selectedOrdinals(form, cascade).length > 0) return null;
   const kind = listKind(cascade);
   return kind ?? "section";
 }
 
-// One immutable step per rule of "Selection rules (D78)".
+// One immutable step per rule of "Selection rules (D78, D88)".
 
 export function chooseCategory(form: StartForm, slug: string): StartForm {
   if (form.categorySlug === slug) return form;
   // A different category clears level 2, level 3, the chips and the path boxes; minutes, date and goal stay.
-  return { ...form, categorySlug: slug, editionId: null, view: null, ordinals: [], paths: null };
+  return { ...form, categorySlug: slug, editionId: null, juz: null, ordinals: [], paths: null };
 }
 
 export function chooseBook(form: StartForm, editionId: string): StartForm {
   if (form.editionId === editionId) return form;
-  // A different book clears level 3, the chips and the path boxes.
-  return { ...form, editionId, ordinals: [], paths: null };
+  // A different book clears level 3, the chips and the path boxes (and the juz' of a Quran edition).
+  return { ...form, editionId, juz: null, ordinals: [], paths: null };
 }
 
-// Switching between the surah and the juz' view keeps the checked sections: both edit one set of ordinals.
-export function chooseView(form: StartForm, view: SelectionView): StartForm {
-  return form.view === view ? form : { ...form, view };
+// A different juz' clears level 3 and the chips, as a different book does.
+export function chooseJuz(form: StartForm, number: number): StartForm {
+  return form.juz === number ? form : { ...form, juz: number, ordinals: [] };
 }
 
 function sorted(values: Iterable<number>): number[] {
@@ -189,8 +231,8 @@ export function removeOrdinals(form: StartForm, ordinals: readonly number[]): St
   return { ...form, ordinals: form.ordinals.filter((ordinal) => !drop.has(ordinal)) };
 }
 
-// A press on the juz' row checks all of its sections, or unchecks all of them when it was fully checked.
-export function toggleJuz(form: StartForm, sections: readonly CatalogSection[]): StartForm {
+// A press on a group row checks all of its sections, or unchecks all of them when it was fully checked; a press that would pass 60 is refused.
+export function toggleGroup(form: StartForm, sections: readonly CatalogSection[]): StartForm {
   const all = sections.map((section) => section.ordinal);
   const checked = new Set(form.ordinals);
   if (all.every((ordinal) => checked.has(ordinal))) return removeOrdinals(form, all);
@@ -209,10 +251,13 @@ export function clearOrdinals(form: StartForm): StartForm {
 
 export type RowState = "unchecked" | "checked" | "mixed";
 
-export function juzState(selected: readonly number[], sections: readonly CatalogSection[]): RowState {
+// The tri-state of a group row: all, some or none of its sections are checked.
+export function groupState(selected: readonly number[], sections: readonly CatalogSection[]): RowState {
   if (sections.length === 0 || selected.length === 0) return "unchecked";
   const checked = new Set(selected);
-  return sections.every((section) => checked.has(section.ordinal)) ? "checked" : "mixed";
+  const count = sections.filter((section) => checked.has(section.ordinal)).length;
+  if (count === 0) return "unchecked";
+  return count === sections.length ? "checked" : "mixed";
 }
 
 export type CountState = { kind: "none" } | { kind: "some"; n: number; m: number } | { kind: "all"; m: number };

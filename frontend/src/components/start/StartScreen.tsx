@@ -23,12 +23,13 @@ import { browserTimeZone } from "@/lib/browser";
 import { getStartDraft, setStartDraft } from "@/lib/plan/start-selection";
 import { CascadeSection } from "./CascadeSection";
 import { composeGoal } from "./goal-sentence";
+import { groupKindOf, groupLabel } from "./group-label";
 import {
   buildSelection,
   checkedPaths,
   chooseBook,
   chooseCategory,
-  chooseView,
+  chooseJuz,
   clearOrdinals,
   countCodePoints,
   countState,
@@ -38,7 +39,7 @@ import {
   GOAL_WARN_CODE_POINTS,
   groupCategories,
   isDateRejected,
-  JUZ_AMMA_NUMBER,
+  isGroupId,
   listKind,
   MINUTE_CHOICES,
   nextStep,
@@ -48,8 +49,8 @@ import {
   selectAll,
   selectedOrdinals,
   todayIn,
-  toggleJuz,
   toggleOrdinal,
+  toggleGroup,
   togglePath,
   type HadithPath,
   type Minutes,
@@ -116,9 +117,9 @@ export function StartScreen() {
   }, [sessionEnded, router]);
 
   // A level that appears is announced once, politely, and never takes focus (6.26).
-  const levelKeys = [cascade.showBooks ? "books" : "", cascade.showView ? "view" : "", cascade.mode !== null ? "list" : ""].filter(Boolean);
+  const levelKeys = [cascade.showBooks ? "books" : "", cascade.showJuz ? "juz" : "", cascade.mode !== null ? "list" : ""].filter(Boolean);
   const kind = listKind(cascade);
-  const deepestLegend = cascade.mode !== null && kind !== null ? t.list.legends[kind] : cascade.showView ? t.view.legend : t.books.legend;
+  const deepestLegend = cascade.mode !== null && kind !== null ? t.list.legends[kind] : cascade.showJuz ? t.juz.legend : t.books.legend;
   const levelSignature = levelKeys.join("|");
   const hasPaths = cascade.pathChoices.length > 0;
   const previous = useRef({ signature: "", hasPaths: false });
@@ -156,19 +157,19 @@ export function StartScreen() {
     announceSelection(next, removedTitle);
   }
 
-  function ordinalsOfRow(id: string): number[] {
-    return id === "juz" ? cascade.sections.map((section) => section.ordinal) : [Number(id)];
-  }
+  // A group row (D88) is display only: it checks or unchecks its sections, so every press ends as a change of the one set of ordinals.
+  const groupOf = (id: string) => (isGroupId(id) ? cascade.groups.find((entry) => entry.id === id) : undefined);
 
   function toggleRow(id: string) {
-    applySelection(id === "juz" ? toggleJuz(form, cascade.sections) : toggleOrdinal(form, Number(id)));
+    const group = groupOf(id);
+    applySelection(group ? toggleGroup(form, group.sections) : toggleOrdinal(form, Number(id)));
   }
 
   function removeChip(id: string) {
+    const group = groupOf(id);
     const section = cascade.sections.find((entry) => String(entry.ordinal) === id);
-    const title =
-      id === "juz" ? t.list.juzTitle(formatInteger(locale, JUZ_AMMA_NUMBER)) : section ? (locale === "ar" ? section.titleAr : section.titleEn) : "";
-    applySelection(removeOrdinals(form, ordinalsOfRow(id)), title);
+    const title = group ? groupLabel(locale, groupKindOf(cascade), group) : section ? (locale === "ar" ? section.titleAr : section.titleEn) : "";
+    applySelection(removeOrdinals(form, group ? group.sections.map((entry) => entry.ordinal) : [Number(id)]), title);
   }
 
   function pickPath(path: HadithPath) {
@@ -261,7 +262,7 @@ export function StartScreen() {
           handlers={{
             onCategory: (slug) => change(chooseCategory(form, slug)),
             onBook: (editionId) => change(chooseBook(form, editionId)),
-            onView: (view) => change(chooseView(form, view)),
+            onJuz: (number) => change(chooseJuz(form, number)),
             onToggleRow: toggleRow,
             onSelectAll: () => applySelection(selectAll(form, cascade.sections)),
             onClear: () => applySelection(clearOrdinals(form)),

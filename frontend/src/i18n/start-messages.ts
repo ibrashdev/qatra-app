@@ -3,7 +3,13 @@
 import type { Locale } from "./messages";
 
 // The next thing the learner has to choose, in the order of the cascade. The helper under the primary button names it (O-59).
-export type NextStep = "category" | "book" | "view" | "surah" | "juz" | "hadith" | "section";
+export type NextStep = "category" | "book" | "juz" | "surah" | "hadith" | "section";
+
+// Between the first and the last ordinal of a group: an en dash, written as an escape because the source rules keep literal dashes out of the text.
+const RANGE_DASH = "\u2013";
+
+// The noun of a group row: «الأحاديث» for a hadith book, «الأقسام» for any other.
+export type GroupKind = "hadith" | "section";
 
 export interface SentenceParts {
   what: string; // what is memorized: section names, "all sections" or "{n} of {m} surahs"
@@ -21,12 +27,17 @@ export interface StartMessages {
   openChat: { text: string; action: string }; // c4
   category: { legend: string }; // c5
   books: { legend: string; detail: (author: string, edition: string) => string }; // c7
-  view: { legend: string; surah: string; juz: string }; // c6
+  juz: { legend: string; title: (formattedNumber: string) => string }; // c6 (D88)
   noMaterial: string; // G-27
   list: {
-    legends: { surah: string; juz: string; hadith: string; section: string }; // c8
-    juzTitle: (formattedNumber: string) => string;
-    juzNote: (formattedCount: string) => string;
+    legends: { surah: string; hadith: string; section: string }; // c8
+    // D88: the group rows of a book of more than 10 sections. `kind` is the noun of the list: hadiths or sections.
+    groupLabel: (kind: GroupKind, first: string, last: string) => string;
+    // A group of one section (the last group of a book of 41) is named by that section: «الحديث ٤١», not a range.
+    singleLabel: (kind: GroupKind, formattedNumber: string) => string;
+    groupCount: (kind: GroupKind, count: number, formattedCount: string) => string;
+    customize: string;
+    customizeName: (groupLabel: string) => string;
   };
   count: { none: string; some: (n: string, m: string) => string; all: (m: string) => string }; // c9
   tools: { selectAll: string; clear: string };
@@ -69,12 +80,22 @@ const startAr: StartMessages = {
   openChat: { text: "لديك محادثة خطة لم تعتمدها بعد. إن بدأت محادثة جديدة فستحلّ محلها.", action: "متابعة المحادثة" },
   category: { legend: "الباب" },
   books: { legend: "الكتاب", detail: (author, edition) => `${author} · ${edition}` },
-  view: { legend: "طريقة الاختيار", surah: "حسب السورة", juz: "حسب الجزء" },
+  juz: { legend: "الجزء", title: (number) => `الجزء ${number}` },
   noMaterial: "لا تتوفر مادة",
   list: {
-    legends: { surah: "السور", juz: "الأجزاء", hadith: "الأحاديث", section: "الأقسام" },
-    juzTitle: (number) => `الجزء ${number}`,
-    juzNote: (count) => `يشمل كل سور الطبعة (${count})`,
+    legends: { surah: "السور", hadith: "الأحاديث", section: "الأقسام" },
+    groupLabel: (kind, first, last) => `${kind === "hadith" ? "الأحاديث" : "الأقسام"} ${first}${RANGE_DASH}${last}`,
+    singleLabel: (kind, number) => `${kind === "hadith" ? "الحديث" : "القسم"} ${number}`,
+    // The noun follows the Arabic number: dual for 2, plural for 3 to 10, the accusative singular from 11.
+    groupCount: (kind, count, formatted) => {
+      const hadith = kind === "hadith";
+      if (count === 1) return hadith ? "حديث واحد" : "قسم واحد";
+      if (count === 2) return hadith ? "حديثان" : "قسمان";
+      if (count <= 10) return `${formatted} ${hadith ? "أحاديث" : "أقسام"}`;
+      return `${formatted} ${hadith ? "حديثًا" : "قسمًا"}`;
+    },
+    customize: "تخصيص",
+    customizeName: (label) => `تخصيص ${label}`,
   },
   count: {
     none: "لم تختر شيئًا بعد",
@@ -125,10 +146,9 @@ const startAr: StartMessages = {
     helper: "تسبقها أسئلة قصيرة لتحديد نقطة البداية، ويمكنك تجاوزها.",
     next: {
       category: "اختر الباب أولًا.",
-      view: "اختر طريقة الاختيار: حسب السورة أو حسب الجزء.",
+      juz: "اختر الجزء.",
       book: "اختر الكتاب.",
       surah: "اختر سورة واحدة على الأقل.",
-      juz: "اختر جزءًا واحدًا على الأقل.",
       hadith: "اختر حديثًا واحدًا على الأقل.",
       section: "اختر قسمًا واحدًا على الأقل.",
     },
@@ -156,12 +176,18 @@ const startEn: StartMessages = {
   },
   category: { legend: "Category" },
   books: { legend: "Book", detail: (author, edition) => `${author} · ${edition}` },
-  view: { legend: "Choose by", surah: "By surah", juz: "By juz'" },
+  juz: { legend: "Juz'", title: (number) => `Juz' ${number}` },
   noMaterial: "No material is available",
   list: {
-    legends: { surah: "Surahs", juz: "Juz'", hadith: "Hadiths", section: "Sections" },
-    juzTitle: (number) => `Juz' ${number}`,
-    juzNote: (count) => `Includes all ${count} surahs of the edition`,
+    legends: { surah: "Surahs", hadith: "Hadiths", section: "Sections" },
+    groupLabel: (kind, first, last) => `${kind === "hadith" ? "Hadiths" : "Sections"} ${first}${RANGE_DASH}${last}`,
+    singleLabel: (kind, number) => `${kind === "hadith" ? "Hadith" : "Section"} ${number}`,
+    groupCount: (kind, count, formatted) => {
+      const noun = kind === "hadith" ? "hadith" : "section";
+      return `${formatted} ${count === 1 ? noun : `${noun}s`}`;
+    },
+    customize: "Customize",
+    customizeName: (label) => `Customize ${label}`,
   },
   count: {
     none: "Nothing selected yet",
@@ -208,10 +234,9 @@ const startEn: StartMessages = {
     helper: "Short questions to find your starting point come first; you can skip them.",
     next: {
       category: "Choose a category first.",
-      view: "Choose how to select: by surah or by juz'.",
+      juz: "Choose a juz'.",
       book: "Choose a book.",
       surah: "Choose at least one surah.",
-      juz: "Choose at least one juz'.",
       hadith: "Choose at least one hadith.",
       section: "Choose at least one section.",
     },

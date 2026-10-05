@@ -122,12 +122,17 @@ async function pickCategory(user: ReturnType<typeof userEvent.setup>, name: stri
   await user.click(await screen.findByRole("radio", { name }));
 }
 
+// The Quran's one juz' is preselected (D88, O-55), so the surah list follows the category at once.
 async function pickQuranSurahs(user: ReturnType<typeof userEvent.setup>) {
   await pickCategory(user, "القرآن الكريم");
-  await user.click(screen.getByRole("radio", { name: "حسب السورة" }));
 }
 
 const row = (ordinal: number) => screen.getByRole("checkbox", { name: new RegExp(`عنصر تجريبي ${ordinal}(?!\\d)`) });
+
+// A hadith book of 42 sections (five groups, the last 41 to 42) as the only edition, so the category and the book are preselected.
+const LONG_CATALOG: CatalogResponse = { editions: [editionOf("hadith-long", HADITH, "hadith_collection", 42)] };
+const groupRow = (label: string) => screen.getByRole("checkbox", { name: new RegExp(`^${label}`) });
+const customizeButton = (label: string) => screen.getByRole("button", { name: `تخصيص ${label}` });
 
 describe("the first view: only level 1, and a start button that waits (D78)", () => {
   it("shows the title, the subtitle, level 1 and no later level", async () => {
@@ -137,7 +142,7 @@ describe("the first view: only level 1, and a start button that waits (D78)", ()
     expect(await screen.findByRole("radiogroup", { name: "الباب" })).toBeInTheDocument();
     expect(screen.getByRole("radio", { name: "القرآن الكريم" })).not.toBeChecked();
     expect(screen.getByRole("radio", { name: "الحديث" })).not.toBeChecked();
-    expect(screen.queryByRole("radiogroup", { name: "طريقة الاختيار" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("radiogroup", { name: "الجزء" })).not.toBeInTheDocument();
     expect(screen.queryByRole("group", { name: "الأقسام" })).not.toBeInTheDocument();
     expect(screen.queryByRole("group", { name: "ما تريد تعلمه" })).not.toBeInTheDocument();
   });
@@ -187,18 +192,31 @@ describe("the first view: only level 1, and a start button that waits (D78)", ()
   });
 });
 
-describe("the Quran branch: by surah", () => {
-  it("shows level 2 after the category and asks how to select", async () => {
+describe("the Quran branch: juz' and surahs (D88)", () => {
+  it("shows the juz' level after the category with its one option preselected, and the surah list at once", async () => {
     const user = userEvent.setup();
     renderStart();
     await pickCategory(user, "القرآن الكريم");
-    const group = screen.getByRole("radiogroup", { name: "طريقة الاختيار" });
-    expect(within(group).getAllByRole("radio").map((radio) => radio.getAttribute("value"))).toEqual(["surah", "juz"]);
-    expect(startButton()).toHaveAccessibleDescription("اختر طريقة الاختيار: حسب السورة أو حسب الجزء.");
-    expect(screen.queryByRole("group", { name: "السور" })).not.toBeInTheDocument();
-    // Announced politely, and focus did not move to the new group.
-    expect(liveText()).toContain("ظهرت قائمة: طريقة الاختيار");
+    const group = screen.getByRole("radiogroup", { name: "الجزء" });
+    expect(within(group).getAllByRole("radio").map((radio) => radio.getAttribute("value"))).toEqual(["30"]);
+    expect(within(group).getByRole("radio", { name: "الجزء ٣٠" })).toBeChecked();
+    expect(screen.getByRole("group", { name: "السور" })).toBeInTheDocument();
+    expect(startButton()).toHaveAccessibleDescription("اختر سورة واحدة على الأقل.");
+    // The old choice of a view is gone.
+    expect(screen.queryByRole("radiogroup", { name: "طريقة الاختيار" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("radio", { name: "حسب السورة" })).not.toBeInTheDocument();
+    // Announced politely (the deepest list), and focus did not move to the new groups.
+    expect(liveText()).toContain("ظهرت قائمة: السور");
     expect(group.contains(document.activeElement)).toBe(false);
+  });
+
+  it("writes the juz' level in English, with Western digits", async () => {
+    const user = userEvent.setup();
+    renderStart({ language: "en" });
+    await user.click(await screen.findByRole("radio", { name: "The Quran" }));
+    const group = screen.getByRole("radiogroup", { name: "Juz'" });
+    expect(within(group).getByRole("radio", { name: "Juz' 30" })).toBeChecked();
+    expect(screen.getByRole("group", { name: "Surahs" })).toBeInTheDocument();
   });
 
   it("shows the surah list with nothing checked, no chips, the clear tool inert and the box empty", async () => {
@@ -303,39 +321,224 @@ describe("the Quran branch: by surah", () => {
   });
 });
 
-describe("the juz' view", () => {
-  it("offers one row for the whole edition and keeps the checked sections when the view switches", async () => {
-    const user = userEvent.setup();
-    renderStart();
-    await pickQuranSurahs(user);
-    await user.click(row(1));
-    await user.click(row(2));
-    await user.click(screen.getByRole("radio", { name: "حسب الجزء" }));
-    const list = screen.getByRole("group", { name: "الأجزاء" });
-    const juz = within(list).getByRole("checkbox", { name: /الجزء ٣٠/ });
-    expect(within(list).getAllByRole("checkbox")).toHaveLength(1);
-    expect(juz).toBePartiallyChecked();
-    expect(juz).toHaveAttribute("aria-checked", "mixed");
-    expect(within(list).getByText("يشمل كل سور الطبعة (٨)")).toBeInTheDocument();
-    expect(list).toHaveAccessibleDescription("تم اختيار ٢ من ٨");
-    await user.click(juz);
-    expect(juz).toBeChecked();
-    expect(list).toHaveAccessibleDescription("تم اختيار الكل (٨)");
-    // A single juz' chip stays, because the count is of sections and one chip stands for the row.
-    expect(within(screen.getByRole("group", { name: "الأقسام المختارة" })).getAllByRole("button")).toHaveLength(1);
-    await user.click(screen.getByRole("radio", { name: "حسب السورة" }));
-    expect(within(screen.getByRole("group", { name: "السور" })).getAllByRole("checkbox").every((box) => (box as HTMLInputElement).checked)).toBe(true);
-    await user.click(screen.getByRole("radio", { name: "حسب الجزء" }));
-    await user.click(within(screen.getByRole("group", { name: "الأجزاء" })).getByRole("checkbox"));
-    expect(screen.getByRole("group", { name: "الأجزاء" })).toHaveAccessibleDescription("لم تختر شيئًا بعد");
+describe("the groups of a long book (D88)", () => {
+  const startLong = (language: Language = "ar") => renderStart({ language, catalog: () => json(LONG_CATALOG) });
+  const hadithRow = (ordinal: number) => screen.getByRole("checkbox", { name: new RegExp(`عنصر تجريبي ${ordinal}(?!\\d)`) });
+  const countOf = () => screen.getByRole("group", { name: "الأحاديث" });
+
+  it("lists five collapsed group rows with their count, and no section row", async () => {
+    startLong();
+    const list = await screen.findByRole("group", { name: "الأحاديث" });
+    const boxes = within(list).getAllByRole("checkbox") as HTMLInputElement[];
+    expect(boxes).toHaveLength(5);
+    expect(boxes.map((box) => box.closest("label")?.textContent)).toEqual([
+      "الأحاديث ١\u2013١٠١٠ أحاديث",
+      "الأحاديث ١١\u2013٢٠١٠ أحاديث",
+      "الأحاديث ٢١\u2013٣٠١٠ أحاديث",
+      "الأحاديث ٣١\u2013٤٠١٠ أحاديث",
+      "الأحاديث ٤١\u2013٤٢حديثان",
+    ]);
+    expect(boxes.every((box) => !box.checked)).toBe(true);
+    expect(list).toHaveAccessibleDescription("لم تختر شيئًا بعد");
+    for (const label of ["الأحاديث ١\u2013١٠", "الأحاديث ٤١\u2013٤٢"]) {
+      const button = customizeButton(label);
+      expect(button).toHaveAttribute("aria-expanded", "false");
+      expect(document.getElementById(button.getAttribute("aria-controls") ?? "")).toBeInTheDocument();
+    }
+    expect(screen.queryByRole("checkbox", { name: /عنصر تجريبي 1(?!\d)/ })).not.toBeInTheDocument();
+    expect(startButton()).toHaveAccessibleDescription("اختر حديثًا واحدًا على الأقل.");
   });
 
-  it("names the next step «اختر جزءًا واحدًا على الأقل.» until the juz' row is checked", async () => {
+  it("checks all ten sections in a press and unchecks them when the group is full", async () => {
     const user = userEvent.setup();
-    renderStart();
-    await pickCategory(user, "القرآن الكريم");
-    await user.click(screen.getByRole("radio", { name: "حسب الجزء" }));
-    expect(startButton()).toHaveAccessibleDescription("اختر جزءًا واحدًا على الأقل.");
+    startLong();
+    await screen.findByRole("group", { name: "الأحاديث" });
+    await user.click(groupRow("الأحاديث ١١\u2013٢٠"));
+    expect(groupRow("الأحاديث ١١\u2013٢٠")).toBeChecked();
+    expect(countOf()).toHaveAccessibleDescription("تم اختيار ١٠ من ٤٢");
+    expect(startButton()).toHaveAttribute("aria-disabled", "false");
+    await user.click(groupRow("الأحاديث ١١\u2013٢٠"));
+    expect(groupRow("الأحاديث ١١\u2013٢٠")).not.toBeChecked();
+    expect(countOf()).toHaveAccessibleDescription("لم تختر شيئًا بعد");
+  });
+
+  it("opens a group on «تخصيص» without moving focus, shows its sections indented under it, and keeps their state when closed", async () => {
+    const user = userEvent.setup();
+    startLong();
+    await screen.findByRole("group", { name: "الأحاديث" });
+    const button = customizeButton("الأحاديث ١\u2013١٠");
+    await user.click(button);
+    expect(button).toHaveAttribute("aria-expanded", "true");
+    expect(button).toHaveFocus();
+    const region = document.getElementById(button.getAttribute("aria-controls") ?? "") as HTMLElement;
+    expect(region).not.toHaveAttribute("hidden");
+    expect(within(region).getAllByRole("checkbox")).toHaveLength(10);
+    expect(region.className).toContain("ps-q24");
+    // Directly under its own group row: the region sits in the same list item as the group row.
+    expect(region.closest("li")).toBe(groupRow("الأحاديث ١\u2013١٠").closest("li"));
+    expect(screen.getByRole("checkbox", { name: /عنصر تجريبي 10(?!\d)/ })).toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: /عنصر تجريبي 11(?!\d)/ })).not.toBeInTheDocument();
+    await user.click(hadithRow(4));
+    await user.click(button);
+    expect(button).toHaveAttribute("aria-expanded", "false");
+    expect(region).toHaveAttribute("hidden");
+    expect(groupRow("الأحاديث ١\u2013١٠")).toBePartiallyChecked();
+    await user.click(button);
+    expect(hadithRow(4)).toBeChecked();
+    expect(hadithRow(5)).not.toBeChecked();
+  });
+
+  it("makes a child press a mixed group row, then a full one, in the same set of ordinals", async () => {
+    const user = userEvent.setup();
+    startLong();
+    await screen.findByRole("group", { name: "الأحاديث" });
+    await user.click(customizeButton("الأحاديث ٤١\u2013٤٢"));
+    await user.click(hadithRow(41));
+    expect(groupRow("الأحاديث ٤١\u2013٤٢")).toBePartiallyChecked();
+    expect(groupRow("الأحاديث ٤١\u2013٤٢")).toHaveAttribute("aria-checked", "mixed");
+    expect(countOf()).toHaveAccessibleDescription("تم اختيار ١ من ٤٢");
+    await user.click(hadithRow(42));
+    expect(groupRow("الأحاديث ٤١\u2013٤٢")).toBeChecked();
+    expect(groupRow("الأحاديث ٤١\u2013٤٢")).not.toHaveAttribute("aria-checked");
+    // A press on a mixed group row checks the rest.
+    await user.click(hadithRow(41));
+    await user.click(groupRow("الأحاديث ٤١\u2013٤٢"));
+    expect(hadithRow(41)).toBeChecked();
+    expect(hadithRow(42)).toBeChecked();
+  });
+
+  it("shows a full group as one chip, the checked sections of a partly checked group as chips, and nothing when all are selected", async () => {
+    const user = userEvent.setup();
+    startLong();
+    await screen.findByRole("group", { name: "الأحاديث" });
+    await user.click(groupRow("الأحاديث ١\u2013١٠"));
+    await user.click(customizeButton("الأحاديث ١١\u2013٢٠"));
+    await user.click(hadithRow(12));
+    await user.click(hadithRow(15));
+    const chips = within(screen.getByRole("group", { name: "الأقسام المختارة" })).getAllByRole("button");
+    expect(chips.map((chip) => chip.getAttribute("aria-label"))).toEqual(["إزالة الأحاديث ١\u2013١٠", "إزالة عنصر تجريبي 12", "إزالة عنصر تجريبي 15"]);
+    await user.click(screen.getByRole("button", { name: "تحديد الكل" }));
+    expect(countOf()).toHaveAccessibleDescription("تم اختيار الكل (٤٢)");
+    expect(screen.queryByRole("group", { name: "الأقسام المختارة" })).not.toBeInTheDocument();
+    for (const label of ["الأحاديث ١\u2013١٠", "الأحاديث ١١\u2013٢٠", "الأحاديث ٢١\u2013٣٠", "الأحاديث ٣١\u2013٤٠", "الأحاديث ٤١\u2013٤٢"]) expect(groupRow(label)).toBeChecked();
+  });
+
+  it("keeps the rule of one to six chips, counting a whole group as one", async () => {
+    const user = userEvent.setup();
+    startLong();
+    await screen.findByRole("group", { name: "الأحاديث" });
+    for (const label of ["الأحاديث ١\u2013١٠", "الأحاديث ١١\u2013٢٠", "الأحاديث ٢١\u2013٣٠"]) await user.click(groupRow(label));
+    const chipButtons = () => within(screen.getByRole("group", { name: "الأقسام المختارة" })).getAllByRole("button");
+    expect(chipButtons()).toHaveLength(3);
+    await user.click(customizeButton("الأحاديث ٣١\u2013٤٠"));
+    for (const ordinal of [31, 32, 33]) await user.click(hadithRow(ordinal));
+    expect(chipButtons()).toHaveLength(6);
+    // A seventh chip: the chips go and the count with the checked rows is the summary.
+    await user.click(hadithRow(34));
+    expect(screen.queryByRole("group", { name: "الأقسام المختارة" })).not.toBeInTheDocument();
+    expect(countOf()).toHaveAccessibleDescription("تم اختيار ٣٤ من ٤٢");
+  });
+
+  it("removes a group chip: every section of the group is unchecked, it is announced, and focus goes to the next chip", async () => {
+    const user = userEvent.setup();
+    startLong();
+    await screen.findByRole("group", { name: "الأحاديث" });
+    await user.click(groupRow("الأحاديث ١\u2013١٠"));
+    await user.click(groupRow("الأحاديث ٢١\u2013٣٠"));
+    await user.click(screen.getByRole("button", { name: "إزالة الأحاديث ١\u2013١٠" }));
+    expect(groupRow("الأحاديث ١\u2013١٠")).not.toBeChecked();
+    expect(groupRow("الأحاديث ٢١\u2013٣٠")).toBeChecked();
+    expect(screen.getByRole("button", { name: "إزالة الأحاديث ٢١\u2013٣٠" })).toHaveFocus();
+    expect(liveText()).toContain("أُزيل الأحاديث ١\u2013١٠. تم اختيار ١٠ من ٤٢");
+    await user.click(screen.getByRole("button", { name: "إزالة الأحاديث ٢١\u2013٣٠" }));
+    expect(groupRow("الأحاديث ١\u2013١٠")).toHaveFocus();
+    expect(countOf()).toHaveAccessibleDescription("لم تختر شيئًا بعد");
+  });
+
+  it("names whole groups in the goal sentence, up to three, and the sections otherwise", async () => {
+    const user = userEvent.setup();
+    startLong();
+    await screen.findByRole("group", { name: "الأحاديث" });
+    await user.click(groupRow("الأحاديث ١\u2013١٠"));
+    await user.click(groupRow("الأحاديث ٤١\u2013٤٢"));
+    expect(goalBox().value).toContain("أريد حفظ الأحاديث ١\u2013١٠ والأحاديث ٤١\u2013٤٢ من");
+    await user.click(customizeButton("الأحاديث ٤١\u2013٤٢"));
+    await user.click(hadithRow(42));
+    expect(goalBox().value).toContain("١١ من ٤٢ حديث");
+  });
+
+  it("hands over the ordinals of groups and sections as one ascending set, with no group in it", async () => {
+    const user = userEvent.setup();
+    startLong();
+    await screen.findByRole("group", { name: "الأحاديث" });
+    await user.click(groupRow("الأحاديث ٤١\u2013٤٢"));
+    await user.click(customizeButton("الأحاديث ١\u2013١٠"));
+    await user.click(hadithRow(7));
+    await user.click(hadithRow(2));
+    await user.click(startButton());
+    expect(getStartDraft()?.selection.targetScope).toEqual({ sectionOrdinals: [2, 7, 41, 42] });
+    expect(navigation.router.push).toHaveBeenCalledWith("/placement");
+  });
+
+  it("orders focus: a group row, its «تخصيص» button, then its sections once open, then the next group row", async () => {
+    const user = userEvent.setup();
+    startLong();
+    await screen.findByRole("group", { name: "الأحاديث" });
+    groupRow("الأحاديث ١\u2013١٠").focus();
+    await user.tab();
+    expect(customizeButton("الأحاديث ١\u2013١٠")).toHaveFocus();
+    await user.tab();
+    expect(groupRow("الأحاديث ١١\u2013٢٠")).toHaveFocus();
+    groupRow("الأحاديث ١\u2013١٠").focus();
+    await user.tab();
+    await user.keyboard(" ");
+    expect(customizeButton("الأحاديث ١\u2013١٠")).toHaveAttribute("aria-expanded", "true");
+    await user.tab();
+    expect(hadithRow(1)).toHaveFocus();
+    await user.tab();
+    expect(hadithRow(2)).toHaveFocus();
+  });
+
+  it("closes every group again for another book", async () => {
+    const user = userEvent.setup();
+    renderStart({ catalog: () => json({ editions: [editionOf("hadith-long", HADITH, "hadith_collection", 42), editionOf("hadith-2", HADITH, "hadith_collection", 2)] }) });
+    await pickCategory(user, "الحديث");
+    await user.click(screen.getByRole("radio", { name: /كتاب hadith-long/ }));
+    await user.click(customizeButton("الأحاديث ١\u2013١٠"));
+    expect(customizeButton("الأحاديث ١\u2013١٠")).toHaveAttribute("aria-expanded", "true");
+    await user.click(screen.getByRole("radio", { name: /كتاب hadith-2/ }));
+    expect(screen.queryByRole("button", { name: /^تخصيص/ })).not.toBeInTheDocument();
+    expect(within(countOf()).getAllByRole("checkbox")).toHaveLength(2); // a book of ten or fewer sections lists them directly
+    await user.click(screen.getByRole("radio", { name: /كتاب hadith-long/ }));
+    expect(customizeButton("الأحاديث ١\u2013١٠")).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("writes the groups in English", async () => {
+    const user = userEvent.setup();
+    startLong("en");
+    const list = await screen.findByRole("group", { name: "Hadiths" });
+    expect(within(list).getByRole("checkbox", { name: /^Hadiths 41\u201342/ })).toBeInTheDocument();
+    expect(within(list).getAllByRole("checkbox")[4]?.closest("label")?.textContent).toBe("Hadiths 41\u2013422 hadiths");
+    await user.click(screen.getByRole("button", { name: "Customize Hadiths 41\u201342" }));
+    await user.click(screen.getByRole("checkbox", { name: "Sample item 41 41" }));
+    expect(screen.getByRole("checkbox", { name: /^Hadiths 41\u201342/ })).toBePartiallyChecked();
+    await user.click(screen.getByRole("checkbox", { name: /^Hadiths 41\u201342/ }));
+    expect(screen.getByRole("button", { name: "Remove Hadiths 41\u201342" })).toBeInTheDocument();
+    expect(goalBox().value).toContain("memorize Hadiths 41\u201342 of");
+  });
+
+  it("locks the unchecked groups at 60 sections in a longer list, and ignores a press past it", async () => {
+    const user = userEvent.setup();
+    renderStart({ catalog: () => json({ editions: [editionOf("hadith-big", HADITH, "hadith_collection", 70)] }) });
+    await screen.findByRole("group", { name: "الأحاديث" });
+    const labels = ["١\u2013١٠", "١١\u2013٢٠", "٢١\u2013٣٠", "٣١\u2013٤٠", "٤١\u2013٥٠", "٥١\u2013٦٠"];
+    for (const range of labels) await user.click(groupRow(`الأحاديث ${range}`));
+    expect(countOf()).toHaveAccessibleDescription("تم اختيار ٦٠ من ٧٠");
+    expect(groupRow("الأحاديث ٦١\u2013٧٠")).toHaveAttribute("aria-disabled", "true");
+    await user.click(groupRow("الأحاديث ٦١\u2013٧٠"));
+    expect(groupRow("الأحاديث ٦١\u2013٧٠")).not.toBeChecked();
+    expect(screen.getByText("يمكن اختيار ٦٠ قسمًا على الأكثر.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "تحديد الكل" })).not.toBeInTheDocument();
   });
 });
 
@@ -385,7 +588,7 @@ describe("the hadith branch and the cascade rules", () => {
     await user.click(row(1));
     await pickCategory(user, "الحديث");
     expect(screen.queryByRole("group", { name: "السور" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("radiogroup", { name: "طريقة الاختيار" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("radiogroup", { name: "الجزء" })).not.toBeInTheDocument();
     await user.click(screen.getByRole("radio", { name: /كتاب hadith-1/ }));
     await user.click(within(screen.getByRole("group", { name: "الأحاديث" })).getAllByRole("checkbox")[0] as HTMLElement);
     await user.click(screen.getByRole("checkbox", { name: "سند" }));
@@ -395,18 +598,16 @@ describe("the hadith branch and the cascade rules", () => {
     expect(list).toHaveAccessibleDescription("لم تختر شيئًا بعد");
     expect(screen.getByRole("checkbox", { name: "سند" })).not.toBeChecked();
     await pickCategory(user, "القرآن الكريم");
-    await user.click(screen.getByRole("radio", { name: "حسب السورة" }));
     expect(within(screen.getByRole("group", { name: "السور" })).getAllByRole("checkbox").every((box) => !(box as HTMLInputElement).checked)).toBe(true);
   });
 
   it("preselects a category that is the only one, and still shows it", async () => {
-    const user = userEvent.setup();
     renderStart({ catalog: () => json({ editions: [CATALOG.editions[0]] }) });
     const group = await screen.findByRole("radiogroup", { name: "الباب" });
     expect(within(group).getAllByRole("radio")).toHaveLength(1);
     expect(within(group).getByRole("radio")).toBeChecked();
-    expect(screen.getByRole("radiogroup", { name: "طريقة الاختيار" })).toBeInTheDocument();
-    await user.click(screen.getByRole("radio", { name: "حسب السورة" }));
+    expect(screen.getByRole("radiogroup", { name: "الجزء" })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "الجزء ٣٠" })).toBeChecked();
     expect(screen.getByRole("group", { name: "السور" })).toBeInTheDocument();
   });
 
@@ -627,10 +828,24 @@ describe("the hand-off to S-09 (guard 5)", () => {
     expect(liveText()).not.toContain("ظهرت قائمة");
   });
 
+  it("restores a draft written before D88: the old view field is ignored and the juz' is implied", async () => {
+    setStartDraft({
+      selection: { editionId: "quran-1", targetScope: { sectionOrdinals: [2, 5] }, paths: ["quran"], sessionMinutes: 10, preferredDate: null, goalText: "x" },
+      form: { categorySlug: "quran", editionId: null, view: "juz", ordinals: [2, 5], paths: null, minutes: null, date: "", goalEdited: false, goalText: "" },
+    });
+    renderStart();
+    await screen.findByRole("radiogroup", { name: "الباب" });
+    expect(screen.getByRole("radio", { name: "القرآن الكريم" })).toBeChecked();
+    expect(screen.getByRole("radio", { name: "الجزء ٣٠" })).toBeChecked();
+    expect(row(2)).toBeChecked();
+    expect(row(5)).toBeChecked();
+    expect(startButton()).toHaveAttribute("aria-disabled", "false");
+  });
+
   it("does not trust a draft that no longer fits the catalog: a missing edition shows level 1 only", async () => {
     setStartDraft({
       selection: { editionId: "gone", targetScope: { sectionOrdinals: [1] }, paths: ["quran"], sessionMinutes: 10, preferredDate: null, goalText: "x" },
-      form: { categorySlug: "gone", editionId: "gone", view: null, ordinals: [1], paths: null, minutes: null, date: "", goalEdited: false, goalText: "" },
+      form: { categorySlug: "gone", editionId: "gone", juz: null, ordinals: [1], paths: null, minutes: null, date: "", goalEdited: false, goalText: "" },
     });
     renderStart();
     await screen.findByRole("radiogroup", { name: "الباب" });
@@ -694,7 +909,6 @@ describe("the English interface", () => {
     renderStart({ language: "en" });
     expect(screen.getByRole("heading", { level: 1, name: "What is your plan?" })).toBeInTheDocument();
     await user.click(await screen.findByRole("radio", { name: "The Quran" }));
-    await user.click(screen.getByRole("radio", { name: "By surah" }));
     const list = screen.getByRole("group", { name: "Surahs" });
     expect(list).toHaveAccessibleDescription("Nothing selected yet");
     expect(startButton("en")).toHaveAccessibleDescription("Choose at least one surah.");
@@ -725,7 +939,7 @@ describe("the structure for assistive technology", () => {
     renderStart();
     await pickQuranSurahs(user);
     await user.click(row(1));
-    for (const name of ["الباب", "طريقة الاختيار", "السور", "وقتك اليومي"]) {
+    for (const name of ["الباب", "الجزء", "السور", "وقتك اليومي"]) {
       const group = screen.getByRole(name === "السور" ? "group" : "radiogroup", { name });
       expect(group.tagName).toBe("FIELDSET");
       expect(group.querySelector("legend")).toHaveTextContent(name);

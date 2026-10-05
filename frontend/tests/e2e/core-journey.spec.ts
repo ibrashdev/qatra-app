@@ -48,11 +48,11 @@ test("sign in without a plan, choose a surah, skip the test, confirm the plan, a
   await page.getByLabel("كلمة المرور", { exact: true }).fill(MOCK_PASSWORD);
   await page.getByRole("button", { name: "دخول", exact: true }).click();
 
-  // S-08: the Quran category, by surah, one surah, then the start button.
+  // S-08: the Quran category, its one juz' preselected (D88), one surah, then the start button.
   await expect(page).toHaveURL(/\/start$/);
   await expect(page.getByRole("heading", { level: 1, name: "ما هي خطتك؟" })).toBeVisible();
   await page.getByRole("radio", { name: "القرآن الكريم" }).check();
-  await page.getByRole("radio", { name: "حسب السورة" }).check();
+  await expect(page.getByRole("radio", { name: "الجزء ٣٠" })).toBeChecked();
   await page.getByRole("checkbox", { name: /عنصر نائب\) ١/ }).check();
   const startButton = page.getByRole("button", { name: "ابدأ المحادثة" });
   await expect(startButton).toHaveAttribute("aria-disabled", "false");
