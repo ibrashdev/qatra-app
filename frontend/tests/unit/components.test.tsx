@@ -355,13 +355,13 @@ describe("error and not-found views", () => {
     expect(screen.getByRole("link", { name: "الذهاب إلى الصفحة الرئيسية" })).toHaveAttribute("href", "/");
   });
 
-  it("the error view announces itself and its retry button calls reset", async () => {
+  it("the error view announces itself and its retry button calls retry", async () => {
     setLanguage("ar");
-    const reset = vi.fn();
-    renderWithApp(<ErrorView reset={reset} />);
+    const retry = vi.fn();
+    renderWithApp(<ErrorView retry={retry} />);
     expect(screen.getByRole("alert")).toHaveTextContent("حدث خطأ غير متوقع. حاول مرة أخرى.");
     await userEvent.click(screen.getByRole("button", { name: "إعادة المحاولة" }));
-    expect(reset).toHaveBeenCalledTimes(1);
+    expect(retry).toHaveBeenCalledTimes(1);
   });
 });
 

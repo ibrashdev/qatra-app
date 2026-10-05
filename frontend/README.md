@@ -72,6 +72,8 @@ E03 (register) judges the username and password with the same rules as the scree
 - The text of S-03 is the words of `docs/Authentication-and-privacy.md`, with only the codes and table names taken out; `tests/unit/terms-text.test.ts` compares it with that document (and lists the few clauses that join two phrases). The page calls no API, so it shows no wake-up line, has no session probe, and a signed-in visitor stays on it.
 - A link to an anchor (`/terms#privacy`) gets the scroll and the focus once the page is settled (the saved language applied), with the heading below the app bar. A reading page uses `PublicShell reading`: the reading column of UI-tokens 5 is its text measure.
 - The selected segment of the language switch shows a check at the start edge, so the choice is never colour alone; at large text the segments wrap rather than leave the page.
+- A top bar is sticky while it is one row and static once it has wrapped, that is taller than one row plus half a rem, the room that the page's scroll padding keeps clear (`use-wrapped-bar.ts` sets `data-wrapped` on the header; at 200 % text on 320 px the public bar was 305 px of 568 px). While a static bar is on the page, `globals.css` keeps only the notch and 8 px above a focused control. A title of two lines keeps its bar sticky, one of three does not.
+- The root error page calls Next 16's `retry` (fetch the route again and render it), not `reset`.
 - The back arrow is the only glyph that mirrors in right-to-left. The password toggle names its action and has no pressed state (O-07).
 - `THIRD_PARTY_NOTICES.md` reproduces the licence text of the icon set; update it with the version when `lucide-react` changes.
 - Mock data is synthetic: placeholders and fake ids, no religious text.
