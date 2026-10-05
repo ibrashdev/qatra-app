@@ -90,7 +90,7 @@ export function goalTextFor(locale: Locale, plan: Plan, edition: CatalogEdition 
   const capped = (text: string): string => Array.from(text).slice(0, GOAL_MAX_CODE_POINTS).join("");
   if (edition === null) return capped(title);
   const groups = groupCategories([edition]);
-  const form = { ...EMPTY_FORM, view: "surah" as const, ordinals: plan.targetScope.sectionOrdinals, paths: isQuranPlan(plan) ? null : hadithPathsOf(plan.paths), date: plan.preferredDate ?? "" };
+  const form = { ...EMPTY_FORM, ordinals: plan.targetScope.sectionOrdinals, paths: isQuranPlan(plan) ? null : hadithPathsOf(plan.paths), date: plan.preferredDate ?? "" };
   const cascade = resolveCascade(form, groups);
   const sentence = composeGoal({ locale, form, cascade, selected: selectedOrdinals(form, cascade), minutes: plan.sessionMinutes }).trim();
   return capped(sentence === "" ? title : sentence);

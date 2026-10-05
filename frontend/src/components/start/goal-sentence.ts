@@ -3,6 +3,7 @@
 import { formatInteger } from "@/i18n/format";
 import type { Locale } from "@/i18n/messages";
 import { getStartMessages } from "@/i18n/start-messages";
+import { groupKindOf, groupLabel } from "./group-label";
 import { checkedPaths, type Cascade, type Minutes, type StartForm } from "./start-model";
 
 const MAX_NAMED_SECTIONS = 3;
@@ -36,9 +37,16 @@ export function composeGoal({ locale, form, cascade, selected, minutes }: GoalIn
 
   const chosen = sections.filter((section) => selected.includes(section.ordinal));
   const titleOf = (section: (typeof sections)[number]) => (locale === "ar" ? section.titleAr : section.titleEn);
+  // D88, O-60: a selection that is exactly whole groups of a long book (and not everything) is named by up to three group labels.
+  const selectedSet = new Set(selected);
+  const wholeGroups = cascade.groups.filter((group) => group.sections.every((entry) => selectedSet.has(entry.ordinal)));
+  const onlyWholeGroups = wholeGroups.reduce((sum, group) => sum + group.sections.length, 0) === chosen.length;
   let what: string;
   if (chosen.length >= sections.length) what = t.all;
-  else if (chosen.length <= MAX_NAMED_SECTIONS) what = t.names(chosen.map(titleOf));
+  else if (onlyWholeGroups && wholeGroups.length >= 1 && wholeGroups.length <= MAX_NAMED_SECTIONS) {
+    const kind = groupKindOf(cascade);
+    what = t.names(wholeGroups.map((group) => groupLabel(locale, kind, group)));
+  } else if (chosen.length <= MAX_NAMED_SECTIONS) what = t.names(chosen.map(titleOf));
   else what = t.someOf(formatInteger(locale, chosen.length), formatInteger(locale, sections.length), chosen[0]?.kind ?? "surah");
 
   const paths = cascade.pathChoices.length > 0 ? checkedPaths(form, cascade) : [];
