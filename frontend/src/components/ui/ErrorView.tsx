@@ -4,7 +4,7 @@ import { useLocale } from "@/i18n/LocaleProvider";
 import { PageTitle } from "./PageTitle";
 
 // Standalone on purpose: if a shell threw, the error view must not depend on that shell.
-export function ErrorView({ reset }: { reset: () => void }) {
+export function ErrorView({ retry }: { retry: () => void }) {
   const { messages } = useLocale();
   return (
     <main id="main" tabIndex={-1} className="mx-auto w-full max-w-column px-page py-q32">
@@ -16,7 +16,7 @@ export function ErrorView({ reset }: { reset: () => void }) {
       </div>
       <button
         type="button"
-        onClick={reset}
+        onClick={retry}
         className="mt-q24 inline-flex min-h-button min-w-22 items-center justify-center rounded-sm border border-edge bg-surface px-q24 text-button text-primary-deep transition-[color,background-color,border-color] duration-(--q-duration-fast) hover:bg-selection active:border-primary-deep"
       >
         {messages.error.retry}
