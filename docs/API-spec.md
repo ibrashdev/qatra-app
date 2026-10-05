@@ -1,8 +1,10 @@
 # Qatra — API Specification (`/api`)
 
-Version 1.5 · 2026-10-05 · Status: Approved: D74, 4 October 2026 (owner: «approve best practice», «q7 approved») for the v1.1 content; Approved: D75, A1 (owner, 4 October 2026: «A1 approved , best practice») for the D75 additions of version 1.2 (E31–E34, §4.10); the version 1.3, 1.4 and 1.5 additions are implementation clarifications (implementation record, no new owner approval)
+Version 1.6 · 2026-10-05 · Status: Approved: D74, 4 October 2026 (owner: «approve best practice», «q7 approved») for the v1.1 content; Approved: D75, A1 (owner, 4 October 2026: «A1 approved , best practice») for the D75 additions of version 1.2 (E31–E34, §4.10); the version 1.3, 1.4 and 1.5 additions are implementation clarifications (implementation record, no new owner approval); the version 1.6 additions record D90 (Approved: owner, 5 October 2026)
 
 Owner of this draft: Solutions Architect (Role 3), for the root coordinator. This is design documentation only: no endpoint exists, every application path is Planned (D61), and implementation is not authorized until the architecture deliverables are presented and explicitly approved (D69).
+
+**Version 1.6 (5 October 2026).** Records D90 (Approved: owner, 5 October 2026; additive changes only): the E20 daily-session order (new material first, then due reviews, quick drills and the end test), the whole-passage `QuestionBase.context` with `ayahEnds` (replacing ±6 words), `referenceAr` on `SourceRef` and `PassageView` (the source line is shown only after the answer), `Estimate.dailyNew` in E15 (whole-unit daily pace) and the plan-card and reply-guard wording of the plan conversation; §5 gains a one-line note on the `propose-questions` CLI step. No endpoint, error code or limit is added. Implemented locally on branch `question-bank-fixes` (local tests only, not deployed, not Verified). The read-only Lessons tab approved in D90 is documented in a later pass.
 
 **Version 1.5 (5 October 2026).** Clarifications, no new behaviour; implementation record, no new owner approval. It adds §5.5, which records what the operator CLI implementation (commit bde8bd1, merge 3d40a3e, on main by PR #14) settled for the scope of D83: `verify` has an optional source-only mode for that one scope, `segment`, `build-bank` and `validate` follow the scope of the first `acquire`, `approve` takes the owner's words typed in the chat as its confirmation, and `publish` exists in SQL-file mode (one transactional file that the owner applies; the upload to the private bucket is deferred). No endpoint, DTO field, error code, limit or status is added or changed, and the text of §5.1 to §5.4 and of every other section is unchanged; the lead of §5 gains a one-line pointer to §5.5. Implemented locally (local tests only); nothing is published and this version records no deployment of this code.
 
@@ -903,6 +905,7 @@ There is **no free-text goal field** on any plan endpoint: a free-text goal is r
 - `newWordsPerDay` is the capacity for `sessionMinutes`: 5 → 12, 10 → 25, 15 → 40.
 - `totalWords` is the sum of word counts of the passages in scope for the selected paths; `knownWords` is the word count of passages answered correctly in the placement session (known passages count as known for the estimate and are scheduled as an early quick review, with no mastery credit); without a placement session it is 0.
 - `days = ceil((totalWords − knownWords) / newWordsPerDay × 1.15)` (15% review buffer); `endDate = today + days`, with `today` the account's learning date.
+- `dailyNew` (D90, additive; the examples below omit it) is `{unit: "ayah" | "hadith", perDay: integer ≥ 1 | null, everyDays: integer ≥ 1 | null}` with exactly one of `perDay` and `everyDays` set, and `null` for plans stored before D90 or without unit counts (the UI then shows the earlier words text). `remaining = max(1, round_half_up(units × (totalWords − knownWords) / totalWords))`; if `remaining ≥ days`, `perDay = max(1, round_half_up(remaining / days))`, otherwise `everyDays = max(1, round_half_up(days / remaining))`. `units` are ayat (Quran) or sections with a passage on a selected path (hadith), from `SectionData.unit_count` (memory bundle: ayat; Supabase mode: `QURAN_AYAH_COUNTS`). `newWordsPerDay` and the capacity 12/25/40 are unchanged internally. The input `Estimate` of E16/E17 accepts an optional `dailyNew`; the estimate equality check ignores it. Implemented locally on branch `question-bank-fixes`, local tests only, not deployed.
 - `alternatives` holds at most two full `Estimate` objects: (a) the next larger minutes option; (b) the scope halved (first half in plan order, following `order`). An alternative that does not apply is omitted [O-17].
 - `reasonCode` is `fits_preferred_date`, `exceeds_preferred_date` or `no_preferred_date`.
 
@@ -1250,7 +1253,8 @@ At least one optional field must be present (`422` rule `no_fields`). The scope 
 | `placement` | `editionId`, `targetScope`, `selfRating?` | no plan needed; the edition must be published and not hidden; scope as in the shared plan rules; `selfRating` is `none`, `some` or `most`; up to 8 passages sampled evenly across the scope, one `word_choice` (continuation) or `word_recall` question each; for a hadith edition the edition's `defaultPaths` are sampled (A-12, decision on [O-17]) |
 
 **Snapshot content** (contract §5)
-- `daily`, in order: (1) due review rounds, overdue first, capped at 6/10/14 questions for 5/10/15 minutes; (2) the current learning passage or the next passage(s) in plan order up to the day's capacity — a `learn` step with the full passage, its reference, edition, canonical URL, takhrij and the D50 notice where it applies, then training questions (one per part, templates rotating) and extra questions until the passage reaches 3 consecutive correct answers; (3) an end-of-session test of 3/5/7 questions mixing today's parts, error parts and uncovered parts. After 3 or more days of absence the session starts with the light review of step 1 and introduces no new material by default; missed days are not stacked (R07). Nothing force-closes a session.
+- `daily`, in order (D90: new material first; contract §5): (1) the current learning passage or the next passage(s) in plan order up to the day's capacity — per new passage a `learn` step with the full passage, its reference, edition, canonical URL, takhrij and the D50 notice where it applies, then training batches (`TRAINING_BATCHES` 5 → 2, 10 → 2, 15 → 3; type progression `word_choice`, `word_order`, `word_recall`, `similar_distinction`; each batch is one question of a single type per ranked part, parts lacking that type are skipped, an empty batch does not count; fewer than 3 training questions wrap over the unused types so the passage can reach 3 consecutive correct answers); (2) due review rounds, overdue first, capped at 6/10/14 questions for 5/10/15 minutes, each round's questions preferring the day's review type unless the part's last attempt used it, the review block grouped by type (rounds are evaluated by round id, independent of order); (3) quick drills grouped the same way; (4) an end-of-session test of 3/5/7 questions mixing today's parts, error parts and uncovered parts, grouped by type. After 3 or more days of absence the session holds the light review only (reviews, no new material by default); maintenance days are reviews only; missed days are not stacked (R07). Nothing force-closes a session.
+- **Question payload (D90, additive).** `QuestionBase.context` is `{before: Token[], after: Token[], ayahEnds: AyahEnd[]}`: `before` and `after` hold all tokens of the question's passage outside the target span (`start_ref` to `end_ref`, across units), unaltered, instead of ±6 words; `AyahEnd = {afterRef, number}` marks the last token of each ayah unit except the passage's last ayah, never inside the blank; `ayahEnds` defaults to `[]`; `word_order` also carries the whole passage as context. `SourceRef` gains `referenceAr` (hadith: the section title; Quran: «سورة X، الآية n» or «…، الآيات a–b» in Arabic-Indic digits) and `PassageView` gains `referenceAr`; `publisher`, `editionLabel` and `reference` stay for compatibility and are never rendered to learners, and the UI shows the source line only after the question is answered. Context is orientation, not coverage (D64, D66). Implemented locally on branch `question-bank-fixes`, local tests only, not deployed. The read-only Lessons tab approved in D90 (within plan scope; its time counts toward the daily goal) is documented in a later pass; E21 events are unchanged.
 - `game`: up to 10 questions of the optional `gameType` over the optional `passageIds`.
 - `placement`: never counted in daily progress.
 - `steps` is an immutable snapshot. Every `Question` carries its `answerKey` (accepted MVP risk, S-5). Passage text is shown with the canonical URL beside it (D68).
@@ -1296,13 +1300,14 @@ At least one optional field must be present (`422` rule `no_fields`). The scope 
         "passageId": "66666666-6666-4666-8666-000000000003",
         "path": "quran",
         "reference": "79:1-5",
+        "referenceAr": "«سورة X، الآيات ١–٥»",
         "sectionTitleAr": "«اسم السورة»",
         "units": [ { "unitRef": 40, "kind": "ayah", "reference": "79:1", "text": "«نص الآية كما ورد»" } ],
         "highlight": { "startRef": "40:0", "endRef": "40:3" },
         "takhrij": null,
         "grade": null,
         "showD50Notice": false,
-        "source": { "publisher": "«اسم الناشر»", "editionLabel": "«تسمية الطبعة»", "bookTitleAr": "«عنوان الكتاب»", "reference": "79:1-5", "url": "https://example.invalid/ref/79", "pages": [] }
+        "source": { "publisher": "«اسم الناشر»", "editionLabel": "«تسمية الطبعة»", "bookTitleAr": "«عنوان الكتاب»", "reference": "79:1-5", "referenceAr": "«سورة X، الآيات ١–٥»", "url": "https://example.invalid/ref/79", "pages": [] }
       }
     },
     {
@@ -1314,9 +1319,9 @@ At least one optional field must be present (`422` rule `no_fields`). The scope 
         "passageId": "66666666-6666-4666-8666-000000000003",
         "role": "training",
         "reviewRoundId": null,
-        "context": { "before": [ { "ref": "40:0", "text": "«كلمة١»" } ], "after": [ { "ref": "40:2", "text": "«كلمة٣»" } ] },
+        "context": { "before": [ { "ref": "40:0", "text": "«كلمة١»" } ], "after": [ { "ref": "40:2", "text": "«كلمة٣»" } ], "ayahEnds": [] },
         "policy": { "normalizationPolicyVersion": "arabic-norm-v1", "scoringPolicyVersion": "v1" },
-        "source": { "publisher": "«اسم الناشر»", "editionLabel": "«تسمية الطبعة»", "bookTitleAr": "«عنوان الكتاب»", "reference": "79:1", "url": "https://example.invalid/ref/79", "pages": [] },
+        "source": { "publisher": "«اسم الناشر»", "editionLabel": "«تسمية الطبعة»", "bookTitleAr": "«عنوان الكتاب»", "reference": "79:1", "referenceAr": "«سورة X، الآية ١»", "url": "https://example.invalid/ref/79", "pages": [] },
         "options": [ { "optionId": "opt-a", "text": "«كلمة٢»" }, { "optionId": "opt-b", "text": "«كلمة٤»" }, { "optionId": "opt-c", "text": "«كلمة٥»" }, { "optionId": "opt-d", "text": "«كلمة٦»" } ],
         "answerKey": { "optionId": "opt-a" }
       }
@@ -1838,6 +1843,8 @@ Every learner turn (E32, and the interpretation of `goalText` in E31) runs the s
 
 **Required model output** (JSON schema, validated by the server): `{intent: 'set_parameters' | 'question' | 'confirm' | 'religious' | 'out_of_scope', parameters?: {targetScope?, paths?, order?, sessionMinutes?, preferredDate?}, reply: string}`.
 
+**D90 note (plan card and guard).** The plan card words the daily pace in whole units with Arabic number agreement (ayat per day, or a hadith every n days) from `Estimate.dailyNew`; the reply guard accepts the proposal's own unit number and rejects any other (`number_mismatch`); the outbound allowlist gained `dailyNew`, `perDay`, `everyDays` and `unit`. Implemented locally, local tests only, not deployed.
+
 #### E31 · `POST /api/plan-chats`
 
 | | |
@@ -2178,7 +2185,7 @@ Plan-conversation v1.1 is approved as written (A1); these points are not decided
 
 ### 5.2 Workflow and the `content_jobs` step each command writes
 
-Directive 5 for MCP web editions: `acquired → verified → segmented → bank_built → validated → approved (owner) → published`. The steps `page_mapped` and `embedded` are skipped (web edition, D68; embeddings postponed, D69). The step vocabulary is fixed in Database-schema §4.4; the step list and order differ from the older documents [C-09].
+Directive 5 for MCP web editions: `acquired → verified → segmented → (propose-questions, optional, D90) → bank_built → validated → approved (owner) → published`. The steps `page_mapped` and `embedded` are skipped (web edition, D68; embeddings postponed, D69). The step vocabulary is fixed in Database-schema §4.4; the step list and order differ from the older documents [C-09].
 
 ```mermaid
 flowchart LR
@@ -2201,7 +2208,7 @@ flowchart LR
 | `archive` | `archived` | unchanged status; `catalog_hidden = true` and `archived_at` set |
 | `delete-unused-draft` | none (the job rows are deleted) | the draft no longer exists |
 
-`segment` and `build-bank` may be offered as one invocation; the workflow of directive 5 keeps them as two steps [O-26].
+`segment` and `build-bank` may be offered as one invocation; the workflow of directive 5 keeps them as two steps [O-26]. Since D90 the optional command `propose-questions` runs between `segment` and `build-bank` (§5.6); it writes no `content_jobs` step of its own and changes no edition state.
 
 ### 5.3 Commands
 
@@ -2307,7 +2314,7 @@ flowchart LR
 
 ### 5.5 Implementation record (version 1.5): the CLI as built for D83
 
-Clarifications, no new behaviour; implementation record, no new owner approval. Implemented locally (local tests only): commit bde8bd1, merge 3d40a3e, on main by PR #14. The text of §5.1 to §5.4 and the descriptions of the commands above are unchanged; this subsection records what the implementation settled where they were silent or described the full-scope design. Nothing is published: the commands exist, and the operator run of 5 October 2026 is recorded up to `validate` (the counts are in [Readiness.tracker.md](Readiness.tracker.md)); no `approve` or `publish` run on that build is recorded.
+Clarifications, no new behaviour; implementation record, no new owner approval. Implemented locally (local tests only): commit bde8bd1, merge 3d40a3e, on main by PR #14. The text of §5.1 to §5.4 and the descriptions of the commands above are unchanged except for the D90 notes (§5.2 line on `propose-questions`; §5.6); this subsection records what the implementation settled where they were silent or described the full-scope design. Nothing is published: the commands exist, and the operator run of 5 October 2026 is recorded up to `validate` (the counts are in [Readiness.tracker.md](Readiness.tracker.md)); no `approve` or `publish` run on that build is recorded.
 
 - **Commands built.** `acquire`, `verify`, `segment`, `build-bank`, `validate`, `approve` and `publish` work; `withdraw`, `archive` and `delete-unused-draft` are registered, check their preconditions and then refuse with exit code 6 until C6. The flag spellings and the exit codes 0 to 7 that the implementation uses are recorded in `backend/scripts/README.md`; this version does not close [O-26].
 - **`verify`, source-only mode.** `--source-only-decision D83` accepts two independent acquisitions from the Islamic Content service, made over HTTP by the workflow's own client, in place of the oracle and the skeleton, for exactly surah 112 of `quran-hafs-quranenc` and Forty hadith 1 (HadeethEnc record 66511) of `nawawi40-hadeethenc`, both at bank version 1. This is the narrowing of contract §2.7 that item 8 of contract §17 records for D83. A Quran unit passes when the stored acquisition and the re-acquisition made by `verify` are byte-identical (and equal after NFC); a hadith unit passes when pass 1 and pass 2 are identical after NFC. Any other scope or bank version is refused, and without the option nothing changes: a missing oracle still fails closed.
@@ -2315,6 +2322,14 @@ Clarifications, no new behaviour; implementation record, no new owner approval. 
 - **`approve`.** There is no terminal prompt. The owner types the approval in the Claude Code chat, and those words, recorded verbatim with their source (a session URL) and time, are the interactive confirmation that §5.3 asks for; this is a coordinator decision of the D83 session, not an owner decision. The reviewer, the review scope, the note, the source, the time and the owner's words are all required: a missing or empty input is refused, and silence, a timeout or a default is never an approval. The entry is `{who, at, note, scope, words, source}`, bound to the validated bundle (`bundleSha256`, `contentHash`); a `bundle.json` that changed after `validate` makes `publish` refuse. The command prints counts only, never the words.
 - **`publish`, SQL-file mode.** The build environment has no `service_role` key, so `publish --sql-out` writes ONE transactional SQL file below the gitignored build directory and applies nothing; the owner applies it once with `service_role`, and a second application raises at the guard of the file. The file holds the draft upserts, `sources.license_record`, the review record with the acquisition, verification and approval entries, the publishing statements (lessons and question items published, earlier editions of the book superseded, the edition published) and the `content_jobs` rows with `published_at`. The local job rows are not changed, and the upload of the raw objects to the private bucket is deferred. The file holds source text and the owner's words and is never committed. It has been checked as text only and has not been run against a database.
 - **License record.** `sources.license_record` is built from the recorded approval, from the Islamic Content terms of use as read on 5 October 2026 (the terms say nothing on reuse, so `rights_status` stays `owner_accepted_pending_verification`) and from the register [publisher-terms-register.md](../references/source-acquisition/publisher-terms-register.md) (C5, v0.1 Draft). Without an approval there is no record and `publish` refuses.
+
+### 5.6 D90 note (version 1.6): `propose-questions`, acquisition parser and validation
+
+Records D90 (Approved: owner, 5 October 2026); implemented locally on branch `question-bank-fixes`, local tests only, not deployed, not Verified. The owner rebuilds and republishes the content (owner: «لا تعدل المحتوى ساقوم بذلك من قبلي»); this record changes no source text.
+
+- **`propose-questions` (new step between `segment` and `build-bank`).** Per passage a free OpenRouter model (free-only eligibility, D60) receives only the published passage text, its parts and an Arabic same-section word pool, and returns refs only: `keywordRef` (the recall keyword) and, per part, `choiceRef` plus exactly 3 `distractorRefs` (word choice). The program validates every proposal (refs exist and belong to the part; Arabic script; not stoplist and not one letter; unambiguous; recall exclusions; choice differs from the keyword and from the continuation word; distractors come from the pool, are pairwise distinct including alternative spellings, and differ from the target); an invalid part falls back to the rules builder. It stores `question-proposals.json` (refs and model id, keyed by edition, passage and passage-text hash) and a review sheet `question-proposals.md` for the owner before `approve`. `build-bank` re-validates the store, stays deterministic and reports `proposedBy` counts (`ai`, `partial`, `rules`); no new question item key or database column is added. Without a key or model the step reports "rules fallback" and exits 0. Request caps: `--max-requests` and `QATRA_OPENROUTER_FREE_REQUESTS_PER_DAY` (50 per day, shared with the live app). Owner command, from `backend/`: `uv run python -m scripts.content_tools propose-questions --edition <key> --bank-version 1 [--dry-run] [--max-requests 30] [--timeout 90] [--pause 3.5] [--refresh]`, then `build-bank`, `validate`, `approve`, `publish` as before.
+- **`acquire` parser.** The live `get_hadith` answer carries an English framing line inside `[EXACT]`; the parser drops leading lines that have no Arabic letter, never takes banner lines as the title, and fails closed (`McpParseError`) if Latin letters remain in the narration, narrator or grade.
+- **`validate`.** A new blocking issue code `non_arabic_source_text` (Latin letters, the envelope markers `[EXACT]`, `[ATTRIBUTION]`, `[COMMENTARY]` and their closers, "RETRIEVED", box-drawing characters U+2500 to U+257F) applies to hadith records and every unit kind; distractor and segment options are Arabic-script only. Hadith 1 as currently published contains the contamination until the owner republishes.
 
 ## 6. Keep-awake job interface (D72)
 
