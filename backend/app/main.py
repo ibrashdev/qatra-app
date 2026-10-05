@@ -20,6 +20,7 @@ from app.middleware import (
 )
 from app.routers import catalog, health, plan_chats, plans
 from app.routers.auth import install_auth
+from app.routers.demo import install_demo
 from app.wiring import install_learning_core
 
 if TYPE_CHECKING:
@@ -56,6 +57,7 @@ def create_app(
     app.state.ready_limiter = SlidingWindowLimiter(settings.QATRA_READY_RATE_PER_MIN)
     install_learning_core(app, settings, clock=clock, transport=transport)
     install_auth(app, settings, clock=clock)
+    install_demo(app, settings, clock=clock)
 
     install_error_handlers(app)
 

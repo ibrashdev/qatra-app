@@ -146,12 +146,27 @@ class PlanRepository(Protocol):
         ``ActivePlanConflict``."""
 
 
+@dataclass(frozen=True, slots=True)
+class PlacementOutcomes:
+    """The result of a placement session by passage: ``correct_ids`` answered correctly and
+    unassisted (the known passages), ``incorrect_ids`` attempted but not known."""
+
+    correct_ids: frozenset[UUID]
+    incorrect_ids: frozenset[UUID]
+
+
 class PlacementReader(Protocol):
     def known_passage_ids(
         self, ctx: SessionContext, placement_session_id: UUID, edition_id: UUID
     ) -> frozenset[UUID]:
         """Passages answered correctly and unassisted in the caller's placement session for this
         edition. Raises ``PlacementNotFound`` for an unknown, foreign or other-edition session."""
+
+    def placement_outcomes(
+        self, ctx: SessionContext, placement_session_id: UUID, edition_id: UUID
+    ) -> PlacementOutcomes:
+        """The correct and the incorrect passages of the same session (the demo planner's input,
+        E28). Same errors as ``known_passage_ids``."""
 
 
 class ProfileReader(Protocol):
@@ -413,7 +428,7 @@ class MemoryPlacementReader:
     """Placement sessions of memory mode: seeded by tests (and later by the session package)."""
 
     def __init__(self) -> None:
-        self._sessions: dict[UUID, tuple[UUID, UUID, frozenset[UUID]]] = {}
+        self._sessions: dict[UUID, tuple[UUID, UUID, frozenset[UUID], frozenset[UUID]]] = {}
         self._lock = threading.Lock()
 
     def add_session(
@@ -422,22 +437,35 @@ class MemoryPlacementReader:
         placement_session_id: UUID,
         edition_id: UUID,
         known_passage_ids: frozenset[UUID] | set[UUID],
+        incorrect_passage_ids: frozenset[UUID] | set[UUID] = frozenset(),
     ) -> None:
         with self._lock:
             self._sessions[placement_session_id] = (
                 user_id,
                 edition_id,
                 frozenset(known_passage_ids),
+                frozenset(incorrect_passage_ids) - frozenset(known_passage_ids),
             )
 
-    def known_passage_ids(
+    def _entry(
         self, ctx: SessionContext, placement_session_id: UUID, edition_id: UUID
-    ) -> frozenset[UUID]:
+    ) -> tuple[UUID, UUID, frozenset[UUID], frozenset[UUID]]:
         with self._lock:
             entry = self._sessions.get(placement_session_id)
         if entry is None or entry[0] != ctx.user_id or entry[1] != edition_id:
             raise PlacementNotFound
-        return entry[2]
+        return entry
+
+    def known_passage_ids(
+        self, ctx: SessionContext, placement_session_id: UUID, edition_id: UUID
+    ) -> frozenset[UUID]:
+        return self._entry(ctx, placement_session_id, edition_id)[2]
+
+    def placement_outcomes(
+        self, ctx: SessionContext, placement_session_id: UUID, edition_id: UUID
+    ) -> PlacementOutcomes:
+        _, _, correct, incorrect = self._entry(ctx, placement_session_id, edition_id)
+        return PlacementOutcomes(correct, incorrect)
 
 
 class MemoryProfileReader:
@@ -758,6 +786,44 @@ class PostgrestPlacementReader:
             return frozenset(UUID(str(row["passage_id"])) for row in attempts)
         except (KeyError, ValueError):
             raise _bad_row("attempt_shape") from None
+
+    def placement_outcomes(
+        self, ctx: SessionContext, placement_session_id: UUID, edition_id: UUID
+    ) -> PlacementOutcomes:
+        """Correct and unassisted attempts make a passage known (as ``known_passage_ids``); a
+        passage that was attempted and is not known counts as incorrect."""
+        token = require_token(ctx.access_token)
+        sessions = self._client.select(
+            "learning_sessions",
+            columns="id,edition_id",
+            filters={
+                "id": f"eq.{placement_session_id}",
+                "user_id": f"eq.{ctx.user_id}",
+                "kind": "eq.placement",
+            },
+            token=token,
+        )
+        if not sessions or str(sessions[0].get("edition_id")) != str(edition_id):
+            raise PlacementNotFound
+        attempts = self._client.select(
+            "attempts",
+            columns="passage_id,correct,assisted",
+            filters={
+                "session_id": f"eq.{placement_session_id}",
+                "user_id": f"eq.{ctx.user_id}",
+            },
+            token=token,
+        )
+        try:
+            attempted = {UUID(str(row["passage_id"])) for row in attempts}
+            correct = {
+                UUID(str(row["passage_id"]))
+                for row in attempts
+                if row.get("correct") is True and row.get("assisted") is False
+            }
+        except (KeyError, ValueError):
+            raise _bad_row("attempt_shape") from None
+        return PlacementOutcomes(frozenset(correct), frozenset(attempted - correct))
 
 
 class PostgrestProfileReader:

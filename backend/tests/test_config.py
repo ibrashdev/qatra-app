@@ -62,6 +62,10 @@ def test_settings_names_are_the_contract_names_plus_the_documented_additions() -
         "QATRA_CHAT_MAX_TOKENS",
         "QATRA_CHAT_GUARD_VERSION",
         "QATRA_CHAT_MODEL_FOR_LEARNERS",
+        # demo path (API-spec §4.9, B10)
+        "QATRA_DEMO_ACCOUNTS_PER_IP_PER_DAY",
+        "QATRA_DEMO_PLANS_PER_ACCOUNT_PER_DAY",
+        "QATRA_DEMO_FIXTURES_DIR",
     }
 
 

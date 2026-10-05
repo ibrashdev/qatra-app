@@ -1,0 +1,1522 @@
+{
+  "contentHash": "813dc48bd6119fd4df220de0712a026dfd3187e597f2e72817945097544b789c",
+  "fixtureVersion": 1,
+  "generator": "backend/scripts/make_demo_simulations.py",
+  "generatorVersion": 1,
+  "label": "precomputed_synthetic",
+  "simulations": [
+    {
+      "days": [
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 0,
+          "day": 1,
+          "lightReviewDay": false,
+          "newWords": 11,
+          "overallPercent": 0,
+          "reviews": 0
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 0,
+          "day": 2,
+          "lightReviewDay": false,
+          "newWords": 11,
+          "overallPercent": 0,
+          "reviews": 1
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 0,
+          "day": 3,
+          "lightReviewDay": false,
+          "newWords": 11,
+          "overallPercent": 0,
+          "reviews": 1
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 0,
+          "day": 4,
+          "lightReviewDay": false,
+          "newWords": 11,
+          "overallPercent": 0,
+          "reviews": 2
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 0,
+          "day": 5,
+          "lightReviewDay": false,
+          "newWords": 11,
+          "overallPercent": 0,
+          "reviews": 2
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 0,
+          "day": 6,
+          "lightReviewDay": false,
+          "newWords": 10,
+          "overallPercent": 0,
+          "reviews": 2
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 0,
+          "day": 7,
+          "lightReviewDay": false,
+          "newWords": 10,
+          "overallPercent": 0,
+          "reviews": 2
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 11,
+          "day": 8,
+          "lightReviewDay": false,
+          "newWords": 12,
+          "overallPercent": 1,
+          "reviews": 3
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 22,
+          "day": 9,
+          "lightReviewDay": false,
+          "newWords": 12,
+          "overallPercent": 2,
+          "reviews": 3
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 33,
+          "day": 10,
+          "lightReviewDay": false,
+          "newWords": 12,
+          "overallPercent": 3,
+          "reviews": 3
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 44,
+          "day": 11,
+          "lightReviewDay": false,
+          "newWords": 12,
+          "overallPercent": 5,
+          "reviews": 3
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 55,
+          "day": 12,
+          "lightReviewDay": false,
+          "newWords": 12,
+          "overallPercent": 6,
+          "reviews": 3
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 65,
+          "day": 13,
+          "lightReviewDay": false,
+          "newWords": 12,
+          "overallPercent": 7,
+          "reviews": 3
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 75,
+          "day": 14,
+          "lightReviewDay": false,
+          "newWords": 12,
+          "overallPercent": 8,
+          "reviews": 3
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 87,
+          "day": 15,
+          "lightReviewDay": false,
+          "newWords": 11,
+          "overallPercent": 10,
+          "reviews": 3
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 99,
+          "day": 16,
+          "lightReviewDay": false,
+          "newWords": 11,
+          "overallPercent": 11,
+          "reviews": 3
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 111,
+          "day": 17,
+          "lightReviewDay": false,
+          "newWords": 11,
+          "overallPercent": 12,
+          "reviews": 3
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 123,
+          "day": 18,
+          "lightReviewDay": false,
+          "newWords": 11,
+          "overallPercent": 14,
+          "reviews": 3
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 135,
+          "day": 19,
+          "lightReviewDay": false,
+          "newWords": 11,
+          "overallPercent": 15,
+          "reviews": 3
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 147,
+          "day": 20,
+          "lightReviewDay": false,
+          "newWords": 10,
+          "overallPercent": 17,
+          "reviews": 3
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 159,
+          "day": 21,
+          "lightReviewDay": false,
+          "newWords": 10,
+          "overallPercent": 18,
+          "reviews": 3
+        }
+      ],
+      "label": "precomputed_synthetic",
+      "learnerScript": {
+        "absentDays": [],
+        "dailyCorrectRate": 1.0,
+        "errorDays": []
+      },
+      "profile": {
+        "name": "synthetic-juz-amma",
+        "sessionMinutes": 5,
+        "totalWords": 855
+      },
+      "scenarioId": "scenario-03",
+      "simulationId": "sim-01",
+      "titleAr": "وقت قليل: خمس دقائق يوميًا",
+      "titleEn": "Little time: five minutes a day"
+    },
+    {
+      "days": [
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 0,
+          "day": 1,
+          "lightReviewDay": false,
+          "newWords": 22,
+          "overallPercent": 0,
+          "reviews": 0
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 0,
+          "day": 2,
+          "lightReviewDay": false,
+          "newWords": 22,
+          "overallPercent": 0,
+          "reviews": 2
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 0,
+          "day": 3,
+          "lightReviewDay": false,
+          "newWords": 21,
+          "overallPercent": 0,
+          "reviews": 2
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 0,
+          "day": 4,
+          "lightReviewDay": false,
+          "newWords": 22,
+          "overallPercent": 0,
+          "reviews": 4
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 0,
+          "day": 5,
+          "lightReviewDay": false,
+          "newWords": 0,
+          "overallPercent": 0,
+          "reviews": 0
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 0,
+          "day": 6,
+          "lightReviewDay": false,
+          "newWords": 0,
+          "overallPercent": 0,
+          "reviews": 0
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 0,
+          "day": 7,
+          "lightReviewDay": false,
+          "newWords": 0,
+          "overallPercent": 0,
+          "reviews": 0
+        },
+        {
+          "adjustment": "absence_light_review",
+          "confirmedWordsCumulative": 22,
+          "day": 8,
+          "lightReviewDay": true,
+          "newWords": 0,
+          "overallPercent": 2,
+          "reviews": 8
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 22,
+          "day": 9,
+          "lightReviewDay": false,
+          "newWords": 24,
+          "overallPercent": 2,
+          "reviews": 0
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 22,
+          "day": 10,
+          "lightReviewDay": false,
+          "newWords": 24,
+          "overallPercent": 2,
+          "reviews": 4
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 22,
+          "day": 11,
+          "lightReviewDay": false,
+          "newWords": 24,
+          "overallPercent": 2,
+          "reviews": 2
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 65,
+          "day": 12,
+          "lightReviewDay": false,
+          "newWords": 22,
+          "overallPercent": 7,
+          "reviews": 8
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 65,
+          "day": 13,
+          "lightReviewDay": false,
+          "newWords": 22,
+          "overallPercent": 7,
+          "reviews": 4
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 87,
+          "day": 14,
+          "lightReviewDay": false,
+          "newWords": 21,
+          "overallPercent": 10,
+          "reviews": 6
+        }
+      ],
+      "label": "precomputed_synthetic",
+      "learnerScript": {
+        "absentDays": [
+          5,
+          6,
+          7
+        ],
+        "dailyCorrectRate": 1.0,
+        "errorDays": []
+      },
+      "profile": {
+        "name": "synthetic-juz-amma",
+        "sessionMinutes": 10,
+        "totalWords": 855
+      },
+      "scenarioId": "scenario-04",
+      "simulationId": "sim-02",
+      "titleAr": "غياب ثلاثة أيام: عودة بمراجعة خفيفة",
+      "titleEn": "Three days away: return with a light review"
+    },
+    {
+      "days": [
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 0,
+          "day": 1,
+          "lightReviewDay": false,
+          "newWords": 22,
+          "overallPercent": 0,
+          "reviews": 0
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 0,
+          "day": 2,
+          "lightReviewDay": false,
+          "newWords": 22,
+          "overallPercent": 0,
+          "reviews": 2
+        },
+        {
+          "adjustment": "error_priority",
+          "confirmedWordsCumulative": 0,
+          "day": 3,
+          "lightReviewDay": false,
+          "newWords": 21,
+          "overallPercent": 0,
+          "reviews": 3
+        },
+        {
+          "adjustment": "error_priority",
+          "confirmedWordsCumulative": 0,
+          "day": 4,
+          "lightReviewDay": false,
+          "newWords": 21,
+          "overallPercent": 0,
+          "reviews": 4
+        },
+        {
+          "adjustment": "error_priority",
+          "confirmedWordsCumulative": 0,
+          "day": 5,
+          "lightReviewDay": false,
+          "newWords": 21,
+          "overallPercent": 0,
+          "reviews": 4
+        },
+        {
+          "adjustment": "error_priority",
+          "confirmedWordsCumulative": 0,
+          "day": 6,
+          "lightReviewDay": false,
+          "newWords": 22,
+          "overallPercent": 0,
+          "reviews": 3
+        },
+        {
+          "adjustment": "error_priority",
+          "confirmedWordsCumulative": 0,
+          "day": 7,
+          "lightReviewDay": false,
+          "newWords": 22,
+          "overallPercent": 0,
+          "reviews": 6
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 0,
+          "day": 8,
+          "lightReviewDay": false,
+          "newWords": 24,
+          "overallPercent": 0,
+          "reviews": 2
+        },
+        {
+          "adjustment": "error_priority",
+          "confirmedWordsCumulative": 0,
+          "day": 9,
+          "lightReviewDay": false,
+          "newWords": 24,
+          "overallPercent": 0,
+          "reviews": 5
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 0,
+          "day": 10,
+          "lightReviewDay": false,
+          "newWords": 24,
+          "overallPercent": 0,
+          "reviews": 4
+        },
+        {
+          "adjustment": "error_priority",
+          "confirmedWordsCumulative": 33,
+          "day": 11,
+          "lightReviewDay": false,
+          "newWords": 23,
+          "overallPercent": 3,
+          "reviews": 8
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 33,
+          "day": 12,
+          "lightReviewDay": false,
+          "newWords": 22,
+          "overallPercent": 3,
+          "reviews": 1
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 65,
+          "day": 13,
+          "lightReviewDay": false,
+          "newWords": 22,
+          "overallPercent": 7,
+          "reviews": 7
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 87,
+          "day": 14,
+          "lightReviewDay": false,
+          "newWords": 22,
+          "overallPercent": 10,
+          "reviews": 4
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 99,
+          "day": 15,
+          "lightReviewDay": false,
+          "newWords": 22,
+          "overallPercent": 11,
+          "reviews": 4
+        },
+        {
+          "adjustment": "error_priority",
+          "confirmedWordsCumulative": 99,
+          "day": 16,
+          "lightReviewDay": false,
+          "newWords": 21,
+          "overallPercent": 11,
+          "reviews": 3
+        },
+        {
+          "adjustment": "error_priority",
+          "confirmedWordsCumulative": 123,
+          "day": 17,
+          "lightReviewDay": false,
+          "newWords": 21,
+          "overallPercent": 14,
+          "reviews": 6
+        },
+        {
+          "adjustment": "error_priority",
+          "confirmedWordsCumulative": 135,
+          "day": 18,
+          "lightReviewDay": false,
+          "newWords": 21,
+          "overallPercent": 15,
+          "reviews": 6
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 146,
+          "day": 19,
+          "lightReviewDay": false,
+          "newWords": 20,
+          "overallPercent": 17,
+          "reviews": 4
+        },
+        {
+          "adjustment": "error_priority",
+          "confirmedWordsCumulative": 146,
+          "day": 20,
+          "lightReviewDay": false,
+          "newWords": 24,
+          "overallPercent": 17,
+          "reviews": 6
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 157,
+          "day": 21,
+          "lightReviewDay": false,
+          "newWords": 24,
+          "overallPercent": 18,
+          "reviews": 4
+        }
+      ],
+      "label": "precomputed_synthetic",
+      "learnerScript": {
+        "absentDays": [],
+        "dailyCorrectRate": 0.8,
+        "errorDays": [
+          3,
+          4,
+          6
+        ]
+      },
+      "profile": {
+        "name": "synthetic-juz-amma",
+        "sessionMinutes": 10,
+        "totalWords": 855
+      },
+      "scenarioId": "scenario-05",
+      "simulationId": "sim-03",
+      "titleAr": "أخطاء متكررة: الأخطاء أولًا في المراجعة",
+      "titleEn": "Repeated errors: mistakes come first in review"
+    },
+    {
+      "days": [
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 0,
+          "day": 1,
+          "lightReviewDay": false,
+          "newWords": 24,
+          "overallPercent": 0,
+          "reviews": 0
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 0,
+          "day": 2,
+          "lightReviewDay": false,
+          "newWords": 24,
+          "overallPercent": 0,
+          "reviews": 2
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 0,
+          "day": 3,
+          "lightReviewDay": false,
+          "newWords": 24,
+          "overallPercent": 0,
+          "reviews": 2
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 0,
+          "day": 4,
+          "lightReviewDay": false,
+          "newWords": 24,
+          "overallPercent": 0,
+          "reviews": 4
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 0,
+          "day": 5,
+          "lightReviewDay": false,
+          "newWords": 24,
+          "overallPercent": 0,
+          "reviews": 4
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 0,
+          "day": 6,
+          "lightReviewDay": false,
+          "newWords": 24,
+          "overallPercent": 0,
+          "reviews": 4
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 0,
+          "day": 7,
+          "lightReviewDay": false,
+          "newWords": 22,
+          "overallPercent": 0,
+          "reviews": 4
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 24,
+          "day": 8,
+          "lightReviewDay": false,
+          "newWords": 22,
+          "overallPercent": 0,
+          "reviews": 6
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 48,
+          "day": 9,
+          "lightReviewDay": false,
+          "newWords": 22,
+          "overallPercent": 1,
+          "reviews": 6
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 72,
+          "day": 10,
+          "lightReviewDay": false,
+          "newWords": 23,
+          "overallPercent": 2,
+          "reviews": 6
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 96,
+          "day": 11,
+          "lightReviewDay": false,
+          "newWords": 24,
+          "overallPercent": 2,
+          "reviews": 6
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 120,
+          "day": 12,
+          "lightReviewDay": false,
+          "newWords": 23,
+          "overallPercent": 3,
+          "reviews": 6
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 144,
+          "day": 13,
+          "lightReviewDay": false,
+          "newWords": 23,
+          "overallPercent": 4,
+          "reviews": 6
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 166,
+          "day": 14,
+          "lightReviewDay": false,
+          "newWords": 23,
+          "overallPercent": 4,
+          "reviews": 6
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 188,
+          "day": 15,
+          "lightReviewDay": false,
+          "newWords": 22,
+          "overallPercent": 5,
+          "reviews": 6
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 210,
+          "day": 16,
+          "lightReviewDay": false,
+          "newWords": 22,
+          "overallPercent": 6,
+          "reviews": 6
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 233,
+          "day": 17,
+          "lightReviewDay": false,
+          "newWords": 22,
+          "overallPercent": 6,
+          "reviews": 6
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 257,
+          "day": 18,
+          "lightReviewDay": false,
+          "newWords": 22,
+          "overallPercent": 7,
+          "reviews": 6
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 280,
+          "day": 19,
+          "lightReviewDay": false,
+          "newWords": 23,
+          "overallPercent": 8,
+          "reviews": 6
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 303,
+          "day": 20,
+          "lightReviewDay": false,
+          "newWords": 22,
+          "overallPercent": 9,
+          "reviews": 6
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 326,
+          "day": 21,
+          "lightReviewDay": false,
+          "newWords": 22,
+          "overallPercent": 9,
+          "reviews": 6
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 348,
+          "day": 22,
+          "lightReviewDay": false,
+          "newWords": 22,
+          "overallPercent": 10,
+          "reviews": 8
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 370,
+          "day": 23,
+          "lightReviewDay": false,
+          "newWords": 22,
+          "overallPercent": 10,
+          "reviews": 8
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 392,
+          "day": 24,
+          "lightReviewDay": false,
+          "newWords": 22,
+          "overallPercent": 11,
+          "reviews": 8
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 414,
+          "day": 25,
+          "lightReviewDay": false,
+          "newWords": 22,
+          "overallPercent": 12,
+          "reviews": 8
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 437,
+          "day": 26,
+          "lightReviewDay": false,
+          "newWords": 21,
+          "overallPercent": 12,
+          "reviews": 8
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 459,
+          "day": 27,
+          "lightReviewDay": false,
+          "newWords": 21,
+          "overallPercent": 13,
+          "reviews": 8
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 481,
+          "day": 28,
+          "lightReviewDay": false,
+          "newWords": 22,
+          "overallPercent": 14,
+          "reviews": 8
+        }
+      ],
+      "label": "precomputed_synthetic",
+      "learnerScript": {
+        "absentDays": [],
+        "dailyCorrectRate": 1.0,
+        "errorDays": []
+      },
+      "profile": {
+        "name": "synthetic-juz-amma",
+        "sessionMinutes": 10,
+        "totalWords": 3366
+      },
+      "scenarioId": "scenario-06",
+      "simulationId": "sim-04",
+      "titleAr": "خطة كبيرة: أول ثمانية وعشرين يومًا",
+      "titleEn": "Large plan: the first twenty-eight days"
+    },
+    {
+      "days": [
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 0,
+          "day": 1,
+          "lightReviewDay": false,
+          "newWords": 24,
+          "overallPercent": 0,
+          "reviews": 0
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 0,
+          "day": 2,
+          "lightReviewDay": false,
+          "newWords": 24,
+          "overallPercent": 0,
+          "reviews": 2
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 0,
+          "day": 3,
+          "lightReviewDay": false,
+          "newWords": 22,
+          "overallPercent": 0,
+          "reviews": 2
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 0,
+          "day": 4,
+          "lightReviewDay": false,
+          "newWords": 22,
+          "overallPercent": 0,
+          "reviews": 4
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 0,
+          "day": 5,
+          "lightReviewDay": false,
+          "newWords": 22,
+          "overallPercent": 0,
+          "reviews": 4
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 0,
+          "day": 6,
+          "lightReviewDay": false,
+          "newWords": 0,
+          "overallPercent": 0,
+          "reviews": 4
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 0,
+          "day": 7,
+          "lightReviewDay": false,
+          "newWords": 0,
+          "overallPercent": 0,
+          "reviews": 2
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 24,
+          "day": 8,
+          "lightReviewDay": false,
+          "newWords": 0,
+          "overallPercent": 21,
+          "reviews": 4
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 48,
+          "day": 9,
+          "lightReviewDay": false,
+          "newWords": 0,
+          "overallPercent": 42,
+          "reviews": 2
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 70,
+          "day": 10,
+          "lightReviewDay": false,
+          "newWords": 0,
+          "overallPercent": 61,
+          "reviews": 2
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 92,
+          "day": 11,
+          "lightReviewDay": false,
+          "newWords": 0,
+          "overallPercent": 80,
+          "reviews": 2
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 114,
+          "day": 12,
+          "lightReviewDay": false,
+          "newWords": 0,
+          "overallPercent": 100,
+          "reviews": 2
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 114,
+          "day": 13,
+          "lightReviewDay": false,
+          "newWords": 0,
+          "overallPercent": 100,
+          "reviews": 0
+        }
+      ],
+      "label": "precomputed_synthetic",
+      "learnerScript": {
+        "absentDays": [],
+        "dailyCorrectRate": 1.0,
+        "errorDays": []
+      },
+      "profile": {
+        "name": "synthetic-juz-amma",
+        "sessionMinutes": 10,
+        "totalWords": 114
+      },
+      "scenarioId": "scenario-07",
+      "simulationId": "sim-05",
+      "titleAr": "سورة واحدة: من البداية إلى التثبيت",
+      "titleEn": "One surah: from the first day to confirmation"
+    },
+    {
+      "days": [
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 0,
+          "day": 1,
+          "lightReviewDay": false,
+          "newWords": 23,
+          "overallPercent": 0,
+          "reviews": 0
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 0,
+          "day": 2,
+          "lightReviewDay": false,
+          "newWords": 23,
+          "overallPercent": 0,
+          "reviews": 1
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 0,
+          "day": 3,
+          "lightReviewDay": false,
+          "newWords": 22,
+          "overallPercent": 0,
+          "reviews": 1
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 0,
+          "day": 4,
+          "lightReviewDay": false,
+          "newWords": 0,
+          "overallPercent": 0,
+          "reviews": 2
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 0,
+          "day": 5,
+          "lightReviewDay": false,
+          "newWords": 0,
+          "overallPercent": 0,
+          "reviews": 1
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 0,
+          "day": 6,
+          "lightReviewDay": false,
+          "newWords": 0,
+          "overallPercent": 0,
+          "reviews": 1
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 0,
+          "day": 7,
+          "lightReviewDay": false,
+          "newWords": 0,
+          "overallPercent": 0,
+          "reviews": 0
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 23,
+          "day": 8,
+          "lightReviewDay": false,
+          "newWords": 0,
+          "overallPercent": 33,
+          "reviews": 1
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 46,
+          "day": 9,
+          "lightReviewDay": false,
+          "newWords": 0,
+          "overallPercent": 67,
+          "reviews": 1
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 68,
+          "day": 10,
+          "lightReviewDay": false,
+          "newWords": 0,
+          "overallPercent": 100,
+          "reviews": 1
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 68,
+          "day": 11,
+          "lightReviewDay": false,
+          "newWords": 0,
+          "overallPercent": 100,
+          "reviews": 0
+        }
+      ],
+      "label": "precomputed_synthetic",
+      "learnerScript": {
+        "absentDays": [],
+        "dailyCorrectRate": 1.0,
+        "errorDays": []
+      },
+      "profile": {
+        "name": "synthetic-nawawi40",
+        "sessionMinutes": 10,
+        "totalWords": 68
+      },
+      "scenarioId": "scenario-08",
+      "simulationId": "sim-06",
+      "titleAr": "حديث واحد: من البداية إلى التثبيت",
+      "titleEn": "One hadith: from the first day to confirmation"
+    },
+    {
+      "days": [
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 0,
+          "day": 1,
+          "lightReviewDay": false,
+          "newWords": 11,
+          "overallPercent": 0,
+          "reviews": 0
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 0,
+          "day": 2,
+          "lightReviewDay": false,
+          "newWords": 11,
+          "overallPercent": 0,
+          "reviews": 1
+        },
+        {
+          "adjustment": "error_priority",
+          "confirmedWordsCumulative": 0,
+          "day": 3,
+          "lightReviewDay": false,
+          "newWords": 11,
+          "overallPercent": 0,
+          "reviews": 2
+        },
+        {
+          "adjustment": "error_priority",
+          "confirmedWordsCumulative": 0,
+          "day": 4,
+          "lightReviewDay": false,
+          "newWords": 11,
+          "overallPercent": 0,
+          "reviews": 2
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 0,
+          "day": 5,
+          "lightReviewDay": false,
+          "newWords": 11,
+          "overallPercent": 0,
+          "reviews": 0
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 0,
+          "day": 6,
+          "lightReviewDay": false,
+          "newWords": 11,
+          "overallPercent": 0,
+          "reviews": 3
+        },
+        {
+          "adjustment": "error_priority",
+          "confirmedWordsCumulative": 0,
+          "day": 7,
+          "lightReviewDay": false,
+          "newWords": 11,
+          "overallPercent": 0,
+          "reviews": 3
+        },
+        {
+          "adjustment": "error_priority",
+          "confirmedWordsCumulative": 0,
+          "day": 8,
+          "lightReviewDay": false,
+          "newWords": 11,
+          "overallPercent": 0,
+          "reviews": 3
+        },
+        {
+          "adjustment": "error_priority",
+          "confirmedWordsCumulative": 0,
+          "day": 9,
+          "lightReviewDay": false,
+          "newWords": 10,
+          "overallPercent": 0,
+          "reviews": 3
+        },
+        {
+          "adjustment": "error_priority",
+          "confirmedWordsCumulative": 0,
+          "day": 10,
+          "lightReviewDay": false,
+          "newWords": 10,
+          "overallPercent": 0,
+          "reviews": 2
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 0,
+          "day": 11,
+          "lightReviewDay": false,
+          "newWords": 10,
+          "overallPercent": 0,
+          "reviews": 3
+        },
+        {
+          "adjustment": "error_priority",
+          "confirmedWordsCumulative": 0,
+          "day": 12,
+          "lightReviewDay": false,
+          "newWords": 12,
+          "overallPercent": 0,
+          "reviews": 3
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 11,
+          "day": 13,
+          "lightReviewDay": false,
+          "newWords": 12,
+          "overallPercent": 1,
+          "reviews": 2
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 33,
+          "day": 14,
+          "lightReviewDay": false,
+          "newWords": 12,
+          "overallPercent": 3,
+          "reviews": 5
+        },
+        {
+          "adjustment": "error_priority",
+          "confirmedWordsCumulative": 33,
+          "day": 15,
+          "lightReviewDay": false,
+          "newWords": 12,
+          "overallPercent": 3,
+          "reviews": 2
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 33,
+          "day": 16,
+          "lightReviewDay": false,
+          "newWords": 12,
+          "overallPercent": 3,
+          "reviews": 1
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 33,
+          "day": 17,
+          "lightReviewDay": false,
+          "newWords": 12,
+          "overallPercent": 3,
+          "reviews": 4
+        },
+        {
+          "adjustment": "error_priority",
+          "confirmedWordsCumulative": 44,
+          "day": 18,
+          "lightReviewDay": false,
+          "newWords": 12,
+          "overallPercent": 5,
+          "reviews": 5
+        },
+        {
+          "adjustment": "error_priority",
+          "confirmedWordsCumulative": 44,
+          "day": 19,
+          "lightReviewDay": false,
+          "newWords": 12,
+          "overallPercent": 5,
+          "reviews": 4
+        },
+        {
+          "adjustment": "error_priority",
+          "confirmedWordsCumulative": 44,
+          "day": 20,
+          "lightReviewDay": false,
+          "newWords": 12,
+          "overallPercent": 5,
+          "reviews": 3
+        },
+        {
+          "adjustment": "error_priority",
+          "confirmedWordsCumulative": 44,
+          "day": 21,
+          "lightReviewDay": false,
+          "newWords": 12,
+          "overallPercent": 5,
+          "reviews": 6
+        }
+      ],
+      "label": "precomputed_synthetic",
+      "learnerScript": {
+        "absentDays": [],
+        "dailyCorrectRate": 0.75,
+        "errorDays": [
+          3,
+          6
+        ]
+      },
+      "profile": {
+        "name": "synthetic-juz-amma",
+        "sessionMinutes": 5,
+        "totalWords": 855
+      },
+      "scenarioId": "scenario-09",
+      "simulationId": "sim-07",
+      "titleAr": "تقدير ذاتي مرتفع مع أخطاء: بدء خفيف",
+      "titleEn": "High self-rating with errors: a light start"
+    },
+    {
+      "days": [
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 0,
+          "day": 1,
+          "lightReviewDay": false,
+          "newWords": 33,
+          "overallPercent": 0,
+          "reviews": 0
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 0,
+          "day": 2,
+          "lightReviewDay": false,
+          "newWords": 32,
+          "overallPercent": 0,
+          "reviews": 3
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 0,
+          "day": 3,
+          "lightReviewDay": false,
+          "newWords": 34,
+          "overallPercent": 0,
+          "reviews": 3
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 0,
+          "day": 4,
+          "lightReviewDay": false,
+          "newWords": 36,
+          "overallPercent": 0,
+          "reviews": 6
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 0,
+          "day": 5,
+          "lightReviewDay": false,
+          "newWords": 35,
+          "overallPercent": 0,
+          "reviews": 6
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 0,
+          "day": 6,
+          "lightReviewDay": false,
+          "newWords": 33,
+          "overallPercent": 0,
+          "reviews": 6
+        },
+        {
+          "adjustment": null,
+          "confirmedWordsCumulative": 0,
+          "day": 7,
+          "lightReviewDay": false,
+          "newWords": 31,
+          "overallPercent": 0,
+          "reviews": 6
+        },
+        {
+          "adjustment": "pace_reduced",
+          "confirmedWordsCumulative": 33,
+          "day": 8,
+          "lightReviewDay": false,
+          "newWords": 10,
+          "overallPercent": 3,
+          "reviews": 6
+        },
+        {
+          "adjustment": "pace_reduced",
+          "confirmedWordsCumulative": 65,
+          "day": 9,
+          "lightReviewDay": false,
+          "newWords": 10,
+          "overallPercent": 7,
+          "reviews": 6
+        },
+        {
+          "adjustment": "pace_reduced",
+          "confirmedWordsCumulative": 87,
+          "day": 10,
+          "lightReviewDay": false,
+          "newWords": 10,
+          "overallPercent": 10,
+          "reviews": 6
+        },
+        {
+          "adjustment": "pace_reduced",
+          "confirmedWordsCumulative": 135,
+          "day": 11,
+          "lightReviewDay": false,
+          "newWords": 12,
+          "overallPercent": 15,
+          "reviews": 6
+        },
+        {
+          "adjustment": "pace_reduced",
+          "confirmedWordsCumulative": 170,
+          "day": 12,
+          "lightReviewDay": false,
+          "newWords": 12,
+          "overallPercent": 19,
+          "reviews": 6
+        },
+        {
+          "adjustment": "pace_reduced",
+          "confirmedWordsCumulative": 170,
+          "day": 13,
+          "lightReviewDay": false,
+          "newWords": 12,
+          "overallPercent": 19,
+          "reviews": 4
+        },
+        {
+          "adjustment": "pace_reduced",
+          "confirmedWordsCumulative": 203,
+          "day": 14,
+          "lightReviewDay": false,
+          "newWords": 12,
+          "overallPercent": 23,
+          "reviews": 5
+        },
+        {
+          "adjustment": "pace_reduced",
+          "confirmedWordsCumulative": 214,
+          "day": 15,
+          "lightReviewDay": false,
+          "newWords": 11,
+          "overallPercent": 25,
+          "reviews": 4
+        },
+        {
+          "adjustment": "pace_reduced",
+          "confirmedWordsCumulative": 234,
+          "day": 16,
+          "lightReviewDay": false,
+          "newWords": 11,
+          "overallPercent": 27,
+          "reviews": 4
+        },
+        {
+          "adjustment": "pace_reduced",
+          "confirmedWordsCumulative": 254,
+          "day": 17,
+          "lightReviewDay": false,
+          "newWords": 11,
+          "overallPercent": 29,
+          "reviews": 4
+        },
+        {
+          "adjustment": "pace_reduced",
+          "confirmedWordsCumulative": 264,
+          "day": 18,
+          "lightReviewDay": false,
+          "newWords": 11,
+          "overallPercent": 30,
+          "reviews": 3
+        },
+        {
+          "adjustment": "pace_reduced",
+          "confirmedWordsCumulative": 288,
+          "day": 19,
+          "lightReviewDay": false,
+          "newWords": 11,
+          "overallPercent": 33,
+          "reviews": 4
+        },
+        {
+          "adjustment": "pace_reduced",
+          "confirmedWordsCumulative": 300,
+          "day": 20,
+          "lightReviewDay": false,
+          "newWords": 11,
+          "overallPercent": 35,
+          "reviews": 3
+        },
+        {
+          "adjustment": "pace_reduced",
+          "confirmedWordsCumulative": 312,
+          "day": 21,
+          "lightReviewDay": false,
+          "newWords": 12,
+          "overallPercent": 36,
+          "reviews": 3
+        }
+      ],
+      "label": "precomputed_synthetic",
+      "learnerScript": {
+        "absentDays": [],
+        "dailyCorrectRate": 1.0,
+        "errorDays": []
+      },
+      "profile": {
+        "name": "synthetic-juz-amma",
+        "sessionMinutes": 15,
+        "totalWords": 855
+      },
+      "scenarioId": "scenario-10",
+      "simulationId": "sim-08",
+      "titleAr": "تعديل الخطة: من خمس عشرة دقيقة إلى خمس دقائق من اليوم الثامن",
+      "titleEn": "Plan revision: from fifteen to five minutes from day 8"
+    }
+  ]
+}
