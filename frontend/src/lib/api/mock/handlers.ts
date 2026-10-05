@@ -1,11 +1,13 @@
 import { passwordViolations, usernameViolations } from "@/lib/auth/account-rules";
 import type { HealthResponse, LoginResponse, RegisterResponse } from "../types";
 import { MOCK_LOGINS, MOCK_PASSWORD, MOCK_RECOVERY_CODE, MOCK_REGISTRATIONS, MOCK_TERMS_VERSION, mockCatalog, mockProfile, mockToday, mockTodayWithoutPlan } from "./fixtures";
+import { planChatHandlers, type MockPlanChatStore } from "./plan-chat";
 
 export interface MockRequest {
   method: string;
   path: string; // without the /api prefix, for example /health
   body: unknown;
+  params?: Readonly<Record<string, string>>; // the values of ":name" segments of the handler key, for example /plan-chats/:id
 }
 
 export interface MockResponse {
@@ -16,6 +18,8 @@ export interface MockResponse {
 export interface MockScenario {
   signedIn: boolean; // false: session routes answer 401 unauthenticated (G-03)
   hasPlan: boolean; // false: E18 returns plan null (G-24)
+  isDemo?: boolean; // true: E11 answers a demo account (D71)
+  planChats?: MockPlanChatStore; // the conversations of this mock session, created on first use (E31 to E34)
 }
 
 export type MockHandler = (request: MockRequest, scenario: MockScenario) => MockResponse;
@@ -121,7 +125,7 @@ function register({ body }: MockRequest, scenario: MockScenario): MockResponse {
   return { status: 201, body: answer };
 }
 
-// Keys are "METHOD /path". E01, E03, E04, E11, E14 and E18; later packages add theirs.
+// Keys are "METHOD /path"; a ":name" segment matches any one segment. E01, E03, E04, E11, E14, E18 and E31 to E34; later packages add theirs.
 export const mockHandlers: Readonly<Record<string, MockHandler>> = {
   "GET /health": () => {
     const body: HealthResponse = { status: "ok", version: "mock", time: new Date().toISOString() };
@@ -129,7 +133,11 @@ export const mockHandlers: Readonly<Record<string, MockHandler>> = {
   },
   "POST /auth/register": register,
   "POST /auth/login": login,
-  "GET /me": (_request, scenario) => (scenario.signedIn ? { status: 200, body: mockProfile } : unauthenticated()),
+  "GET /me": (_request, scenario) => {
+    if (!scenario.signedIn) return unauthenticated();
+    return { status: 200, body: scenario.isDemo ? { ...mockProfile, isDemo: true } : mockProfile };
+  },
+  ...planChatHandlers,
   "GET /catalog": () => ({ status: 200, body: mockCatalog }),
   "GET /today": (_request, scenario) => {
     if (!scenario.signedIn) return unauthenticated();

@@ -1,5 +1,7 @@
 export { createMockFetch, type MockFetchOptions } from "./mock-fetch";
 export { errorResponse, mockHandlers, type MockHandler, type MockRequest, type MockResponse, type MockScenario } from "./handlers";
+export { planChatHandlers, type MockPlanChatStore } from "./plan-chat";
+export { MOCK_CHAT_GOALS, MOCK_CHAT_TEXTS, MOCK_FALLBACK, MOCK_QUICK_REPLIES, MOCK_REDIRECT, MOCK_REFUSAL } from "./plan-chat-fixtures";
 export {
   MOCK_HADITH_EDITION_ID,
   MOCK_LOGINS,

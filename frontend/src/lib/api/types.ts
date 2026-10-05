@@ -401,6 +401,27 @@ export interface PlanChat {
   assistant: { source: "rules" | "model"; model?: string };
 }
 
+// E31 (API-spec 4.10.1). There is no `order` field: the Juz' Amma order is chosen in the conversation. `planId` makes it a revision.
+export interface CreatePlanChatRequest {
+  editionId: string;
+  targetScope: TargetScope;
+  paths: Path[];
+  sessionMinutes: 5 | 10 | 15;
+  preferredDate?: ISODate;
+  placementSessionId?: string;
+  goalText: string; // at most 500 characters after trimming; never logged
+  language: "ar" | "en";
+  planId?: string;
+}
+
+// E32: exactly one of the two. A `confirm` quick reply is E34, never E32.
+export type PlanChatTurnRequest = { text: string; quickReply?: undefined } | { quickReply: Exclude<QuickReplyCode, "confirm">; text?: undefined };
+
+// E34: must equal the conversation's current proposalVersion.
+export interface ConfirmPlanChatRequest {
+  proposalVersion: number;
+}
+
 // Not in the contract's TypeScript block: shapes taken from the endpoint table and API-spec 1.5.
 
 export interface HealthResponse {

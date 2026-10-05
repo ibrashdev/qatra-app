@@ -26,6 +26,36 @@ function readBody(init: RequestInit | undefined): unknown {
   }
 }
 
+// An exact key wins; otherwise a key with ":name" segments is matched segment by segment (the values are decoded and handed to the handler).
+function findHandler(
+  handlers: Readonly<Record<string, MockHandler>>,
+  method: string,
+  path: string,
+): { handler: MockHandler; params: Record<string, string> } | undefined {
+  const exact = handlers[`${method} ${path}`];
+  if (exact !== undefined) return { handler: exact, params: {} };
+  const segments = path.split("/");
+  for (const [key, handler] of Object.entries(handlers)) {
+    const space = key.indexOf(" ");
+    if (key.slice(0, space) !== method || !key.includes(":")) continue;
+    const pattern = key.slice(space + 1).split("/");
+    if (pattern.length !== segments.length) continue;
+    const params: Record<string, string> = {};
+    const matches = pattern.every((part, index) => {
+      const segment = segments[index] ?? "";
+      if (!part.startsWith(":")) return part === segment;
+      try {
+        params[part.slice(1)] = decodeURIComponent(segment);
+      } catch {
+        return false;
+      }
+      return segment !== "";
+    });
+    if (matches) return { handler, params };
+  }
+  return undefined;
+}
+
 // A fetch-compatible function: the real client code (envelope parsing, timeouts) runs unchanged in mock mode.
 export function createMockFetch(options: MockFetchOptions = {}): typeof fetch {
   const { latencyMs = 120, coldStartMs = 0, handlers = mockHandlers, now = Date.now } = options;
@@ -41,8 +71,8 @@ export function createMockFetch(options: MockFetchOptions = {}): typeof fetch {
     }
     const path = url.pathname.slice("/api".length);
     const method = (init?.method ?? "GET").toUpperCase();
-    const handler = handlers[`${method} ${path}`];
-    if (handler === undefined) return toResponse(errorResponse(404, "not_found", "No mock handler for this operation."));
-    return toResponse(handler({ method, path, body: readBody(init) }, scenario));
+    const found = findHandler(handlers, method, path);
+    if (found === undefined) return toResponse(errorResponse(404, "not_found", "No mock handler for this operation."));
+    return toResponse(found.handler({ method, path, body: readBody(init), params: found.params }, scenario));
   };
 }
