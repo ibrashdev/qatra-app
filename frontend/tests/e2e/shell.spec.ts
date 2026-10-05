@@ -38,11 +38,10 @@ test.describe("direction, language and the four tabs (Arabic default)", () => {
     }
   });
 
-  test("the consent, start and recovery-code routes are placeholders in the focus shell: no switch, no tab bar", async ({ page }) => {
+  test("the consent and start routes are placeholders in the focus shell: no switch, no tab bar", async ({ page }) => {
     for (const [path, name] of [
       ["/consent", "موافقة جديدة على الشروط"],
       ["/start", "ما هي خطتك؟"],
-      ["/recovery-code", "حفظ رمز الاسترجاع"],
     ] as const) {
       await page.goto(path);
       await expect(page.getByRole("heading", { level: 1 })).toHaveText(name);

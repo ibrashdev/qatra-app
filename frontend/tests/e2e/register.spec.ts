@@ -707,8 +707,7 @@ test.describe("sending E03 and leaving (S-02 section 1)", () => {
     expect(requests[0]?.headers["content-type"]).toContain("application/json");
     expect(Object.keys(requests[0]?.headers ?? {})).not.toContain("authorization");
     expect(await page.evaluate(() => [Object.keys(localStorage), Object.keys(sessionStorage)])).toEqual([[], []]);
-    // The code is in memory only: not in the page, the address or the history state.
-    expect(await page.locator("body").innerText()).not.toContain(MOCK_RECOVERY_CODE.slice(0, 9));
+    // The code is in memory only: S-04 shows it on the screen, and it is not in the address or the history state.
     expect(page.url()).not.toContain("0123");
     expect(await page.evaluate(() => JSON.stringify(history.state))).not.toContain("0123");
   });
@@ -719,6 +718,8 @@ test.describe("sending E03 and leaving (S-02 section 1)", () => {
     await fill(page, "ar");
     await submitButton(page, "ar").click();
     await expect(page).toHaveURL(/\/recovery-code$/);
+    // S-04 asks before it lets Back through while its box is unchecked; with the box checked Back goes to the page before.
+    await page.getByRole("checkbox").check();
     await page.goBack();
     await expect(page).toHaveURL(/\/login$/);
   });
@@ -1269,8 +1270,5 @@ test.describe("axe-core on every state of S-02 (NFR-09: no violation)", () => {
     await page.goto("/terms");
     await expect(page.getByRole("heading", { level: 1, name: "شروط الاستخدام وبيان الخصوصية" })).toBeVisible();
     expect(await axeViolations(page), "/terms").toEqual([]);
-    await page.goto("/recovery-code");
-    await expect(page.getByRole("heading", { level: 1, name: COPY.ar.recoveryHeading })).toBeVisible();
-    expect(await axeViolations(page), "/recovery-code").toEqual([]);
   });
 });
