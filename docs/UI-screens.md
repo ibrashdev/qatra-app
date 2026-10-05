@@ -1,6 +1,8 @@
 # Qatra — UI screen specifications (six dimensions)
 
-> Version 1.2 · 4 October 2026 (Asia/Dubai) · Status: **Approved, D78** (G1, owner, 4 October 2026, about 19:12 Asia/Dubai), with the S-08 cascade adjustment; 27 of the 34 inventory screens are specified (parts A, B, C) and approved; S-10 is superseded by S-34 and S-28…S-33 are deferred to option C and are not approved. Prepared by the Senior Product Designer role (Role 4); companion of UI-design.md (inventory) and UI-tokens.md (tokens); nothing here is implemented.
+> Version 1.3 · 4 October 2026 (Asia/Dubai) · Status: **Approved, D78** (G1, owner, 4 October 2026, about 19:12 Asia/Dubai), with the S-08 cascade adjustment; 27 of the 34 inventory screens are specified (parts A, B, C) and approved; S-10 is superseded by S-34 and S-28…S-33 are deferred to option C and are not approved. Prepared by the Senior Product Designer role (Role 4); companion of UI-design.md (inventory) and UI-tokens.md (tokens); nothing here is implemented except S-01 (local tests only; see the v1.3 change note).
+
+**Change note (v1.3).** Implementation record, no new owner approval: S-01 is implemented locally (merge 3212e4a, local tests only) and its Batch 1 implementation notes are added at the end of §5 (open point O-07 is resolved); the D78-approved content is otherwise unchanged.
 
 **Change note (v1.2).** Version 1.2 adds a Needs Review amendment note to S-19 for FEAT-QURAN-AUDIO-01; the approved content and the D78 status are unchanged.
 
@@ -1517,7 +1519,7 @@ Questions for the coordinator, not the owner. Each has an interim choice in the 
 | O-04 | At 320 px the public header cannot hold logo, switch, «إنشاء حساب» and «تسجيل الدخول» (UI-design §2.1). S-07 moves the actions under the intro below 768 px; S-01, S-02, S-05 have back and switch only; S-04 and S-06 have the brand only and no back control (UI-design §2.4 lists neither). | Confirm; update §2.1, §2.4 |
 | O-05 | The header language switch uses segments of at least 44 px (§6.4 asks 88 px) to fit 320 px. | U3: header variant, or confirm |
 | O-06 | Not in UI-tokens: a disclosure component (S-07 section list) and the 480 px form column. | U3: add or replace |
-| O-07 | §6.2 gives the show/hide button both a changing label and `aria-pressed`; a toggle should use one. | U3: choose |
+| O-07 | §6.2 gives the show/hide button both a changing label and `aria-pressed`; a toggle should use one. **Resolved (coordinator, 4 October 2026, S-01 implementation; no new owner approval):** the show or hide password control changes its accessible name and has no `aria-pressed`. | Resolved (was: U3: choose) |
 | O-08 | E14 lists editions only, so a category without an edition (G-27) cannot be derived; S-07 shows a page-level empty state only. | Architect: add categories to E14, or confirm a static list |
 | O-09 | E03 and E05 need the current terms version, but E04 returns only `reconsentRequired`. Proposed: the frontend bundles the version with the S-03 text; a different `details.requiredVersion` shows the reload banner instead of sending an unseen version. | Architect: confirm how `TERMS_VERSION` reaches the client |
 | O-10 | E06 reserves the code atomically (10 minutes). After a reload loses the grant, a new E06 with the same code may fail generically until the reservation lapses; S-05 states the 10 minutes in advance but cannot say "wait". | Architect: confirm; add a hint if it applies |
@@ -1587,3 +1589,13 @@ Questions for the coordinator that came with the S-08 cascade. Each has an inter
 | O-58 | Default scope. S-08 starts with nothing checked, following the owner's rule that start stays disabled until one section is checked. API-spec §4.5 still says "the UI default is all sections", which no longer describes S-08; «تحديد الكل» and the juz' row select everything in one press. No API change. | Align the API-spec sentence |
 | O-59 | Disabled start. The primary button is `aria-disabled` while the cascade is incomplete, which departs from P-03's always-enabled submit. The helper under the button gives the reason, as UI-tokens §6 asks for a disabled action. | Confirm |
 | O-60 | Goal sentence wording. The composed sentence names the selection: one to three section names, «كل الأقسام», or «{n} من {m} {سورة/حديث}». The wording is proposed and belongs to the copy deck. | Copy deck |
+
+### Batch 1 implementation notes (coordinator, 4 October 2026)
+
+Implementation record, no new owner approval. These notes record decisions taken while S-01 was built (merge 3212e4a, local tests only); the D78-approved content of this file is otherwise unchanged. O-07 above is resolved by the first note.
+
+- **Show or hide password (O-07).** The control changes its accessible name and has no `aria-pressed`.
+- **Banner dismiss label.** «إغلاق التنبيه» / "Dismiss message".
+- **Error-summary count (Arabic plural rules).** Two errors: «يوجد خطآن في النموذج»; 3 to 10: «يوجد {n} أخطاء في النموذج»; 11 to 99: «يوجد {n} خطأً في النموذج»; otherwise «يوجد {n} خطأ في النموذج».
+- **Document-title separator.** It stays " · " because the separator the spec uses is an em dash, which is not allowed in new text (R-02).
+- **Placeholder routes.** `/register`, `/recovery`, `/consent` and `/start` exist as placeholders until their screens are built.

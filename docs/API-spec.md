@@ -1,8 +1,10 @@
 # Qatra — API Specification (`/api`)
 
-Version 1.2 · 2026-10-04 · Status: Approved — D74, 4 October 2026 (owner: «approve best practice», «q7 approved») for the v1.1 content; Approved — D75, A1 (owner, 4 October 2026: «A1 approved , best practice») for the D75 additions of version 1.2 (E31–E34, §4.10)
+Version 1.3 · 2026-10-04 · Status: Approved: D74, 4 October 2026 (owner: «approve best practice», «q7 approved») for the v1.1 content; Approved: D75, A1 (owner, 4 October 2026: «A1 approved , best practice») for the D75 additions of version 1.2 (E31–E34, §4.10); the version 1.3 additions are implementation clarifications (implementation record, no new owner approval)
 
 Owner of this draft: Solutions Architect (Role 3), for the root coordinator. This is design documentation only: no endpoint exists, every application path is Planned (D61), and implementation is not authorized until the architecture deliverables are presented and explicitly approved (D69).
+
+**Version 1.3 (4 October 2026).** Implementation record, no new owner approval. It records what the B13 and B6 implementations clarified: the `422 validation_error` of E34 for a proposal rule that no longer holds, the `404` of E34 for a vanished placement session, the `503` that E31 and E34 answer on a cross-process race on the open-conversation index, the meaning of `PlanChat.modelTurnsLeft` (§4.10.1), and the difference C-17 (§8.1) between S-4 and A-08/O-32, resolved as: E21 accepts events for sessions of `active` and `completed` plans. No endpoint, DTO field or limit is added. Nothing is deployed; local tests only.
 
 **Version 1.2 (4 October 2026).** Adds the plan conversation (D75; [Plan-conversation.md](Plan-conversation.md) v1.1): operations E31–E34 (§2.2, new §4.10), the rate class "Chat write" and the shared free-model budget note (§1.8), the conversation limits (§1.7), the conversation entries of the logging rules (§1.12), the `details` reasons `proposal_stale` and `chat_closed` (§1.5), `PlanProgress.currentVersion` on E19 and `Today.openPlanChatId` on E18, the difference C-16 (§8.1) and the open points O-31 and O-32 (§8.2). One configuration change is a coordinator decision outside D75: the `targetScope.sectionOrdinals` default is raised from 40 to 60 entries (§1.7, §4.5; the Forty has 41–42 sections; A-12 configuration, not an approved number). Every D75 addition is marked **Approved — D75, A1 (owner, 4 October 2026)**; the v1.1 content remains Approved — D74. Owner decision A2 stays declined: takhrij is not a memorization path (`Path` keeps its four values). Nothing is built or tested.
 
@@ -359,7 +361,7 @@ These rules apply to E20 (session creation), E21 (events), E22 (completion) and,
 **S-3 Question identity.** A session is an immutable snapshot (`learning_sessions.steps`). An answer event's `questionId` must be a question step of that very session. The bank is never consulted for ids outside the snapshot.
 
 **S-4 Plan state.**
-- E20 (`daily`, `game`) and E23 require the plan to be `active` (an E20 `daily` session on a `completed` plan serves maintenance reviews only, no new passages, A-08) and `expectedPlanVersion` to equal the plan's `current_version`; otherwise `409 version_conflict`. Online events of E21 (events without the offline envelope) require the session's plan to be `active`; otherwise the event is rejected individually.
+- E20 (`daily`, `game`) and E23 require the plan to be `active` (an E20 `daily` session on a `completed` plan serves maintenance reviews only, no new passages, A-08) and `expectedPlanVersion` to equal the plan's `current_version`; otherwise `409 version_conflict`. Online events of E21 (events without the offline envelope) require the session's plan to be `active`; otherwise the event is rejected individually. **Clarification (v1.3, C-17):** online events of E21 are also accepted for sessions of a `completed` plan (its maintenance sessions, A-08), and events of a `paused` plan are rejected with `plan_not_active`.
 - Starting another plan pauses the current one; a paused plan accepts no new session until it is resumed (E30).
 - Events replayed with the offline envelope are validated in their **original** plan and version, never moved to another plan (D59). An event that cannot be verified stays `pending` without credit.
 
@@ -1357,7 +1359,7 @@ At least one optional field must be present (`422` rule `no_fields`). The scope 
    - `pending` — structurally valid but not verifiable or creditable now (a disputed or unverifiable old event, D59; an unsupported policy version). It is kept **without credit** and the client keeps it in its outbox. Each entry has a `reasonCode` from the O-21 set below.
    - `rejected` — a final negative decision for that id: no credit; the client does not resend it unchanged and marks it blocked. Each entry has a `code` from the O-21 set below.
 3. Each event commits atomically (attempt, part evidence, mastery, interval, daily totals, completion). Events are independent of each other. If the database fails mid-request the answer is `503`; events that had committed come back as `duplicate` when the same batch is resent.
-4. **Online events** (no envelope) require the session to be `open` and, when it has a plan, the plan to be `active` (S-4; a placement session has no plan); otherwise they are `rejected`. **Replayed events** (with envelope) are validated in their original plan and version (S-10, D59). Events for a `completed` session are `rejected` with `session_closed`; a `prepared` session opens on its first accepted event (A-12, decision on [O-22]). Events for a session whose edition is revoked are `rejected` with `edition_mismatch` (A-04).
+4. **Online events** (no envelope) require the session to be `open` and, when it has a plan, the plan to be `active` (S-4; a placement session has no plan); otherwise they are `rejected`. **Clarification (v1.3, C-17):** a `completed` plan also qualifies (its maintenance sessions, A-08), and a `paused` plan is `rejected` with `plan_not_active`. **Replayed events** (with envelope) are validated in their original plan and version (S-10, D59). Events for a `completed` session are `rejected` with `session_closed`; a `prepared` session opens on its first accepted event (A-12, decision on [O-22]). Events for a session whose edition is revoked are `rejected` with `edition_mismatch` (A-04).
 5. A `review` question counts only at its first attempt in its round. When every question of a round has its first attempt, the round is evaluated (S-6). An unfinished round at completion is not evaluated and the passage stays due (A-12).
 6. A placement session records attempts (used for the estimate) with no mastery credit; its `activity` events are acknowledged but never counted in daily totals (A-12).
 7. `results` holds one `AnswerResult` per acknowledged answer event, in request order: `correct`, `assisted`, `expected` (`order` refs, `optionId` or the target `word`, so the UI can show the original with its reference), and the passage state after the event. `daily` is the authoritative `DailyProgress` after processing; local figures are provisional.
@@ -1787,7 +1789,7 @@ The plan conversation is how **every account** (learner and demo account, D71) b
 | `ChatMessage` | `{messageId, ordinal, role: 'learner' \| 'assistant', kind: 'text' \| 'proposal' \| 'refusal' \| 'redirect' \| 'fallback' \| 'quick_reply', text, source: 'learner' \| 'rules' \| 'model' \| 'fixed', createdAt: ISODateTime}` |
 | `PlanChat` | `{chatId, status: 'open' \| 'confirmed' \| 'abandoned', planId: string \| null, language: 'ar' \| 'en', messages: ChatMessage[], proposal: PlanProposal \| null, quickReplies: QuickReply[], modelTurnsLeft: number, assistant: {source: 'rules' \| 'model', model?: string}}` |
 
-`planId` is set for a revision conversation and `null` for a creation. `modelTurnsLeft` is the number of model turns the conversation may still use (default cap 6, §1.7). `assistant` says who wrote the latest assistant message; `model` is present only when `source = 'model'`. `ChatMessage.source` is `learner` for the learner's messages, `rules` for templated replies, `model` for the model's phrasing after the output guard, and `fixed` for the D26 message and the redirect line. The model's raw output is never stored or returned.
+`planId` is set for a revision conversation and `null` for a creation. `modelTurnsLeft` is the number of model turns the conversation may still use (default cap 6, §1.7); it is 0 for demo accounts, for a switched-off model and for a reached cap (B13 clarification, v1.3), and the F14 signal for "model switched off" is an open point for Sprint 3. `assistant` says who wrote the latest assistant message; `model` is present only when `source = 'model'`. `ChatMessage.source` is `learner` for the learner's messages, `rules` for templated replies, `model` for the model's phrasing after the output guard, and `fixed` for the D26 message and the redirect line. The model's raw output is never stored or returned.
 
 #### 4.10.2 The turn pipeline and the model payload (R26–R28)
 
@@ -1844,7 +1846,7 @@ There is no `order` field: the Juz' Amma order is chosen in the conversation (de
 | 409 | `version_conflict` | `details.reason` = `plan_not_active` (the plan is `completed`) |
 | 422 | `validation_error` | shared rules (`edition_not_available`, `scope_invalid`, `session_minutes_invalid`, `date_invalid`), `goal_text_length`, `path_not_available`, `forbidden_field` |
 | 429 | `throttled` | Chat write class (§1.8) |
-| 503, 500 | `unavailable`, `internal` | |
+| 503, 500 | `unavailable`, `internal` | `503` also answers a cross-process race on the open-conversation index (B13 clarification, v1.3) |
 
 **Side effects:** `plan_chats` (insert: `status = 'open'`, `language`, `plan_id`, `proposal`, `proposal_version = 1`, `model_turns` 0 or 1; the previous `open` conversation → `abandoned` with `closed_at`); `plan_chat_messages` (the first assistant message); `ai_usage` (one row when a model call was made). **Idempotency:** none; each call creates a conversation and abandons the previous open one, so the client does not retry automatically [O-20].
 
@@ -2051,11 +2053,11 @@ There is no `order` field: the Juz' Amma order is chosen in the conversation (de
 |---|---|---|
 | 401 | `unauthenticated` | no valid session |
 | 403 | `forbidden_origin` | `Origin` mismatch |
-| 404 | `not_found` | unknown conversation or not the caller's |
+| 404 | `not_found` | unknown conversation or not the caller's, or a placement session that vanished (B13 clarification, v1.3) |
 | 409 | `version_conflict` | `details.reason` = `proposal_stale` (with `details.proposal`), `chat_closed`, `active_plan_conflict` (creation race), `plan_version` (revision, with `details.currentVersion`), `plan_not_active`, `estimate_changed` (the recomputation of the E16/E17 check differs, for instance after a change of learning day [O-17]) |
-| 422 | `validation_error` | missing or non-integer `proposalVersion`, `forbidden_field` |
+| 422 | `validation_error` | missing or non-integer `proposalVersion`, `forbidden_field`, or a rule of the proposal that no longer holds when the plan is written (B13 clarification, v1.3) |
 | 429 | `throttled` | Chat write class (§1.8) |
-| 503, 500 | `unavailable`, `internal` | |
+| 503, 500 | `unavailable`, `internal` | `503` also answers a cross-process race on the open-conversation index (B13 clarification, v1.3) |
 
 **Side effects:** creation: `master_plans`, `plan_versions` (version 1), `plan_phases`, the previous active plan → `paused` (as E16); revision: `plan_versions` (insert), `master_plans`, `plan_phases` (future phases) (as E17); then `plan_chats` (`status = 'confirmed'`, `closed_at`). **Idempotency/concurrency:** guarded by the conversation status and `proposalVersion`; the partial unique index on `master_plans(user_id) where status = 'active'` and the optimistic `expectedVersion` are the final arbiters; the client does not retry automatically [O-20].
 
@@ -2285,7 +2287,7 @@ A GitHub Actions scheduled workflow in the public repository keeps the free serv
 | Request behaviour | `GET` only (exempt from the Origin check); success is `200`. A sleeping server may need about a minute, so the job retries with short requests (1, 2, 4, 8 s, then 10 s steps) for up to 90 s before it fails the run (the NFR-02 wake-up sequence applied to the job; A-06). GitHub scheduling facts are re-verified at implementation |
 | Record | each run logs time, status code and latency (NFR-01); no body, no personal data. A failed run is visible in GitHub; there is no other alarm |
 | Limits | the twice-weekly `GET /api/health/ready` stays far below the readiness rate limit of 6 per minute (§1.8); `GET /api/health` touches no database |
-| Where it lives | `.github/workflows/keep-warm.yml` (Programming-guide: Planned, not created, the only path outside `frontend/`, `backend/`, `supabase/` and `fixtures/`). Architecture-and-data's list of shared root paths adds it (Planned; A-06); any GitHub connection or publication needs separate explicit authorization |
+| Where it lives | `.github/workflows/keep-warm.yml` (Programming-guide: written on the sprint branch since merge b95438c and not active until it reaches `main`, the only path outside `frontend/`, `backend/`, `supabase/` and `fixtures/`). Architecture-and-data's list of shared root paths adds it (Planned; A-06); any GitHub connection or publication needs separate explicit authorization |
 
 ## 7. Traceability
 
@@ -2351,7 +2353,7 @@ Rows E31–E34 (D75) are Approved — D75, A1 (owner, 4 October 2026); their req
 
 ## 8. Differences between sources and open points
 
-Summary: 34 HTTP operations (E01–E34) are specified (29 → 30: E30 `POST /api/plans/:id/resume` is a contract v1.4 amendment, D74; 30 → 34: E31–E34, the plan conversation of version 1.2, Approved — D75, A1 (owner, 4 October 2026)); 16 differences between sources are recorded (§8.1): 11 resolved (C-01 and C-08 earlier, and C-02..C-07, C-11, C-12, C-15 on 4 October 2026) and 4 already applied (C-09, C-10, C-13, C-14), plus C-16 resolved by D75; 32 open points are listed (§8.2): 26 decided by the architect (A-xx) and approved by D74 (4 of these were decided as defaults that the owner confirmed: O-16, O-17 mushaf order, O-19, O-29) and 4 still open with a deferral target (O-02, O-06, O-08, O-26), plus O-31 (open, deferred to provisioning) and O-32 (decided, D75) added in version 1.2. The 26 decided points are approved by D74 and the 4 open points keep their deferral targets. The rule applied to a difference is: **the contract plus the D-decisions win**.
+Summary: 34 HTTP operations (E01–E34) are specified (29 → 30: E30 `POST /api/plans/:id/resume` is a contract v1.4 amendment, D74; 30 → 34: E31–E34, the plan conversation of version 1.2, Approved: D75, A1 (owner, 4 October 2026)); 17 differences between sources are recorded (§8.1): 11 resolved (C-01 and C-08 earlier, and C-02..C-07, C-11, C-12, C-15 on 4 October 2026) and 4 already applied (C-09, C-10, C-13, C-14), plus C-16 resolved by D75 and C-17 resolved by the B6 implementation decision (version 1.3, implementation record, no new owner approval); 32 open points are listed (§8.2): 26 decided by the architect (A-xx) and approved by D74 (4 of these were decided as defaults that the owner confirmed: O-16, O-17 mushaf order, O-19, O-29) and 4 still open with a deferral target (O-02, O-06, O-08, O-26), plus O-31 (open, deferred to provisioning) and O-32 (decided, D75) added in version 1.2. The 26 decided points are approved by D74 and the 4 open points keep their deferral targets. The rule applied to a difference is: **the contract plus the D-decisions win**.
 
 ### 8.1 Differences between sources
 
@@ -2373,6 +2375,7 @@ Summary: 34 HTTP operations (E01–E34) are specified (29 → 30: E30 `POST /api
 | C-14 | **Conditional feedback endpoints** appear in Architecture-and-data and Programming-guide §6 but not in contract §7; they depend on D43–D45 | not specified here (§0) |
 | C-15 | **Demo plan creation.** PRD v14 roles matrix: a demo account creates plans only through `POST /demo/plans`. Contract §7 states no role restriction for `POST /plans` | **Resolved (4 Oct 2026):** E16 denies demo accounts (`403 forbidden`; the PRD v14 roles matrix wins); E15 is read-only and stays allowed for demo accounts (closes O-19(a)) |
 | C-16 | **Free-text goal and model use for learners.** v1.1 (§4.5, §1.12) says that no plan endpoint has a free-text goal and that no learner data reaches a model (D17). D75 adds the plan conversation, where the learner's goal text and messages, and for a revision the anonymized learning record, reach an external free model under a temporary conversation id | **Resolved (D75, 4 October 2026; Approved — D75, A1 (owner, 4 October 2026)):** D17 is narrowed, not dropped. E31–E34 (§4.10) carry free text; E15–E17 are unchanged (no free text, no model); account identifiers never reach the model; §1.12 and the notes at §4.5, E17, §4.9 and E28 are amended accordingly |
+| C-17 | **Online events of E21 on a `completed` plan.** S-4 (§3) and rule 4 of E21 require the session's plan to be `active` for online events, while A-08 and O-32 (the D75 package) let a `completed` plan open an E20 `daily` maintenance session | **Resolved (4 Oct 2026, B6 implementation decision by the coordinator within D66 and contract §4; implementation record, no new owner approval):** E21 accepts events for sessions of `active` and `completed` plans and rejects `paused` plans with `plan_not_active`; S-4 and rule 4 of E21 carry a v1.3 clarification that says so. |
 
 ### 8.2 Open points
 
