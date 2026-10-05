@@ -5,7 +5,7 @@ import { Banner } from "@/components/ui/Banner";
 import { Button } from "@/components/ui/Button";
 import { FocusShell } from "@/components/ui/FocusShell";
 import { Notice } from "@/components/ui/Notice";
-import { TextButton } from "@/components/ui/TextButton";
+import { Icon } from "@/components/ui/Icon";
 import { useLocale } from "@/i18n/LocaleProvider";
 import { sessionMessages } from "@/i18n/session-messages";
 import { todayMessages } from "@/i18n/today-messages";
@@ -105,7 +105,16 @@ export function SessionRun({ snapshot, daily, textKind, restarted }: SessionRunP
     <FocusShell
       title={t.title}
       back={{ destination: t.backDestination, onClick: run.openSheet }}
-      actions={<TextButton onClick={run.openSheet}>{t.pause}</TextButton>}
+      actions={
+        <button
+          type="button"
+          aria-label={t.pause}
+          onClick={run.openSheet}
+          className="inline-flex size-target shrink-0 items-center justify-center rounded-sm text-ink-secondary transition-[color,background-color] duration-(--q-duration-fast) hover:bg-selection hover:text-primary-deep"
+        >
+          <Icon name="pause" size="lg" />
+        </button>
+      }
       actionBar={actionBar}
     >
       {/* Slot T: sticks under the bar. The polite region stays in the page while empty, so a banner added later is announced. */}

@@ -31,8 +31,8 @@ export const MOCK_QUESTION_IDS = {
   test: "77777777-7777-4777-8777-000000000006",
 } as const;
 
-// The target of the recall question as the book has it; the answer key keeps only its normalised form.
-export const MOCK_RECALL_WORD = "مثال";
+// The target of the recall question as the book has it (the second word of the second unit of the learn passage); the answer key keeps only its normalised form.
+export const MOCK_RECALL_WORD = "كلمة٦";
 
 const source = (reference: string): SourceRef => ({
   publisher: "ناشر اصطناعي",

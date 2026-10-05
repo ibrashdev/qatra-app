@@ -9,6 +9,7 @@ import {
   needsLegend,
   nextStep,
   passageFacts,
+  recallTarget,
   primaryAction,
   questionPosition,
   segmentUnit,
@@ -204,5 +205,19 @@ describe("the first verdict from the answer key (the server's answer replaces it
     expect(gradeLocally(recall, { text: "خطأ" }, false).correct).toBe(false);
     expect(gradeLocally(recall, { text: "" }, false).correct).toBe(false);
     expect(recall.questionId).toBe(MOCK_QUESTION_IDS.recall);
+  });
+});
+
+describe("the target of a recall question, read from the learn passage", () => {
+  it("finds the word between the context words by their refs, and stays null where the passage does not hold it", () => {
+    const steps = stepsOf();
+    const recall = questionAt(steps, 4);
+    expect(recallTarget(steps, recall)).toBe(MOCK_RECALL_WORD);
+    expect(recallTarget(steps.filter((step) => step.type !== "learn"), recall)).toBeNull();
+    expect(recallTarget(steps, questionAt(steps, 3))).toBeNull();
+    const fromAfter = { ...recall, context: { before: [], after: [{ ref: "2:2", text: "كلمة٧" }] } } as Question;
+    expect(recallTarget(steps, fromAfter)).toBe(MOCK_RECALL_WORD);
+    const elsewhere = { ...recall, context: { before: [{ ref: "9:0", text: "x" }], after: [] } } as Question;
+    expect(recallTarget(steps, elsewhere)).toBeNull();
   });
 });

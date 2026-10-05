@@ -13,7 +13,7 @@ import { gradeLocally } from "./local-grade";
 import { clearResume, rememberResume } from "./resume-store";
 import { activityEvent, answerEvent, newEventId } from "./session-events";
 import { classifySessionError, retriesByItself, type SessionFailure } from "./session-failure";
-import { firstIndexFrom, nextStep, primaryAction, type PrimaryAction } from "./session-model";
+import { firstIndexFrom, nextStep, primaryAction, recallTarget, type PrimaryAction } from "./session-model";
 import { useActivityClock } from "./use-activity";
 import { useBackGuard } from "./use-back-guard";
 
@@ -313,12 +313,14 @@ export function useSessionRun({ snapshot, initialDaily, resumeAt }: SessionRunIn
     const event = answerEvent({ questionId: question.questionId, answer: payload, hintUsed, occurredAtMs: now, durationMs: now - shownAt.current });
     eventQuestion.current.set(event.clientEventId, question.questionId);
     queue.enqueue(event);
-    const result = gradeLocally(question, payload, hintUsed);
+    const graded = gradeLocally(question, payload, hintUsed);
+    const target = graded.correct ? null : recallTarget(steps, question);
+    const result = target === null ? graded : { ...graded, expected: { word: target } };
     setAnswered((previous) => ({ ...previous, [question.questionId]: { clientEventId: event.clientEventId, hintUsed, result } }));
     setDraft((previous) => ({ ...previous, answer: payload, error: null }));
     void runFlush();
     focusPrimary();
-  }, [current, checked, finishing, draft, queue, runFlush, focusPrimary]);
+  }, [current, checked, finishing, draft, queue, runFlush, focusPrimary, steps]);
 
   const press = useCallback(() => {
     if (action === null || finishing) return;

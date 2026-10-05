@@ -462,14 +462,32 @@ describe("S-19 answers, hint and server verdict", () => {
     expect(screen.queryByText("Correct.")).toBeNull();
   });
 
-  it("shows the original word of a recall answer once the server gives it", async () => {
+  it("shows the original of a wrong recall answer at once, read from the learn passage, before the server answers", async () => {
+    const gate: { release?: () => void } = {};
+    const backend = makeBackend({ [E21]: async (real) => (await new Promise<void>((resolve) => (gate.release = resolve)), real()) });
     const user = userEvent.setup();
-    renderSession();
+    renderSession({ backend });
     await walkUntil(user, "Type the missing word.");
     await user.type(screen.getByRole("textbox"), "خطأ");
     await user.click(button("Check"));
     expect(screen.getByText("This spot needs review. The original:")).toBeInTheDocument();
-    expect(await screen.findByText("كلمة٥ مثال كلمة٧")).toBeInTheDocument();
+    expect(screen.getByText("كلمة٥ كلمة٦ كلمة٧")).toBeInTheDocument();
+    gate.release?.();
+  });
+
+  it("shows the original of a wrong recall answer from the server when the passage does not hold it (a review)", async () => {
+    const backend = makeBackend({
+      [E20]: async (real) => {
+        const snapshot = (await (await real()).json()) as { steps: { type: string; question?: { type: string } }[] };
+        return jsonResponse({ ...snapshot, steps: snapshot.steps.filter((step) => step.type !== "learn") }, 201);
+      },
+    });
+    const user = userEvent.setup();
+    renderSession({ backend });
+    await walkUntil(user, "Type the missing word.");
+    await user.type(screen.getByRole("textbox"), "خطأ");
+    await user.click(button("Check"));
+    expect(await screen.findByText("كلمة٥ كلمة٦ كلمة٧")).toBeInTheDocument();
   });
 
   it("checks a recall answer with Enter in the input, and never moves on with Enter once it is checked", async () => {

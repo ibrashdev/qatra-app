@@ -7,7 +7,7 @@ import { questionMessages, type QuestionMessages } from "@/i18n/question-message
 import { cx } from "@/lib/cx";
 import type { Question } from "@/lib/api/types";
 import { AssistedChip } from "./AssistedChip";
-import { OriginalText } from "./OriginalText";
+import { Blank, ContextLine, OriginalText } from "./OriginalText";
 import { expectedOriginal, showsOriginal } from "./question-logic";
 import type { QuestionResult, TextKind } from "./types";
 
@@ -54,6 +54,10 @@ function FeedbackBody({
         <span>{result.correct ? messages.feedback.correct : messages.feedback.needsReview}</span>
       </p>
       {original !== null ? <OriginalText textKind={textKind} tint>{original}</OriginalText> : null}
+      {/* A recall answer is judged before the server names the word: the context with its blank stands there until `expected.word` arrives. */}
+      {original === null && !result.correct && question.type === "word_recall" ? (
+        <ContextLine before={question.context.before} after={question.context.after} slot={<Blank />} textKind={textKind} />
+      ) : null}
       {result.assisted ? (
         <div className="flex flex-col items-start gap-q8">
           <AssistedChip />

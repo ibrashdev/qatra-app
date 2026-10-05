@@ -49,6 +49,21 @@ describe("answer feedback (UI-tokens 6.17, UI-screens P-21 and P-22)", () => {
     expect(screen.getByRole("status")).toHaveTextContent("قبل١ كلمة١ بعد١");
   });
 
+  it("recall needs review before the word is known: the context with a blank stands in, and no word is invented", () => {
+    renderInLocale(<AnswerFeedback question={recallQuestion()} result={{ correct: false, assisted: false, expected: {} }} textKind="quran" />);
+    const region = screen.getByRole("status");
+    expect(region).toHaveTextContent("This spot needs review. The original:");
+    expect(region).toHaveTextContent("قبل١");
+    expect(region).toHaveTextContent("بعد١");
+    expect(screen.getByRole("img", { name: "the missing word" })).toBeInTheDocument();
+    expect(region).not.toHaveTextContent("كلمة١");
+  });
+
+  it("a correct recall answer shows no context and no blank", () => {
+    renderInLocale(<AnswerFeedback question={recallQuestion()} result={{ correct: true, assisted: false, expected: {} }} textKind="quran" />);
+    expect(screen.queryByRole("img", { name: "the missing word" })).toBeNull();
+  });
+
   it("similar distinction shows the original for either outcome (D31)", () => {
     renderInLocale(<AnswerFeedback question={similarQuestion()} result={{ correct: true, assisted: false, expected: { optionId: "s1" } }} textKind="quran" />);
     expect(screen.getByRole("status")).toHaveTextContent("قبل١ متشابه١ بعد١");

@@ -7,7 +7,7 @@ import { mockHandlers, type MockHandler, type MockScenario } from "@/lib/api/moc
 import { createMockFetch } from "@/lib/api/mock/mock-fetch";
 import { MOCK_QUESTION_IDS, MOCK_RECALL_WORD, sessionMockHandlers } from "@/lib/api/mock/session-handlers";
 import { MOCK_SESSION_ID, todayMockHandlers } from "@/lib/api/mock/today-handlers";
-import { COMPLETE_RETRY_POLICY, completeSession, dailySessionBody, postSessionEvents, startDailySession } from "@/lib/api/session-endpoints";
+import { COMPLETE_RETRY_POLICY, completeSession, dailySessionBody, postSessionEvents, startDailySession, startSession, type StartSessionBody } from "@/lib/api/session-endpoints";
 import type { SessionEvent } from "@/lib/api/types";
 
 function setup(scenario: Partial<MockScenario> = {}, wrap?: (real: typeof fetch) => typeof fetch, handlers: Record<string, MockHandler> = {}) {
@@ -311,5 +311,26 @@ describe("event builders", () => {
     const event = activityEvent(T0, T0 + 61_234);
     if (event === null || event.type !== "activity") throw new Error("interval expected");
     expect(event.activeMs).toBeLessThanOrEqual(Date.parse(event.endedAt) - Date.parse(event.startedAt) + 1000);
+  });
+});
+
+describe("startSession for any kind (E20)", () => {
+  it("posts the placement body exactly as given, once, with no retry of a row-creating call", async () => {
+    const body: StartSessionBody = { kind: "placement", editionId: "11111111-1111-4111-8111-0000000000e1", targetScope: { sectionOrdinals: [1, 2] }, selfRating: "some" };
+    const sent: unknown[] = [];
+    const fetchImpl = vi.fn<typeof fetch>(async (_url, init) => {
+      sent.push(JSON.parse(String(init?.body)));
+      throw new TypeError("The connection failed.");
+    });
+    await expect(startSession(createApiClient({ fetch: fetchImpl }), body)).rejects.toBeDefined();
+    expect(sent).toEqual([body]);
+  });
+
+  it("types the game body and returns the snapshot of the answer", async () => {
+    const body: StartSessionBody = { kind: "game", planId: MOCK_PLAN_ID, expectedPlanVersion: 1, gameType: "word_order" };
+    const snapshot = { sessionId: "s", kind: "game" };
+    const fetchImpl = vi.fn<typeof fetch>(async () => new Response(JSON.stringify(snapshot), { status: 201, headers: { "Content-Type": "application/json" } }));
+    expect(await startSession(createApiClient({ fetch: fetchImpl }), body)).toEqual(snapshot);
+    expect(String(fetchImpl.mock.calls[0]?.[0])).toBe("/api/sessions");
   });
 });

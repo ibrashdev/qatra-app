@@ -1,5 +1,6 @@
 import type { ApiClient, RequestOptions, RetryPolicy } from "./client";
-import type { CompleteResponse, EventsResponse, SessionEvent } from "./types";
+import type { DailySessionBody } from "./today-endpoints";
+import type { CompleteResponse, EventsResponse, GameKind, SessionEvent, SessionSnapshot, TargetScope } from "./types";
 
 // E20 (daily), E21 and E22 as the memorization session (S-19) uses them. Kept apart from endpoints.ts while that file belongs to another package;
 // the coordinator may move them into `Endpoints`. They take the client of the runtime, so the mock layer and the real server behave alike.
@@ -8,6 +9,28 @@ import type { CompleteResponse, EventsResponse, SessionEvent } from "./types";
 // imports its three calls from one place. It creates a row on the first call, so it is never retried automatically (P-14).
 export { dailySessionBody, startDailySession, type DailySessionBody, type StartDailySessionRequest } from "./today-endpoints";
 
+// E20 for any `kind` (API-spec 4.7): the body is a discriminated union and the server rejects every other property, so only the properties of the kind
+// are typed. `game` and `placement` always create a row, so the call is never retried automatically (P-14); `daily` is the get-or-create above.
+export interface GameSessionBody {
+  kind: "game";
+  planId: string;
+  expectedPlanVersion: number;
+  gameType?: GameKind;
+  passageIds?: string[]; // at most 60 (A-12)
+}
+
+export interface PlacementSessionBody {
+  kind: "placement";
+  editionId: string;
+  targetScope: TargetScope;
+  selfRating?: "none" | "some" | "most";
+}
+
+export type StartSessionBody = DailySessionBody | GameSessionBody | PlacementSessionBody;
+
+export function startSession(client: ApiClient, body: StartSessionBody, options?: Pick<RequestOptions, "signal">): Promise<SessionSnapshot> {
+  return client.post<SessionSnapshot>("/sessions", body, { signal: options?.signal });
+}
 // API-spec 4.7 E21: 1 to 100 events per request.
 export const MAX_EVENTS_PER_REQUEST = 100;
 

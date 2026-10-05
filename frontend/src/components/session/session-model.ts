@@ -173,7 +173,25 @@ export function segmentUnit(unit: PassageView["units"][number], highlight: Passa
   if (pendingSpace !== "") push(pendingSpace, false);
   return segments;
 }
-
+// The word a recall question asks for, read from the learn passage of the same session when the passage carries it: the blank sits between the last
+// context word before it and the first after it, and their refs ("unit:index") name its place. A review question of a passage the session did not teach
+// has no learn step, so this is null and the original comes with the server's answer. It is only a first display; the server's `expected.word` replaces it.
+export function recallTarget(steps: readonly Step[], question: Question): string | null {
+  if (question.type !== "word_recall") return null;
+  const before = question.context.before[question.context.before.length - 1];
+  const after = question.context.after[0];
+  const anchor = before !== undefined ? parseRef(before.ref) : after !== undefined ? parseRef(after.ref) : null;
+  if (anchor === null) return null;
+  const [unitRef, index] = before !== undefined ? [anchor[0], anchor[1] + 1] : [anchor[0], anchor[1] - 1];
+  for (const step of steps) {
+    if (step.type !== "learn") continue;
+    const unit = step.passage.units.find((candidate) => candidate.unitRef === unitRef);
+    if (unit === undefined) continue;
+    const word = unit.text.split(/[ \u00A0]+/u).filter((piece) => piece !== "")[index];
+    if (word !== undefined) return word;
+  }
+  return null;
+}
 // The legend is shown when the mark covers part of what is shown (UI-screens S-19 c8).
 export function needsLegend(unitSegments: readonly (readonly UnitSegment[])[]): boolean {
   const all = unitSegments.flat();
