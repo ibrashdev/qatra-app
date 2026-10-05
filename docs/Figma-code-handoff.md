@@ -1,6 +1,8 @@
 # Figma polish: code handoff
 
-Version 1 · 2026-10-05 · Asia/Dubai · Status: **Draft / Needs Review**
+Version 1.1 · 2026-10-05 · Asia/Dubai · Status: **Draft / Needs Review**
+
+**Merge alignment note (5 October 2026):** this v1.1 record preserves the original source inspection at 821bedf. Readiness at 4c8b766 now records S-04 as Implemented locally/on main. This documentation merge performs no visual code implementation and does not grant G2.
 
 ## Purpose and authority
 
@@ -19,7 +21,7 @@ Priorities are delivery order within this polish backlog. **P1** means a high im
 | Shared navigation | `frontend/src/components/ui/MainNav.tsx` exists. Four destinations, responsive bottom tabs/desktop rail, active indication and accessible current-page state are implemented. |
 | Shared icons and back control | `frontend/src/components/ui/Icon.tsx` is the existing Lucide adapter. `BackControl.tsx` provides the direction-aware back affordance. |
 | Login (S-01) | `frontend/src/app/(public)/login/page.tsx` and `components/auth/LoginForm.tsx` exist. Current form, notifications, recovery link and registration link are implemented locally. |
-| Recovery code (S-04) | `frontend/src/app/(flow)/recovery-code/page.tsx`, `RecoveryCodeScreen.tsx`, `RecoveryCodeSave.tsx`, and `RecoveryCodeBlock.tsx` exist. Source/readiness records it in progress; this handoff does not mark it complete. |
+| Recovery code (S-04) | `frontend/src/app/(flow)/recovery-code/page.tsx`, `RecoveryCodeScreen.tsx`, `RecoveryCodeSave.tsx`, and `RecoveryCodeBlock.tsx` exist. The 821bedf tracker recorded it In progress; the 4c8b766 tracker records Implemented locally/on main. |
 | Recovery, re-consent, Today, Games, Progress, Settings | Their current routes use placeholder surfaces. See `components/ui/PlaceholderRoute.tsx`, `PlaceholderPage.tsx`, and each route page. |
 | Future requested surfaces | No route files were found in the inspected `frontend/src/app` tree for plan overview, plan revision, placement, session, individual games, feedback, or Source. These are proposed destinations governed by the approved route/screen plan, not existing code. |
 
@@ -111,7 +113,7 @@ Apply 16px local content-region spacing at the current `mt-q24` seams as well as
 
 Match the reference brand bar height of 56px, followed by a 24px separation before content with 24px content padding. Use 24px vertical and 16px inline padding for the code block; retain an 8px actions gap. Keep the approved 48px primary action and 44px checkbox target. The existing implementation uses `p-q16` on the code block and a 24px stack gap; adjust only after reviewing the reference and approved token rules. Preserve the current monospace font.
 
-**Acceptance:** recovery code remains byte-exact, monospace and LTR-isolated; it is shown once; copy/download, confirmation, absent-code routing and leave guard continue to work; no persistence is introduced. S-04 remains in progress until the coordinator records the applicable review and status.
+**Acceptance:** recovery code remains byte-exact, monospace and LTR-isolated; it is shown once; copy/download, confirmation, absent-code routing and leave guard continue to work; no persistence is introduced. Preserve the existing S-04 implementation status; verify this visual polish separately.
 
 #### FC-08 — Apply density refinements to Recovery and Re-consent
 
