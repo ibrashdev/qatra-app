@@ -14,6 +14,7 @@ import { TextField } from "@/components/ui/TextField";
 import { TextLink } from "@/components/ui/TextLink";
 import { LoginHelperStrip } from "@/components/auth/LoginHelperStrip";
 import { useLocale } from "@/i18n/LocaleProvider";
+import { demoMessages } from "@/i18n/demo-messages";
 import { formatInteger } from "@/i18n/format";
 import type { LoginMessages } from "@/i18n/auth-messages";
 import { useApiRuntime, useWakeUpState } from "@/lib/api/react";
@@ -56,7 +57,8 @@ const VALID: Invalid = { username: false, password: false };
 
 // S-01 (UI-screens Batch 1): username and password, E04. The inputs are read from the page when the form is sent, not from state,
 // so a password manager that fills them without a change event still works.
-export function LoginForm() {
+// `demoLink` adds the tertiary link to the demo entry (S-28, option C; it reverses UA-08). The route turns it on; the form alone stays as in option B.
+export function LoginForm({ demoLink = false }: { demoLink?: boolean } = {}) {
   const { locale, messages, setLocale } = useLocale();
   const { api } = useApiRuntime();
   const router = useRouter();
@@ -296,6 +298,7 @@ export function LoginForm() {
           {text.noAccount}
           <TextLink href="/register">{text.createAccount}</TextLink>
         </p>
+        {demoLink ? <TextLink href="/demo">{demoMessages(locale).entry.loginLink}</TextLink> : null}
       </div>
 
       <LoginHelperStrip
