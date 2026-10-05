@@ -134,9 +134,14 @@ def render_verification_report(outcome: VerificationOutcome) -> str:
         "",
         outcome.source.details,
         "",
-        "| Method | Result | Units |",
-        "|---|---|---|",
     ]
+    if outcome.decision:
+        lines += [
+            f"Source-only decision: {outcome.decision} (two independent acquisitions from the "
+            "service itself replace the oracle and the skeleton; no other source was fetched).",
+            "",
+        ]
+    lines += ["| Method | Result | Units |", "|---|---|---|"]
     lines += [f"| {m} | {r} | {n} |" for (m, r), n in sorted(by_method.items())]
     failed = outcome.failed_refs()
     lines += ["", f"Blocked units: {len(failed)}"]
@@ -159,7 +164,7 @@ def render_verification_report(outcome: VerificationOutcome) -> str:
 
 
 def verification_json(outcome: VerificationOutcome) -> dict[str, Any]:
-    return {
+    data: dict[str, Any] = {
         "editionKey": outcome.edition_key,
         "bankVersion": outcome.bank_version,
         "scope": outcome.scope.to_dict(),
@@ -173,6 +178,10 @@ def verification_json(outcome: VerificationOutcome) -> dict[str, Any]:
         "suspectedErrors": outcome.suspected,
         "counts": outcome.counts,
     }
+    if outcome.decision:
+        data["sourceOnlyDecision"] = outcome.decision
+        data["evidence"] = outcome.evidence
+    return data
 
 
 def write_verification_files(paths: BuildPaths, outcome: VerificationOutcome) -> list[Path]:

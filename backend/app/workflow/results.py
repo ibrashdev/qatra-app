@@ -68,6 +68,9 @@ class VerificationOutcome:
     counts: dict[str, int] = field(default_factory=dict)
     digest: str = ""
     generated_at: datetime | None = None
+    # source-only mode (D83): the decision id and the text-free evidence (hashes, ids, times)
+    decision: str | None = None
+    evidence: dict[str, Any] = field(default_factory=dict)
 
     @property
     def result(self) -> Literal["passed", "failed"]:

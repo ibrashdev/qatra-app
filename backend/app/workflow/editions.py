@@ -111,6 +111,15 @@ def default_scope(edition_key: str) -> EditionScope:
     return EditionScope(forty_numbers=tuple(range(1, FORTY_COUNT + 1)))
 
 
+def is_full_scope(edition_key: str, scope: EditionScope) -> bool:
+    """True when ``scope`` is the whole edition (Juz' Amma 78 to 114, or the 42 hadiths).
+
+    Anything narrower is a sample build; the later steps follow the scope recorded by
+    ``acquire`` and never expect more than it holds.
+    """
+    return scope == default_scope(edition_key)
+
+
 def parse_number_spec(spec: str, *, low: int, high: int, label: str) -> tuple[int, ...]:
     """Parse ``"112"``, ``"78-114"`` or ``"1,3,5-7"`` into a sorted tuple within ``[low, high]``."""
     values: set[int] = set()

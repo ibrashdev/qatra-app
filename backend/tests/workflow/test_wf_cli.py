@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import io
 import re
 import subprocess
 import sys
@@ -42,13 +41,40 @@ ALL_COMMANDS = [
     "delete-unused-draft",
 ]
 EXTRA = {
-    "approve": ["--reviewer", "owner", "--review-scope", "automated gates only"],
+    "approve": [
+        "--reviewer",
+        "owner",
+        "--review-scope",
+        "automated gates only",
+        "--note",
+        "note",
+        "--owner-words",
+        "words typed by the owner",
+        "--source",
+        "https://claude.ai/code/session_test",
+        "--at",
+        "2026-10-04T12:02:00+00:00",
+    ],
     "withdraw": ["--reason", "rights"],
     "acquire": ["--records", "unused.json"],
 }
+APPROVAL = {
+    "who": "owner",
+    "at": "2026-10-04T12:00:00Z",
+    "note": "n",
+    "scope": "s",
+    "words": "w",
+    "source": "https://claude.ai/code/session_test",
+}
 
 
-def seed(build: Path, steps: list[str], *, verification: dict[str, Any] | None = PASSED) -> None:
+def seed(
+    build: Path,
+    steps: list[str],
+    *,
+    verification: dict[str, Any] | None = PASSED,
+    approval: dict[str, Any] | None = None,
+) -> None:
     repo = LocalJobRepository(BuildPaths(build))
     for step in steps:
         job = new_job(QURAN_ED, 1, step, now=NOW, status="succeeded")
@@ -56,12 +82,15 @@ def seed(build: Path, steps: list[str], *, verification: dict[str, Any] | None =
         if step == "verified" and verification is not None:
             summary["verification"] = verification
         if step == "approved":
-            summary["approval"] = {"who": "owner", "at": "2026-10-04T12:00:00Z", "note": "n"}
+            summary["approval"] = approval if approval is not None else APPROVAL
         repo.save_job(job.model_copy(update={"validation_summary": summary or None}))
 
 
 def stub(command: str, build: Path, *, interactive: bool = True) -> int:
-    argv = [command, "--edition", QURAN_ED, "--bank-version", "1", *EXTRA.get(command, [])]
+    extra = EXTRA.get(command, [])
+    if command == "publish":
+        extra = ["--sql-out", str(build / "publish-final.sql")]
+    argv = [command, "--edition", QURAN_ED, "--bank-version", "1", *extra]
     return run_cli(argv, build, interactive=interactive)
 
 
@@ -137,7 +166,6 @@ def test_registered_commands_refuse_a_step_order_violation_with_exit_3(
 @pytest.mark.parametrize(
     ("command", "done"),
     [
-        ("approve", ORDER[:5]),
         ("withdraw", ORDER),
         ("archive", ORDER),
     ],
@@ -152,24 +180,10 @@ def test_registered_commands_exit_6_when_their_preconditions_hold(
     assert (tmp_path / QURAN_ED / "jobs.json").read_bytes() == before  # nothing recorded
 
 
-def test_approve_refuses_every_non_interactive_run(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
-) -> None:
-    seed(tmp_path, ORDER[:5])  # every other precondition holds
-    assert stub("approve", tmp_path, interactive=False) == ExitCode.PRECONDITION
-    err = capsys.readouterr().err
-    assert "interactive" in err and "never an approval" in err
-    assert "approved" not in (tmp_path / QURAN_ED / "jobs.json").read_text(encoding="utf-8")
-
-
-def test_approve_detects_a_real_non_interactive_stdin(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_approve_and_publish_are_implemented_and_no_longer_exit_6(tmp_path: Path) -> None:
     seed(tmp_path, ORDER[:5])
-    monkeypatch.setattr(sys, "stdin", io.StringIO(""))  # not a terminal
-    argv = ["approve", "--edition", QURAN_ED, "--bank-version", "1", *EXTRA["approve"]]
-    runtime = cli.CliRuntime(environ={})
-    assert cli.main([*argv, "--build-dir", str(tmp_path)], runtime=runtime) == ExitCode.PRECONDITION
+    assert stub("approve", tmp_path) != ExitCode.NOT_IMPLEMENTED
+    assert stub("publish", tmp_path) != ExitCode.NOT_IMPLEMENTED
 
 
 def test_approve_needs_a_validated_edition_and_passed_verification(tmp_path: Path) -> None:
@@ -178,22 +192,25 @@ def test_approve_needs_a_validated_edition_and_passed_verification(tmp_path: Pat
     other = tmp_path / "no-verification"
     seed(other, ORDER[:5], verification=None)
     assert stub("approve", other) == ExitCode.PRECONDITION
-    ready = tmp_path / "ready"
-    seed(ready, ORDER[:5])
-    assert stub("approve", ready) == ExitCode.NOT_IMPLEMENTED
 
 
-def test_publish_fails_closed_without_a_license_record(
+def test_publish_refuses_without_a_recorded_approval(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    seed(
-        tmp_path, ORDER[:6]
-    )  # approved recorded, verification passed, no license record exists yet
+    seed(tmp_path, ORDER[:5])  # validated and verified, but nobody approved
     assert stub("publish", tmp_path) == ExitCode.PRECONDITION
-    assert "license_missing" in capsys.readouterr().err
-    unapproved = tmp_path / "unapproved"
-    seed(unapproved, ORDER[:5])
-    assert stub("publish", unapproved) == ExitCode.PRECONDITION
+    assert "approved" in capsys.readouterr().err
+    assert not (tmp_path / "publish-final.sql").exists()
+
+
+def test_publish_refuses_an_approval_entry_that_is_incomplete(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    old_shape = {"who": "owner", "at": "2026-10-04T12:00:00Z", "note": "n"}
+    seed(tmp_path, ORDER[:6], approval=old_shape)
+    assert stub("publish", tmp_path) == ExitCode.PRECONDITION
+    assert "approval_incomplete" in capsys.readouterr().err
+    assert not (tmp_path / "publish-final.sql").exists()
 
 
 def test_published_versions_cannot_be_rerun_or_republished(tmp_path: Path) -> None:
@@ -280,7 +297,7 @@ def test_unexpected_errors_print_only_the_exception_type(
         raise RuntimeError("this message could contain source text")
 
     monkeypatch.setattr(cli, "_cmd_not_implemented", boom)
-    assert stub("approve", tmp_path) == ExitCode.UNEXPECTED
+    assert stub("archive", tmp_path) == ExitCode.UNEXPECTED
     captured = capsys.readouterr()
     assert "RuntimeError" in captured.err and "source text" not in captured.err + captured.out
 
