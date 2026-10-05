@@ -76,6 +76,7 @@ from app.contracts_sessions import (
     AnswerExpected,
     AnswerPassageState,
     AnswerResult,
+    AyahEnd,
     ChoiceOption,
     CompleteResponse,
     CompleteSummary,
@@ -292,15 +293,48 @@ def _shuffled(items: Sequence[T], key: Callable[[T], str], seed: int, salt: obje
 
 
 def _question_ordinals(question: BankQuestion) -> set[int]:
-    """Ordinals of every unit a question reads text from (options and context may lie outside the
-    passage and even outside the plan scope: technical distractors, D31)."""
+    """Ordinals of every unit a question reads text from (options may lie outside the passage and
+    even outside the plan scope: technical distractors, D31). The passage text around the blank
+    (D92) is loaded separately, from the passage's own references."""
     refs = [
         *question.token_refs,
-        *question.context_refs,
         *question.correct_ref,
         *(ref for option in question.option_refs or () for ref in option),
     ]
     return {_ref_key(ref)[0] for ref in refs}
+
+
+_ARABIC_INDIC = str.maketrans("0123456789", "٠١٢٣٤٥٦٧٨٩")
+
+
+def _arabic_digits(number: int) -> str:
+    return str(number).translate(_ARABIC_INDIC)
+
+
+def _ayah_number(reference: str) -> int | None:
+    """The ayah number of a Quran unit reference (``"112:3"`` -> 3), or ``None``."""
+    tail = reference.rpartition(":")[2]
+    return int(tail) if tail.isascii() and tail.isdecimal() else None
+
+
+@dataclass(frozen=True, slots=True)
+class _PassageText:
+    """Every token of a passage in book order, and where its ayat end: the whole passage that each
+    of its questions shows around the blank (D92). Built once per passage from the loaded units;
+    token text is never altered."""
+
+    tokens: tuple[tuple[tuple[int, int], TokenView], ...]
+    ayah_ends: tuple[tuple[tuple[int, int], AyahEnd], ...]
+
+    def around(self, low: tuple[int, int], high: tuple[int, int]) -> QuestionContext:
+        """The passage outside the target span ``low..high``: the tokens before and after it and the
+        ayah ends that stay visible (not those inside the blank; the one that closes the blank's own
+        ayah stays, right after it)."""
+        return QuestionContext(
+            before=[view for key, view in self.tokens if key < low],
+            after=[view for key, view in self.tokens if key > high],
+            ayah_ends=[end for key, end in self.ayah_ends if key < low or key >= high],
+        )
 
 
 class _Units:
@@ -834,6 +868,13 @@ class SessionService:
         units.load_section_units(p.section_ordinal for p in learn)
         units.load_section_meta(by_id[q.passage_id].section_ordinal for q in asked)
         units.load_units(ordinal for question in asked for ordinal in _question_ordinals(question))
+        asked_passages = {q.passage_id: by_id[q.passage_id] for q in asked}
+        units.load_units(
+            ordinal
+            for passage in asked_passages.values()
+            for ordinal in range(_ref_key(passage.start_ref)[0], _ref_key(passage.end_ref)[0] + 1)
+        )
+        texts = {pid: self._passage_text(passage, units) for pid, passage in asked_passages.items()}
         rendered: list[LearnStep | QuestionStep] = []
         for step in steps:
             if isinstance(step, PlannedLearn):
@@ -845,17 +886,27 @@ class SessionService:
                 )
             else:
                 bank_question = questions.by_id[step.question_id]
-                section = units.sections.get(by_id[step.passage_id].section_ordinal)
+                passage = by_id[step.passage_id]
+                section = units.sections.get(passage.section_ordinal)
                 rendered.append(
                     QuestionStep(
                         type="question",
-                        question=self._question(edition, step, bank_question, section, units, seed),
+                        question=self._question(
+                            edition,
+                            step,
+                            bank_question,
+                            section,
+                            units,
+                            seed,
+                            passage=passage,
+                            text=texts[bank_question.passage_id],
+                        ),
                     )
                 )
         return rendered
 
     @staticmethod
-    def _source(edition: EditionInfo, reference: str, url: str) -> SourceRef:
+    def _source(edition: EditionInfo, reference: str, url: str, reference_ar: str) -> SourceRef:
         return SourceRef(
             publisher=edition.source_title,
             edition_label=edition.edition_label,
@@ -863,42 +914,50 @@ class SessionService:
             reference=reference,
             url=url,
             pages=[],
+            reference_ar=reference_ar,
         )
+
+    @staticmethod
+    def _passage_text(passage: BankPassage, units: _Units) -> _PassageText:
+        """Every token of the passage from its start to its end reference, over all its units."""
+        first, last = _ref_key(passage.start_ref), _ref_key(passage.end_ref)
+        tokens: list[tuple[tuple[int, int], TokenView]] = []
+        ends: list[tuple[tuple[int, int], AyahEnd]] = []
+        for ordinal in range(first[0], last[0] + 1):
+            unit = units.unit(ordinal)
+            low = first[1] if ordinal == first[0] else 0
+            high = last[1] if ordinal == last[0] else len(unit.tokens) - 1
+            for index in range(low, high + 1):
+                view = TokenView(ref=f"{ordinal}:{index}", text=unit.surface(index))
+                tokens.append(((ordinal, index), view))
+            number = _ayah_number(unit.reference) if unit.kind == "ayah" else None
+            if number is not None and ordinal < last[0] and high >= low:
+                ends.append(
+                    ((ordinal, high), AyahEnd(after_ref=f"{ordinal}:{high}", number=number))
+                )
+        return _PassageText(tokens=tuple(tokens), ayah_ends=tuple(ends))
+
+    @staticmethod
+    def _reference_ar(
+        edition: EditionInfo, section: BankSection | None, passage: BankPassage, units: _Units
+    ) -> str:
+        """What the learner reads as the reference (D92): the hadith title, or for the Quran the
+        surah with the ayah or the ayah range of the passage, in Arabic-Indic digits."""
+        name = section_reference_ar(edition, section)
+        if edition.content_format != "quran" or not name:
+            return name
+        first = _ayah_number(units.unit(_ref_key(passage.start_ref)[0]).reference)
+        last = _ayah_number(units.unit(_ref_key(passage.end_ref)[0]).reference)
+        if first is None or last is None:
+            return name
+        if first == last:
+            return f"{name}، الآية {_arabic_digits(first)}"
+        return f"{name}، الآيات {_arabic_digits(first)}\u2013{_arabic_digits(last)}"
 
     def _passage_view(
         self, edition: EditionInfo, passage: BankPassage, units: _Units
     ) -> PassageView:
-        first, _ = _ref_key(passage.start_ref)
-        last, _ = _ref_key(passage.end_ref)
-        spanned = [units.unit(ordinal) for ordinal in range(first, last + 1)]
-        section = units.sections.get(passage.section_ordinal)
-        siblings = units.by_section[passage.section_ordinal]
-        takhrij = next((u.text for u in siblings if u.kind == "hadith_takhrij"), None)
-        grade = next((u.text for u in siblings if u.kind == "hadith_grade"), None)
-        meta = next(
-            (u.hadith_meta for u in siblings if u.kind == "hadith_narration" and u.hadith_meta),
-            next((u.hadith_meta for u in siblings if u.hadith_meta), None),
-        )
-        return PassageView(
-            passage_id=passage.id,
-            path=passage.path,  # type: ignore[arg-type]
-            reference=passage.reference,
-            section_title_ar=section.title_ar if section is not None else "",
-            units=[
-                PassageUnit(
-                    unit_ref=unit.ordinal,
-                    kind=unit.kind,  # type: ignore[arg-type]
-                    reference=unit.reference,
-                    text=unit.text,
-                )
-                for unit in spanned
-            ],
-            highlight=Highlight(start_ref=passage.start_ref, end_ref=passage.end_ref),
-            takhrij=takhrij,
-            grade=grade,
-            show_d50_notice=bool(meta.get("showD50Notice")) if meta else False,
-            source=self._source(edition, passage.reference, units.source_url(first, section)),
-        )
+        return build_passage_view(edition, passage, units)
 
     def _question(
         self,
@@ -908,14 +967,14 @@ class SessionService:
         section: BankSection | None,
         units: _Units,
         seed: int,
+        *,
+        passage: BankPassage,
+        text: _PassageText,
     ) -> QuestionDto:
         target = sorted(_ref_key(ref) for ref in question.token_refs)
-        low, high = target[0], target[-1]
-        shown = [TokenView(ref=ref, text=units.surface(ref)) for ref in question.context_refs]
-        context = QuestionContext(
-            before=[t for t in shown if _ref_key(t.ref) < low],
-            after=[t for t in shown if _ref_key(t.ref) > high],
-        )
+        # D92: the whole passage around the blank, for every type; the bank's ``contextRefs`` (a
+        # window of six words) are no longer used for display.
+        context = text.around(target[0], target[-1])
         common: dict[str, Any] = {
             "question_id": question.id,
             "passage_id": question.passage_id,
@@ -924,7 +983,10 @@ class SessionService:
             "context": context,
             "policy": QuestionPolicy(),
             "source": self._source(
-                edition, question.reference, units.source_url(question.token_refs[0], section)
+                edition,
+                question.reference,
+                units.source_url(question.token_refs[0], section),
+                self._reference_ar(edition, section, passage, units),
             ),
         }
         kind = question.type
@@ -934,7 +996,7 @@ class SessionService:
             if len(tokens) > 1 and [t.ref for t in mixed] == list(question.token_refs):
                 mixed = mixed[1:] + mixed[:1]  # a shuffle that shows the answer is no shuffle
             return WordOrderQuestion(
-                **{**common, "context": QuestionContext()},
+                **common,
                 type="word_order",
                 tokens=mixed,
                 answer_key=OrderAnswerKey(order=list(question.token_refs)),
@@ -972,6 +1034,79 @@ class SessionService:
                 answer_key=RecallAnswerKey(accepted_norms=norms),
             )
         raise ValueError("unknown question type")
+
+
+# --- the passage as the learner reads it ----------------------------------------------------------
+
+
+def section_reference_ar(edition: EditionInfo, section: BankSection | None) -> str:
+    """The section's own reference line (D92): the hadith title, or for the Quran the surah name
+    with the word «سورة» in front when the title lacks it. Empty when the section has no title."""
+    title = section.title_ar.strip() if section is not None else ""
+    if edition.content_format != "quran" or not title:
+        return title
+    return title if title.startswith("سورة") else f"سورة {title}"
+
+
+def build_passage_view(edition: EditionInfo, passage: BankPassage, units: _Units) -> PassageView:
+    """The ``PassageView`` of a passage, verbatim: the units it spans, the range to mark, the
+    takhrij and grade of its hadith and the clean source line. ``units`` must hold the units of the
+    passage's section (``load_section_units``). Shared by the learn step of a session and by the
+    lessons reader (D92), so both show the same text."""
+    first, _ = _ref_key(passage.start_ref)
+    last, _ = _ref_key(passage.end_ref)
+    spanned = [units.unit(ordinal) for ordinal in range(first, last + 1)]
+    section = units.sections.get(passage.section_ordinal)
+    siblings = units.by_section[passage.section_ordinal]
+    takhrij = next((u.text for u in siblings if u.kind == "hadith_takhrij"), None)
+    grade = next((u.text for u in siblings if u.kind == "hadith_grade"), None)
+    meta = next(
+        (u.hadith_meta for u in siblings if u.kind == "hadith_narration" and u.hadith_meta),
+        next((u.hadith_meta for u in siblings if u.hadith_meta), None),
+    )
+    reference_ar = SessionService._reference_ar(edition, section, passage, units)
+    return PassageView(
+        passage_id=passage.id,
+        path=passage.path,  # type: ignore[arg-type]
+        reference=passage.reference,
+        reference_ar=reference_ar,
+        section_title_ar=section.title_ar if section is not None else "",
+        units=[
+            PassageUnit(
+                unit_ref=unit.ordinal,
+                kind=unit.kind,  # type: ignore[arg-type]
+                reference=unit.reference,
+                text=unit.text,
+            )
+            for unit in spanned
+        ],
+        highlight=Highlight(start_ref=passage.start_ref, end_ref=passage.end_ref),
+        takhrij=takhrij,
+        grade=grade,
+        show_d50_notice=bool(meta.get("showD50Notice")) if meta else False,
+        source=SessionService._source(
+            edition, passage.reference, units.source_url(first, section), reference_ar
+        ),
+    )
+
+
+def read_passage_views(
+    bank: BankRepository,
+    ctx: SessionContext,
+    edition: EditionInfo,
+    passages: Sequence[BankPassage],
+) -> tuple[list[PassageView], BankSection | None]:
+    """The views of ``passages`` of one section in the order given, and that section (for its
+    title and canonical URL). Reads the section's units once. A bank that lacks a unit a passage
+    spans is an integrity fault (500), as for a learn step."""
+    units = _Units(bank, ctx, edition)
+    units.load_section_units(p.section_ordinal for p in passages)
+    try:
+        views = [build_passage_view(edition, passage, units) for passage in passages]
+    except (KeyError, IndexError, ValueError):
+        raise _integrity() from None
+    section = units.sections.get(passages[0].section_ordinal) if passages else None
+    return views, section
 
 
 # --- E21 and E22 helpers -------------------------------------------------------------------------

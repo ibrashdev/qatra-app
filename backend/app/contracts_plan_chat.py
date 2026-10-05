@@ -17,7 +17,7 @@ from datetime import date, datetime
 from typing import Any, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, model_serializer
+from pydantic import BaseModel, ConfigDict, Field, model_serializer, model_validator
 from pydantic.alias_generators import to_camel
 
 # --- vocabularies -------------------------------------------------------------------------------
@@ -72,6 +72,26 @@ class TargetScope(CamelModel):
     section_ordinals: list[int]
 
 
+class DailyNew(CamelModel):
+    """The daily amount of new material in whole learning units (D92).
+
+    The internal pace stays in words (``Estimate.new_words_per_day``, which the passage split of
+    D66 relies on); this is how the learner is told: ``perDay`` whole units a day, or one whole
+    unit every ``everyDays`` days (a long hadith that takes several days). Exactly one of the two
+    is set, never both and never a number below 1. Units are never split.
+    """
+
+    unit: Literal["ayah", "hadith"]
+    per_day: int | None = Field(default=None, ge=1)
+    every_days: int | None = Field(default=None, ge=1)
+
+    @model_validator(mode="after")
+    def _exactly_one_rate(self) -> DailyNew:
+        if (self.per_day is None) == (self.every_days is None):
+            raise ValueError("exactly one of perDay and everyDays must be set")
+        return self
+
+
 class Estimate(CamelModel):
     days: int
     end_date: date
@@ -82,6 +102,9 @@ class Estimate(CamelModel):
     session_minutes: SessionMinutes
     scope: TargetScope
     paths: list[Path]
+    # D92: the learner-facing amount in whole units. ``None`` when the catalog gives no unit count
+    # (and for a plan stored before D92): the client then falls back to the words figure.
+    daily_new: DailyNew | None = None
 
 
 class EstimateResult(CamelModel):

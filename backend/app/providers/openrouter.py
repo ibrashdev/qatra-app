@@ -19,6 +19,7 @@ import json
 import threading
 import time
 from collections.abc import Callable
+from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
@@ -37,6 +38,19 @@ from app.providers.llm import (
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 MODELS_TTL_SEC = 300.0
 _STRUCTURED_PARAMETERS = frozenset({"structured_outputs", "response_format"})
+DEFAULT_SCHEMA_NAME = "structured_reply"
+
+
+@dataclass(frozen=True, slots=True)
+class JsonReply:
+    """A completion whose content parsed as JSON; the caller validates the shape (used by the
+    content workflow, ``workflow/question_proposals.py``)."""
+
+    data: Any
+    model: str
+    input_tokens: int | None = None
+    output_tokens: int | None = None
+    cost_usd: float | None = None
 
 
 def _is_zero_price(value: Any) -> bool:
@@ -135,6 +149,76 @@ class OpenRouterProvider:
     def complete(
         self, payload: dict[str, Any], *, max_tokens: int, timeout_sec: float
     ) -> ModelReply:
+        model, raw = self._post(
+            payload,
+            system_prompt=PLAN_CHAT_SYSTEM_PROMPT,
+            schema_name="plan_chat_reply",
+            response_schema=REPLY_JSON_SCHEMA,
+            max_tokens=max_tokens,
+            timeout_sec=timeout_sec,
+        )
+        content, input_tokens, output_tokens, cost_usd = _decode_completion(raw, model)
+        try:
+            output = ModelOutput.model_validate(content)
+        except ValidationError:
+            raise ProviderUnavailable(
+                "invalid_output",
+                model=model,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+            ) from None
+        return ModelReply(
+            output=output,
+            model=model,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            cost_usd=cost_usd,
+        )
+
+    def complete_json(
+        self,
+        payload: dict[str, Any],
+        *,
+        system_prompt: str,
+        response_schema: dict[str, Any],
+        schema_name: str = DEFAULT_SCHEMA_NAME,
+        max_tokens: int,
+        timeout_sec: float,
+    ) -> JsonReply:
+        """The same free-only request path with a caller-supplied system prompt and JSON schema.
+
+        Eligibility, the single request, the total deadline and the reason-code-only failures
+        are those of ``complete``. The reply content must parse as JSON; its shape is the
+        caller's to validate (a parse failure is ``invalid_output``).
+        """
+        model, raw = self._post(
+            payload,
+            system_prompt=system_prompt,
+            schema_name=schema_name,
+            response_schema=response_schema,
+            max_tokens=max_tokens,
+            timeout_sec=timeout_sec,
+        )
+        content, input_tokens, output_tokens, cost_usd = _decode_completion(raw, model)
+        return JsonReply(
+            data=content,
+            model=model,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            cost_usd=cost_usd,
+        )
+
+    def _post(
+        self,
+        payload: dict[str, Any],
+        *,
+        system_prompt: str,
+        schema_name: str,
+        response_schema: dict[str, Any],
+        max_tokens: int,
+        timeout_sec: float,
+    ) -> tuple[str, bytes]:
+        """One free-model request; returns the model id and the raw response body."""
         if not self.is_enabled():
             raise ProviderUnavailable("disabled")
         started = self._clock()
@@ -149,7 +233,7 @@ class OpenRouterProvider:
         body: dict[str, Any] = {
             "model": model,
             "messages": [
-                {"role": "system", "content": PLAN_CHAT_SYSTEM_PROMPT},
+                {"role": "system", "content": system_prompt},
                 {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
             ],
             "max_tokens": max_tokens,
@@ -159,9 +243,9 @@ class OpenRouterProvider:
             body["response_format"] = {
                 "type": "json_schema",
                 "json_schema": {
-                    "name": "plan_chat_reply",
+                    "name": schema_name,
                     "strict": False,
-                    "schema": REPLY_JSON_SCHEMA,
+                    "schema": response_schema,
                 },
             }
             body["provider"] = {"require_parameters": True}
@@ -191,36 +275,32 @@ class OpenRouterProvider:
             raise ProviderUnavailable("timeout", model=model) from None
         except Exception:
             raise ProviderUnavailable("error", model=model) from None
+        return model, raw
 
-        input_tokens = output_tokens = None
-        try:
-            data = json.loads(raw)
-            usage = data.get("usage") if isinstance(data, dict) else None
-            if isinstance(usage, dict):
-                input_tokens = _as_count(usage.get("prompt_tokens"))
-                output_tokens = _as_count(usage.get("completion_tokens"))
-            if not isinstance(data, dict) or "error" in data:
-                raise ValueError("error body")
-            content = data["choices"][0]["message"]["content"]
-            output = ModelOutput.model_validate(_parse_json(content))
-        except (ValueError, KeyError, IndexError, TypeError, ValidationError):
-            raise ProviderUnavailable(
-                "invalid_output",
-                model=model,
-                input_tokens=input_tokens,
-                output_tokens=output_tokens,
-            ) from None
-        cost = usage.get("cost") if isinstance(usage, dict) else None
-        cost_usd = (
-            float(cost) if isinstance(cost, int | float) and not isinstance(cost, bool) else None
-        )
-        return ModelReply(
-            output=output,
+
+def _decode_completion(raw: bytes, model: str) -> tuple[Any, int | None, int | None, float | None]:
+    """The parsed JSON content of a completion body plus its usage; ``invalid_output`` when the
+    body is an error, has no content or the content is not JSON."""
+    input_tokens = output_tokens = None
+    try:
+        data = json.loads(raw)
+        usage = data.get("usage") if isinstance(data, dict) else None
+        if isinstance(usage, dict):
+            input_tokens = _as_count(usage.get("prompt_tokens"))
+            output_tokens = _as_count(usage.get("completion_tokens"))
+        if not isinstance(data, dict) or "error" in data:
+            raise ValueError("error body")
+        content = _parse_json(data["choices"][0]["message"]["content"])
+    except (ValueError, KeyError, IndexError, TypeError):
+        raise ProviderUnavailable(
+            "invalid_output",
             model=model,
             input_tokens=input_tokens,
             output_tokens=output_tokens,
-            cost_usd=cost_usd,
-        )
+        ) from None
+    cost = usage.get("cost") if isinstance(usage, dict) else None
+    cost_usd = float(cost) if isinstance(cost, int | float) and not isinstance(cost, bool) else None
+    return content, input_tokens, output_tokens, cost_usd
 
 
 def _as_count(value: Any) -> int | None:
@@ -236,7 +316,9 @@ def _parse_json(content: Any) -> Any:
     return json.loads(text)
 
 
-def build_default_provider(settings: Settings) -> OpenRouterProvider | None:
+def build_default_provider(
+    settings: Settings, transport: httpx.BaseTransport | None = None
+) -> OpenRouterProvider | None:
     """The provider for this deployment, or ``None`` when no key/candidate is configured."""
-    provider = OpenRouterProvider(settings)
+    provider = OpenRouterProvider(settings, transport)
     return provider if provider.is_enabled() else None

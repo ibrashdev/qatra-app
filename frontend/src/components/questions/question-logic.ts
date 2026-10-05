@@ -108,9 +108,9 @@ export function questionPrompt(question: Question, messages: QuestionMessages, o
   }
 }
 
-// The correct original for a needs-review block (S-15 to S-19), built only from the question and the expected value.
-// Word order shows the tokens in the expected order; the other types show the context with the expected word or part in the blank.
-export function expectedOriginal(question: Question, result: Pick<QuestionResult, "expected">): string | null {
+// What fills the blank in the correct original (S-15 to S-19), built only from the question and the expected value: word order gives the words in the
+// expected order, a choice question the text of the correct option, a recall question the expected word. Null when the expected value is not enough.
+export function expectedFiller(question: Question, result: Pick<QuestionResult, "expected">): string | null {
   const { expected } = result;
   switch (question.type) {
     case "word_order": {
@@ -122,11 +122,17 @@ export function expectedOriginal(question: Question, result: Pick<QuestionResult
     case "word_choice":
     case "similar_distinction": {
       const option = question.options.find((candidate) => candidate.optionId === expected.optionId);
-      return option === undefined ? null : withBlankFilled(question, option.text);
+      return option === undefined ? null : option.text;
     }
     case "word_recall":
-      return expected.word === undefined || expected.word === "" ? null : withBlankFilled(question, expected.word);
+      return expected.word === undefined || expected.word === "" ? null : expected.word;
   }
+}
+
+// The correct original as plain text (D92): the whole passage of the question with the expected words in the blank.
+export function expectedOriginal(question: Question, result: Pick<QuestionResult, "expected">): string | null {
+  const filler = expectedFiller(question, result);
+  return filler === null ? null : withBlankFilled(question, filler);
 }
 
 function withBlankFilled(question: Question, filler: string): string {

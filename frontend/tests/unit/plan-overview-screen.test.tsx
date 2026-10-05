@@ -111,7 +111,7 @@ describe("S-12 Plan overview: the six sections", () => {
     expect(goal).not.toHaveTextContent("المسارات");
 
     expect(screen.getByRole("region", { name: "الزمن الكلي" })).toHaveTextContent("التقدير المتفق عليه: نحو ١٦ يومًا، حتى ٢٠ أكتوبر ٢٠٢٦.");
-    expect(screen.getByRole("region", { name: "الزمن اليومي" })).toHaveTextContent("١٠ دقائق يوميًا، وحتى ٢٥ كلمة جديدة في اليوم.");
+    expect(screen.getByRole("region", { name: "الزمن اليومي" })).toHaveTextContent("١٠ دقائق يوميًا، ونحو ٣ آيات جديدة في اليوم.");
 
     const reviews = screen.getByRole("region", { name: "المراجعات" });
     expect(reviews).toHaveTextContent("تُراجَع كل مقطع بعد يوم، ثم بعد يومين، ثم بعد ٤ أيام؛ وما فاتك يبقى مستحقًا دون عقوبة.");
@@ -148,7 +148,7 @@ describe("S-12 Plan overview: the six sections", () => {
     expect(screen.getByRole("region", { name: "Overall goal" })).toHaveTextContent("Book title (placeholder)");
     expect(screen.getByRole("region", { name: "Overall goal" })).toHaveTextContent("Preferred date: October 20, 2026");
     expect(screen.getByRole("region", { name: "Overall time" })).toHaveTextContent("Agreed estimate: about 16 days, until October 20, 2026.");
-    expect(screen.getByRole("region", { name: "Daily time" })).toHaveTextContent("10 minutes a day, up to 25 new words a day.");
+    expect(screen.getByRole("region", { name: "Daily time" })).toHaveTextContent("10 minutes a day, about 3 new ayat a day.");
     expect(screen.getByRole("region", { name: "Next step" })).toHaveTextContent("Next passage:");
     expect(screen.getByRole("link", { name: "Change time and goal" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Start another plan" })).toBeInTheDocument();

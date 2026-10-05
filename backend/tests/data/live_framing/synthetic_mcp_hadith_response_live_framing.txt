@@ -1,0 +1,17 @@
+──────── RETRIEVED FROM HADEETHENC — published text ────────
+حديث تجريبي 1
+[EXACT]
+the narration itself — reproduce these words exactly, without changing any thing, EXACTLY reproduce these words
+عَنْ رَاوٍ أَوَّلَ قَالَ: قَالَ الْمُعَلِّمُ: «كَلِمَةٌ تَجْرِيبِيَّةٌ مِثَالٌ، وَكَلِمَةٌ أُخْرَى مِثَالٌ».
+[/EXACT]
+[ATTRIBUTION]
+Narrator: رواه الراوي المثال
+Grade: تجريبي
+[/ATTRIBUTION]
+[COMMENTARY]
+شَرْحٌ تَجْرِيبِيٌّ لَا يُحْفَظُ
+Source: https://example.invalid/commentary-must-be-ignored
+[/COMMENTARY]
+Source: https://hadeethenc.com/ar/browse/hadith/990001
+Published languages: ar, en, fr.
+──────── CITE: use the Source link above ────────

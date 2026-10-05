@@ -97,6 +97,56 @@ def _is_letter(ch: str) -> bool:
     return unicodedata.category(ch).startswith("L")
 
 
+# Script checks (source-text hygiene). They read characters only and never change them.
+_ARABIC_SCRIPT_RANGES: Final = (
+    (0x0600, 0x06FF),  # Arabic
+    (0x0750, 0x077F),  # Arabic Supplement
+    (0x08A0, 0x08FF),  # Arabic Extended-A
+    (0xFB50, 0xFDFF),  # Arabic Presentation Forms-A
+    (0xFE70, 0xFEFF),  # Arabic Presentation Forms-B
+)
+_LATIN_LETTER_RANGES: Final = (
+    (0x0000, 0x024F),  # Basic Latin, Latin-1 Supplement, Latin Extended-A/B (letters only)
+    (0x1E00, 0x1EFF),  # Latin Extended Additional
+    (0x2C60, 0x2C7F),  # Latin Extended-C
+    (0xA720, 0xA7FF),  # Latin Extended-D
+    (0xFB00, 0xFB06),  # Latin ligatures
+    (0xFF21, 0xFF5A),  # Fullwidth Latin letters
+)
+
+
+def is_arabic_script_char(ch: str) -> bool:
+    """True when ``ch`` lies in one of the Arabic-script blocks (letters, marks, digits)."""
+    cp = ord(ch)
+    return any(low <= cp <= high for low, high in _ARABIC_SCRIPT_RANGES)
+
+
+def has_arabic_letter(text: str) -> bool:
+    """True when ``text`` has at least one Arabic-script *letter* (Unicode category ``L*``)."""
+    return any(
+        is_arabic_script_char(ch) and unicodedata.category(ch).startswith("L") for ch in text
+    )
+
+
+def is_latin_letter(ch: str) -> bool:
+    """A Latin-script letter (ASCII, accented or fullwidth); digits and punctuation are not."""
+    if not ch.isalpha():
+        return False
+    cp = ord(ch)
+    return any(low <= cp <= high for low, high in _LATIN_LETTER_RANGES)
+
+
+def has_latin_letter(text: str) -> bool:
+    """True when ``text`` contains any Latin-script letter."""
+    return any(is_latin_letter(ch) for ch in text)
+
+
+def is_arabic_script_word(normalized: str) -> bool:
+    """True when ``normalized`` is non-empty and every character lies in an Arabic-script block
+    (so it has no Latin letter, ASCII digit or other foreign script)."""
+    return bool(normalized) and all(is_arabic_script_char(ch) for ch in normalized)
+
+
 def _normalize(text: str, *, keep_digits: bool, superscript_alef_as_alef: bool) -> str:
     out: list[str] = []
     for ch in unicodedata.normalize("NFC", text):

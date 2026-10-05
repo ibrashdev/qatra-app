@@ -8,9 +8,11 @@ import { cx } from "@/lib/cx";
 import { Brand } from "./Brand";
 import { Icon } from "./Icon";
 
-// The four destinations of UX.md, in DOM order: today is first, at the start edge in both directions.
+// The five destinations, in DOM order: today is first, at the start edge in both directions. The lessons tab (D92, owner approval of 5 October 2026) sits
+// second: it is read-only text of the learner's own plan, with no questions and no games.
 export const TAB_ITEMS: readonly { id: TabId; href: string }[] = [
   { id: "today", href: "/today" },
+  { id: "lessons", href: "/lessons" },
   { id: "games", href: "/games" },
   { id: "progress", href: "/progress" },
   { id: "settings", href: "/settings" },
@@ -28,7 +30,8 @@ function isActive(pathname: string | null, href: string): boolean {
   return pathname === href || (pathname?.startsWith(`${href}/`) ?? false);
 }
 
-// Bottom tab bar below 1024 px (UA-03, UI-tokens 6.6): a 24 px icon above the label. The icon is decorative; the label names the link. The active tab is
+// Bottom tab bar below 1024 px (UA-03, UI-tokens 6.6): a 24 px icon above the label. Five tabs share 320 px, 64 px each, so the label has no side padding
+// ("Progress" is about 57 px wide at the caption size and would otherwise break inside the word). The icon is decorative; the label names the link. The active tab is
 // marked by a 3 px top bar, a heavier icon stroke, the deep blue and aria-current, not by colour alone.
 export function TabBar() {
   const { messages } = useLocale();
@@ -47,7 +50,7 @@ export function TabBar() {
                 href={href}
                 aria-current={active ? "page" : undefined}
                 className={cx(
-                  "flex h-full min-h-[calc(var(--q-size-tabbar)-1px)] flex-col items-center justify-center gap-q4 border-t-[3px] px-q4 py-q4 text-center text-caption [overflow-wrap:anywhere] transition-[color,background-color,border-color] duration-(--q-duration-fast) hover:bg-selection focus-visible:outline-offset-[-2px]",
+                  "flex h-full min-h-[calc(var(--q-size-tabbar)-1px)] flex-col items-center justify-center gap-q4 border-t-[3px] px-0 py-q4 text-center text-caption [overflow-wrap:anywhere] transition-[color,background-color,border-color] duration-(--q-duration-fast) hover:bg-selection focus-visible:outline-offset-[-2px]",
                   active ? "border-primary text-primary-deep" : "border-transparent text-ink-secondary",
                 )}
               >

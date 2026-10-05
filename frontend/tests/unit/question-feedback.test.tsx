@@ -2,6 +2,7 @@ import { screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { AnswerFeedback } from "@/components/questions/AnswerFeedback";
 import { QuestionSource } from "@/components/questions/QuestionSource";
+import type { SourceRef } from "@/lib/api/types";
 import { renderInLocale, recallQuestion, similarQuestion, SOURCE, wordChoiceQuestion, wordOrderQuestion } from "./question-support";
 
 describe("answer feedback (UI-tokens 6.17, UI-screens P-21 and P-22)", () => {
@@ -148,19 +149,35 @@ describe("answer feedback (UI-tokens 6.17, UI-screens P-21 and P-22)", () => {
 });
 
 describe("question source line (P-20)", () => {
-  it("joins book, edition and reference with a dot and links the canonical URL in a new tab", () => {
-    const { container } = renderInLocale(<QuestionSource source={SOURCE} />);
-    expect(container.querySelectorAll("bdi").length).toBeGreaterThanOrEqual(4);
-    expect(container).toHaveTextContent("كتاب اصطناعي · نسخة اصطناعية · المرجع ١ · https://example.test/reference/1");
-    const link = screen.getByRole("link", { name: "المرجع ١, opens in a new tab" });
+  it("joins the book and the human reference with a dot and a «المصدر» link to the canonical URL in a new tab (D92)", () => {
+    const { container } = renderInLocale(<QuestionSource source={SOURCE} />, "ar");
+    expect(container).toHaveTextContent("كتاب اصطناعي · الحديث الأول · المصدر");
+    const link = screen.getByRole("link", { name: "المصدر: الحديث الأول، يفتح في نافذة جديدة" });
+    expect(link).toHaveTextContent("المصدر");
     expect(link).toHaveAttribute("href", SOURCE.url);
     expect(link).toHaveAttribute("target", "_blank");
     expect(link).toHaveAttribute("rel", "noopener noreferrer");
   });
 
-  it("names the link in Arabic", () => {
-    renderInLocale(<QuestionSource source={SOURCE} />, "ar");
-    expect(screen.getByRole("link", { name: "المرجع ١، يفتح في نافذة جديدة" })).toBeInTheDocument();
+  it("never shows the edition label, the provider name, the technical reference or the raw address", () => {
+    const { container } = renderInLocale(<QuestionSource source={SOURCE} />, "ar");
+    const text = container.textContent ?? "";
+    for (const hidden of [SOURCE.editionLabel, SOURCE.publisher, SOURCE.reference, "https://", "example.test", "HadeethEnc", "nawawi40"]) {
+      expect(text).not.toContain(hidden);
+    }
+  });
+
+  it("names the link in English and keeps the Arabic reference as it is", () => {
+    const { container } = renderInLocale(<QuestionSource source={SOURCE} />);
+    expect(container).toHaveTextContent("كتاب اصطناعي · الحديث الأول · Source");
+    expect(screen.getByRole("link", { name: "Source: الحديث الأول, opens in a new tab" })).toHaveAttribute("href", SOURCE.url);
+  });
+
+  it("shows the book and the link alone when the server gives no readable reference", () => {
+    const older: SourceRef = { publisher: SOURCE.publisher, editionLabel: SOURCE.editionLabel, bookTitleAr: SOURCE.bookTitleAr, reference: SOURCE.reference, url: SOURCE.url, pages: [] };
+    const { container } = renderInLocale(<QuestionSource source={older} />, "ar");
+    expect(container).toHaveTextContent("كتاب اصطناعي · المصدر");
+    expect(container.textContent).not.toContain(SOURCE.reference);
   });
 
   it("adds the printed page for a printed edition", () => {

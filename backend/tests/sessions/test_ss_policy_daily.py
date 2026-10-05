@@ -2,26 +2,34 @@
 
 from __future__ import annotations
 
+from collections import Counter
 from datetime import timedelta
+from itertools import groupby
 from uuid import uuid5
 
 import pytest
 
+from app.domain.learning_state import STREAK_TARGET
 from app.domain.session_policy import (
     ABSENCE_THRESHOLD_DAYS,
     CAPACITY_WORDS,
     END_TEST_QUESTIONS,
     REVIEW_QUESTION_CAP,
+    TRAINING_BATCHES,
     PlannedLearn,
     PlannedQuestion,
+    QuestionInfo,
     absence_days,
     is_light_review_day,
     plan_order,
     rank_parts,
+    review_game_type,
     review_round_size,
+    stable_hash,
 )
 from tests.sessions.ss_policy_support import (
     NAMES,
+    PLAN,
     SEED,
     SESSION,
     TODAY,
@@ -45,6 +53,22 @@ def bank_index(banks):
     return {q.id: q for questions in banks.values() for q in questions}
 
 
+def types_of(result, banks, role):
+    """The question types of the ``role`` steps, in step order."""
+    index = bank_index(banks)
+    return [index[q.question_id].type for q in questions_of(result, role)]
+
+
+def runs(types):
+    """``[(type, length), ...]``: the runs of equal types, in order."""
+    return [(kind, len(list(group))) for kind, group in groupby(types)]
+
+
+def seed_with_review_type(kind):
+    """The first seed whose day's review game type is ``kind``."""
+    return next(seed for seed in range(200) if review_game_type(seed) == kind)
+
+
 # --- numbers of the contract ---------------------------------------------------------------------
 
 
@@ -53,6 +77,7 @@ def test_the_numbers_of_contract_section_5() -> None:
     assert REVIEW_QUESTION_CAP == {5: 6, 10: 10, 15: 14}
     assert END_TEST_QUESTIONS == {5: 3, 10: 5, 15: 7}
     assert ABSENCE_THRESHOLD_DAYS == 3
+    assert TRAINING_BATCHES == {5: 2, 10: 2, 15: 3}  # D92
 
 
 @pytest.mark.parametrize(
@@ -147,9 +172,10 @@ def test_new_passages_are_introduced_in_plan_order_up_to_capacity(
     result = compose(passages, minutes=minutes)
     expected: list[tuple[str, str]] = []
     for name in introduced:
-        expected += [("learn", name)] + [("training", name)] * 3
+        # D92: the lesson, then TRAINING_BATCHES game batches of one question per part
+        expected += [("learn", name)] + [("training", name)] * (3 * TRAINING_BATCHES[minutes])
     kinds = describe(result)
-    assert kinds[: len(expected)] == expected  # learn, then one drill per part, passage by passage
+    assert kinds[: len(expected)] == expected  # passage by passage: learn, then its batches
     end_test = kinds[len(expected) :]
     assert len(end_test) == test_count
     assert {role for role, _ in end_test} == {"test"}  # then the end test of 3/5/7 questions
@@ -176,31 +202,113 @@ def test_a_passage_that_does_not_fit_ends_the_selection_and_later_ones_do_not_ju
     assert [NAMES[i] for i in result.new_passage_ids] == ["first"]
 
 
-def test_training_has_one_question_per_part_with_rotating_templates() -> None:
+def test_training_batches_are_single_type_blocks_in_difficulty_order() -> None:
     a = passage("a", words=(4, 4, 4))
     banks = {a.id: full_bank(a)}
-    result = compose([a], banks, minutes=5)
+    result = compose([a], banks, minutes=15)  # three batches
     training = questions_of(result, "training")
     index = bank_index(banks)
-    assert len(training) == 3
-    assert [index[q.question_id].covered_part_ids for q in training] == [
-        (part_id(a, 1),),
-        (part_id(a, 2),),
-        (part_id(a, 3),),
+    assert len(training) == 9
+    # word choice, then word order, then word recall: each type once, so the batches are contiguous
+    assert runs(types_of(result, banks, "training")) == [
+        ("word_choice", 3),
+        ("word_order", 3),
+        ("word_recall", 3),
     ]
-    assert len({index[q.question_id].type for q in training}) == 3  # templates rotate
+    for start in (0, 3, 6):  # every batch walks the three parts in turn
+        batch = training[start : start + 3]
+        assert [index[q.question_id].covered_part_ids for q in batch] == [
+            (part_id(a, 1),),
+            (part_id(a, 2),),
+            (part_id(a, 3),),
+        ]
     assert all(q.review_round_id is None for q in training)
+    assert len({q.question_id for q in training}) == 9
 
 
-@pytest.mark.parametrize(("part_count", "expected"), [(1, 3), (2, 3), (3, 3), (4, 4), (6, 6)])
-def test_extra_questions_top_training_up_to_the_streak_target(
+@pytest.mark.parametrize("minutes", [5, 10, 15])
+def test_the_number_of_training_batches_follows_the_session_minutes(minutes: int) -> None:
+    a = passage("a", words=(4, 4, 4))
+    banks = {a.id: full_bank(a)}
+    result = compose([a], banks, minutes=minutes)
+    batches = runs(types_of(result, banks, "training"))
+    assert [length for _, length in batches] == [3] * TRAINING_BATCHES[minutes]
+    assert len({kind for kind, _ in batches}) == len(batches)  # one batch per type
+
+
+def test_batch_types_follow_the_difficulty_order_over_the_types_the_passage_has() -> None:
+    p = passage("p", words=(4, 4, 4))
+    # No word choice and no word order: the progression continues with what exists.
+    banks = {
+        p.id: [
+            question(p, f"{label}{n}", kind, (n,))
+            for n in (1, 2, 3)
+            for label, kind in (("r", "word_recall"), ("s", "similar_distinction"))
+        ]
+    }
+    result = compose([p], banks, minutes=15)
+    assert runs(types_of(result, banks, "training")) == [
+        ("word_recall", 3),
+        ("similar_distinction", 3),
+    ]
+
+
+def test_a_part_without_a_question_of_the_batch_type_is_skipped_and_no_other_type_is_mixed_in() -> (
+    None
+):
+    p = passage("p", words=(4, 4, 4))
+    banks = {
+        p.id: [
+            question(p, "c1", "word_choice", (1,)),
+            question(p, "c3", "word_choice", (3,)),  # part 2 has no word choice
+            question(p, "o1", "word_order", (1,)),
+            question(p, "o2", "word_order", (2,)),
+            question(p, "o3", "word_order", (3,)),
+        ]
+    }
+    result = compose([p], banks, minutes=5)
+    assert runs(types_of(result, banks, "training")) == [("word_choice", 2), ("word_order", 3)]
+
+
+def test_a_type_that_yields_no_question_does_not_count_as_a_batch() -> None:
+    p = passage("p", words=(4, 4, 4))
+    nowhere = QuestionInfo(uid(p.id, "q", "o-none"), p.id, "word_order", None, ())  # serves no part
+    banks = {
+        p.id: [
+            *(question(p, f"c{n}", "word_choice", (n,)) for n in (1, 2, 3)),
+            nowhere,
+            *(question(p, f"r{n}", "word_recall", (n,)) for n in (1, 2, 3)),
+        ]
+    }
+    result = compose([p], banks, minutes=5)  # two batches: word order gave nothing, recall counts
+    assert runs(types_of(result, banks, "training")) == [("word_choice", 3), ("word_recall", 3)]
+
+
+@pytest.mark.parametrize(
+    ("part_count", "expected"), [(1, 3), (2, 4), (3, 6), (4, 8), (6, 12)]
+)  # 5 minutes: two batches of one question per part, topped up to the streak when too short
+def test_a_short_passage_is_topped_up_with_further_batches_to_the_streak_target(
     part_count: int, expected: int
 ) -> None:
     p = passage("p", words=(4,) * part_count)
-    result = compose([p], {p.id: full_bank(p, extra_choice=2)}, minutes=5)
+    banks = {p.id: full_bank(p, extra_choice=2)}
+    result = compose([p], banks, minutes=5)
     training = questions_of(result, "training")
-    assert len(training) == expected
-    assert len({q.question_id for q in training}) == expected  # extras are different questions
+    assert len(training) == expected >= STREAK_TARGET
+    assert len({q.question_id for q in training}) == expected  # unused questions only
+    kinds = runs(types_of(result, banks, "training"))
+    assert len({kind for kind, _ in kinds}) == len(kinds)  # still one contiguous batch per type
+    if part_count == 1:  # word choice, word order, then the next type (word recall) tops it up
+        assert [kind for kind, _ in kinds] == ["word_choice", "word_order", "word_recall"]
+
+
+def test_the_top_up_wraps_round_the_types_and_takes_unused_questions_only() -> None:
+    p = passage("p", words=(12,))
+    banks = {p.id: [question(p, f"c{n}", "word_choice", (1,)) for n in range(5)]}
+    result = compose([p], banks, minutes=5)
+    training = questions_of(result, "training")
+    assert len(training) == STREAK_TARGET  # one batch of one question, wrapped to the target
+    assert len({q.question_id for q in training}) == STREAK_TARGET
 
 
 def test_extras_stop_when_the_bank_has_no_more_questions() -> None:
@@ -215,7 +323,8 @@ def test_a_question_that_covers_several_parts_serves_them_all() -> None:
     merged = question(p, "o12", "word_order", (1, 2))
     third = question(p, "c3", "word_choice", (3,))
     result = compose([p], {p.id: [merged, third]}, minutes=5)
-    assert [q.question_id for q in questions_of(result, "training")] == [merged.id, third.id]
+    # word choice first (part 3 only), then word order (the merged question serves parts 1 and 2)
+    assert [q.question_id for q in questions_of(result, "training")] == [third.id, merged.id]
 
 
 def test_a_passage_without_questions_still_gets_its_learn_step() -> None:
@@ -351,29 +460,48 @@ def test_round_parts_follow_uncovered_then_error_then_least_recent() -> None:
     assert first_parts == [ids[4], ids[2], ids[3]]  # parts 5, 3, 4
 
 
-def test_round_types_rotate_and_avoid_the_type_last_used_for_the_part() -> None:
+def test_a_round_uses_the_days_review_type_when_every_part_has_a_question_of_it() -> None:
     p = passage("p", words=(4,) * 6)
     banks = {p.id: full_bank(p)}
+    rows = {p.id: mastery(p, "reviewing", due=TODAY)}
+    seen = set()
+    for seed in range(12):
+        day_type = review_game_type(seed)
+        result = compose([p], banks, minutes=5, rows=rows, seed=seed)
+        types = types_of(result, banks, "review")
+        assert len(types) == 3
+        if day_type in {"word_choice", "word_recall", "word_order"}:  # the bank has these three
+            assert set(types) == {day_type}
+        seen.add(day_type)
+    assert len(seen) >= 3  # the day's type changes with the seed (D64)
+
+
+def test_the_usual_rotation_fills_in_where_the_days_type_is_missing_and_avoids_the_last_type() -> (
+    None
+):
+    p = passage("p", words=(4,) * 6)
+    banks = {p.id: full_bank(p)}  # no similar_distinction question anywhere
     index = bank_index(banks)
     rows = {p.id: mastery(p, "reviewing", due=TODAY)}
-    for seed in range(12):
-        result = compose([p], banks, minutes=5, rows=rows, seed=seed)
-        types = [index[q.question_id].type for q in questions_of(result, "review")]
-        assert len(types) == 3 and len(set(types)) == 3  # a round uses three different templates
+    seed = seed_with_review_type("similar_distinction")
     first_part = part_id(p, 1)
-    for seed in range(12):
-        for last in ("word_choice", "word_recall", "word_order"):
-            result = compose(
-                [p],
-                banks,
-                minutes=5,
-                rows=rows,
-                seed=seed,
-                load=loader(banks, last_type={first_part: last}),
-            )
-            first = questions_of(result, "review")[0]
-            assert index[first.question_id].covered_part_ids == (first_part,)
-            assert index[first.question_id].type != last
+    result = compose([p], banks, minutes=5, rows=rows, seed=seed)
+    assert len(set(types_of(result, banks, "review"))) == 3  # three different templates
+    for last in ("word_choice", "word_recall", "word_order"):
+        result = compose(
+            [p],
+            banks,
+            minutes=5,
+            rows=rows,
+            seed=seed,
+            load=loader(banks, last_type={first_part: last}),
+        )
+        picked = next(
+            index[q.question_id]
+            for q in questions_of(result, "review")
+            if index[q.question_id].covered_part_ids == (first_part,)
+        )
+        assert picked.type != last
 
 
 def test_a_part_without_questions_is_skipped_and_the_round_still_fills_up() -> None:
@@ -395,9 +523,10 @@ def test_a_known_passage_gets_a_quick_drill_without_a_learn_step_or_capacity_use
     fresh = passage("fresh", section=2, words=(4, 4, 4))
     result = compose([known, fresh], minutes=5, known=[known.id])  # capacity 12 is for "fresh"
     kinds = describe(result)
-    assert kinds[:3] == [("training", "known")] * 3
+    assert kinds[0] == ("learn", "fresh")  # D92: the new passage first, with its two batches
+    assert kinds[1:7] == [("training", "fresh")] * 6
+    assert kinds[7:10] == [("training", "known")] * 3  # then the quick drill
     assert ("learn", "known") not in kinds
-    assert kinds[3] == ("learn", "fresh")
     assert result.quick_review_passage_ids == (known.id,)
     assert [NAMES[i] for i in result.new_passage_ids] == ["fresh"]
     assert all(q.review_round_id is None for q in questions_of(result, "training"))
@@ -457,7 +586,8 @@ def test_the_end_test_mixes_todays_parts_error_parts_and_uncovered_parts() -> No
     for q in tests:
         (part,) = index[q.question_id].covered_part_ids
         pools.append("today" if part in today_parts else "error" if part in error_parts else "gap")
-    assert pools == ["today", "error", "gap", "today", "error", "gap", "today"]  # taken in turn
+    # drawn in turn from the three pools (the questions are then grouped by type, so compare counts)
+    assert Counter(pools) == {"today": 3, "error": 2, "gap": 2}
     assert len({q.question_id for q in tests}) == 7
 
 
@@ -551,6 +681,165 @@ def test_a_completed_plan_with_nothing_due_has_an_empty_session() -> None:
     result = compose([p], rows=rows, status="completed", load=loader({}, calls=calls))
     assert result.steps == () and result.maintenance_only
     assert calls == []  # nothing to load
+
+
+# --- D92: lesson first, then game batches, then reviews, then the end test ------------------------
+
+ROTATION_ORDER = ["word_choice", "word_recall", "word_order", "similar_distinction"]
+
+
+def lesson_review_test_session():
+    """One new passage, one due passage and an end test (15 minutes)."""
+    fresh = passage("fresh", section=2, words=(4, 4, 4))
+    due = passage("due", section=1, words=(4, 4, 4))
+    banks = {p.id: full_bank(p) for p in (fresh, due)}
+    rows = {due.id: mastery(due, "reviewing", due=TODAY - timedelta(days=1))}
+    return compose([due, fresh], banks, minutes=15, rows=rows), banks
+
+
+def test_the_lesson_and_its_batches_come_before_the_due_reviews_and_the_end_test_is_last() -> None:
+    result, _ = lesson_review_test_session()
+    kinds = describe(result)
+    roles = [role for role, _ in kinds]
+    assert kinds[0] == ("learn", "fresh")  # the whole text is read first
+    first_review = roles.index("review")
+    assert roles[1:first_review] == ["training"] * 9  # three batches over three parts
+    assert roles[first_review : first_review + 2] == ["review"] * 2  # a round of two
+    assert set(roles[first_review + 2 :]) == {"test"}  # the end test closes the session
+    assert roles.count("review") == 2 and roles.count("learn") == 1
+
+
+def test_quick_drills_follow_the_review_rounds_and_each_block_is_grouped_by_type() -> None:
+    due = passage("due", section=1, words=(4,) * 6)  # a round of three
+    known = passage("known", section=2, words=(4,) * 6)  # a drill of three
+    banks = {p.id: full_bank(p) for p in (due, known)}
+    rows = {due.id: mastery(due, "reviewing", due=TODAY)}
+    result = compose([due, known], banks, minutes=15, rows=rows, known=[known.id])
+    roles = [role for role, _ in describe(result)]
+    assert roles[:3] == ["review"] * 3 and roles[3:6] == ["training"] * 3  # rounds, then drills
+    assert set(roles[6:]) == {"test"}
+    assert not any(isinstance(step, PlannedLearn) for step in result.steps)
+
+
+def test_review_questions_of_one_game_type_are_side_by_side_with_the_days_type_first() -> None:
+    p = passage("p", words=(4,) * 6)  # a round of three: parts 1, 2, 3 in order
+    banks = {
+        p.id: [
+            question(p, "o1", "word_order", (1,)),  # part 1: only word order
+            question(p, "c2", "word_choice", (2,)),  # part 2: word choice, the day's type
+            question(p, "r3", "word_recall", (3,)),  # part 3: only word recall
+        ]
+    }
+    rows = {p.id: mastery(p, "reviewing", due=TODAY)}
+    seed = seed_with_review_type("word_choice")
+    result = compose([p], banks, minutes=5, rows=rows, seed=seed)
+    # drawn as order, choice, recall; grouped as the day's type first, then the usual rotation order
+    assert types_of(result, banks, "review") == ["word_choice", "word_recall", "word_order"]
+
+
+def test_grouping_review_types_keeps_every_round_whole_with_its_own_round_id() -> None:
+    x = passage("x", section=1, words=(4, 4, 4))  # a round of two each
+    y = passage("y", section=2, words=(4, 4, 4))
+    banks = {
+        x.id: [question(x, "c1", "word_choice", (1,)), question(x, "r2", "word_recall", (2,))],
+        y.id: [question(y, "r1", "word_recall", (1,)), question(y, "c2", "word_choice", (2,))],
+    }
+    rows = {
+        x.id: mastery(x, "reviewing", due=TODAY - timedelta(days=2)),
+        y.id: mastery(y, "reviewing", due=TODAY - timedelta(days=1)),
+    }
+    seed = seed_with_review_type("word_choice")
+    result = compose([x, y], banks, minutes=5, rows=rows, seed=seed)
+    review = questions_of(result, "review")
+    assert runs(types_of(result, banks, "review")) == [("word_choice", 2), ("word_recall", 2)]
+    # the two rounds are no longer side by side, yet each keeps both of its questions and its id
+    by_round: dict = {}
+    for q in review:
+        by_round.setdefault(q.review_round_id, set()).add(q.question_id)
+    assert by_round == {
+        uuid5(SESSION, f"round:{x.id}"): {uid(x.id, "q", "c1"), uid(x.id, "q", "r2")},
+        uuid5(SESSION, f"round:{y.id}"): {uid(y.id, "q", "r1"), uid(y.id, "q", "c2")},
+    }
+
+
+def test_the_days_review_type_rotates_across_dates() -> None:
+    p = passage("p", words=(4,) * 6)
+    banks = {p.id: full_bank(p)}
+    rows = {p.id: mastery(p, "reviewing", due=TODAY)}
+    seeds = {}  # the service's daily seed: a hash of the plan and the learning date
+    for day in range(1, 30):
+        date = TODAY + timedelta(days=day)
+        seeds.setdefault(
+            review_game_type(stable_hash("daily", PLAN, date.isoformat())),
+            stable_hash("daily", PLAN, date.isoformat()),
+        )
+    assert len(seeds) >= 3  # over a month the reviews visit several game types
+    one, other = seeds["word_choice"], seeds["word_recall"]
+    first = compose([p], banks, minutes=5, rows=rows, seed=one)
+    second = compose([p], banks, minutes=5, rows=rows, seed=other)
+    assert set(types_of(first, banks, "review")) == {"word_choice"}
+    assert set(types_of(second, banks, "review")) == {"word_recall"}
+
+
+def test_a_part_last_asked_in_the_days_type_gets_another_type_so_the_review_changes_template() -> (
+    None
+):
+    p = passage("p", words=(4,) * 6)  # a round of three: parts 1, 2, 3
+    banks = {p.id: full_bank(p)}
+    index = bank_index(banks)
+    rows = {p.id: mastery(p, "reviewing", due=TODAY)}
+    seed = seed_with_review_type("word_choice")
+    result = compose(
+        [p],
+        banks,
+        minutes=5,
+        rows=rows,
+        seed=seed,
+        load=loader(banks, last_type={part_id(p, 1): "word_choice"}),
+    )
+    by_part = {
+        index[q.question_id].covered_part_ids[0]: index[q.question_id].type
+        for q in questions_of(result, "review")
+    }
+    assert by_part[part_id(p, 1)] != "word_choice"  # its last attempt was a word choice
+    assert by_part[part_id(p, 2)] == by_part[part_id(p, 3)] == "word_choice"  # the day's type
+    assert runs(types_of(result, banks, "review"))[0] == ("word_choice", 2)  # the day's type first
+
+
+def test_the_review_type_is_deterministic_for_a_seed() -> None:
+    assert [review_game_type(seed) for seed in range(20)] == [
+        review_game_type(seed) for seed in range(20)
+    ]
+    assert all(review_game_type(seed) in ROTATION_ORDER for seed in range(20))
+
+
+def test_the_end_test_questions_are_grouped_by_game_type_in_rotation_order() -> None:
+    passages = [passage(n, section=s, words=(4,) * 4) for s, n in enumerate("abcd", 1)]
+    banks = {p.id: full_bank(p) for p in passages}
+    rows = {passages[3].id: mastery(passages[3], "reviewing", due=LATER, errors=(1, 2))}
+    result = compose(passages, banks, minutes=15, rows=rows)
+    kinds = types_of(result, banks, "test")
+    assert len(kinds) == END_TEST_QUESTIONS[15]
+    grouped = [kind for kind, _ in runs(kinds)]
+    assert len(grouped) == len(set(grouped))  # each type appears as one block
+    assert grouped == sorted(grouped, key=ROTATION_ORDER.index)  # in the order of the rotation
+
+
+def test_a_light_review_day_still_holds_only_the_due_rounds() -> None:
+    due = passage("due", section=1, words=(4,) * 6)
+    fresh = passage("fresh", section=2, words=(4, 4, 4))
+    banks = {p.id: full_bank(p) for p in (due, fresh)}
+    rows = {due.id: mastery(due, "reviewing", due=TODAY - timedelta(days=6))}
+    result = compose(
+        [due, fresh],
+        banks,
+        minutes=15,
+        rows=rows,
+        last_active=TODAY - timedelta(days=5),
+    )
+    assert result.light_review
+    assert describe(result) == [("review", "due")] * 3  # no lesson, no drill, no end test
+    assert result.new_passage_ids == ()
 
 
 # --- loading, determinism, validation -------------------------------------------------------------

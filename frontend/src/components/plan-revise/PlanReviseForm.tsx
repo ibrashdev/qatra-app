@@ -8,6 +8,7 @@ import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { TextField } from "@/components/ui/TextField";
 import { MINUTE_CHOICES, type HadithPath } from "@/components/start/start-model";
 import { formatLearningDate } from "@/components/today/today-model";
+import { dailyAmountText } from "@/i18n/daily-amount";
 import { formatInteger } from "@/i18n/format";
 import type { Locale } from "@/i18n/messages";
 import { daysPhrase, planOverviewMessages } from "@/i18n/plan-overview-messages";
@@ -206,7 +207,7 @@ export function PlanReviseForm({ locale, t, plan, revise, availablePaths, today,
             </div>
             <div>
               <dt className="font-semibold">{overview.sections.dailyTime}</dt>
-              <dd>{t.preview.daily(fmt(estimate.estimate.sessionMinutes), estimate.estimate.sessionMinutes, fmt(estimate.estimate.newWordsPerDay), estimate.estimate.newWordsPerDay)}</dd>
+              <dd>{t.preview.daily(fmt(estimate.estimate.sessionMinutes), estimate.estimate.sessionMinutes, dailyAmountText(locale, estimate.estimate))}</dd>
             </div>
             <div>
               <dt className="font-semibold">{overview.sections.nextStep}</dt>

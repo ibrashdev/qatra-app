@@ -4,9 +4,10 @@
 // The mock grades like the server does (answer key and policy `arabic-norm-v1`), answers each event with exactly one outcome, keeps the idempotency of
 // `clientEventId`, and returns `daily` in every E21 answer. State lives per mock scenario, so every mock fetch starts clean.
 import { normalizeArabicWord } from "@/components/session/arabic-norm";
-import type { AnswerPayload, AnswerResult, CompleteResponse, DailyProgress, EventsResponse, Question, SessionSnapshot, SourceRef, Step } from "../types";
+import type { AnswerPayload, AnswerResult, CompleteResponse, DailyProgress, EventsResponse, Question, SessionSnapshot, Step } from "../types";
 import { mockToday } from "./fixtures";
 import type { MockHandler, MockRequest, MockResponse, MockScenario } from "./handlers";
+import { mockContext, mockSource, type MockAyah } from "./question-fixtures";
 import { todayMockHandlers } from "./today-handlers";
 
 const failure = (status: number, code: string, message: string, details: Record<string, unknown> = {}): MockResponse => ({ status, body: { error: { code, message, details } } });
@@ -34,14 +35,13 @@ export const MOCK_QUESTION_IDS = {
 // The target of the recall question as the book has it (the second word of the second unit of the learn passage); the answer key keeps only its normalised form.
 export const MOCK_RECALL_WORD = "كلمة٦";
 
-const source = (reference: string): SourceRef => ({
-  publisher: "ناشر اصطناعي",
-  editionLabel: "نسخة اصطناعية",
-  bookTitleAr: "كتاب اصطناعي",
-  reference,
-  url: "https://example.invalid/ref/1",
-  pages: [],
-});
+// The placeholder passages as the server sends them (D92): every question carries the whole passage of its own around the blank.
+const REVIEW_PASSAGE: readonly MockAyah[] = [{ unit: 1, words: ["كلمة١", "كلمة٢", "كلمة٣", "كلمة٤"] }];
+const NEW_PASSAGE: readonly MockAyah[] = [
+  { unit: 1, words: ["كلمة١", "كلمة٢", "كلمة٣", "كلمة٤"] },
+  { unit: 2, words: ["كلمة٥", "كلمة٦", "كلمة٧", "كلمة٨"] },
+];
+const source = mockSource;
 
 const policy = { normalizationPolicyVersion: "arabic-norm-v1", scoringPolicyVersion: "v1" } as const;
 
@@ -53,9 +53,9 @@ function buildSteps(): Step[] {
     passageId: MOCK_REVIEW_PASSAGE_ID,
     role: "review",
     reviewRoundId: MOCK_REVIEW_ROUND_ID,
-    context: { before: [{ ref: "1:0", text: "كلمة١" }], after: [{ ref: "1:2", text: "كلمة٣" }] },
+    context: mockContext(REVIEW_PASSAGE, "1:1"),
     policy,
-    source: source("1:1"),
+    source: source("1:1", "سورة اصطناعية، الآية ١"),
     options: [
       { optionId: "opt-a", text: "كلمة٢" },
       { optionId: "opt-b", text: "كلمة٤" },
@@ -69,7 +69,7 @@ function buildSteps(): Step[] {
     ...training,
     questionId: MOCK_QUESTION_IDS.order,
     type: "word_order",
-    context: { before: [{ ref: "1:0", text: "كلمة١" }], after: [] },
+    context: mockContext(NEW_PASSAGE, "1:1", "1:3"),
     tokens: [
       { ref: "1:2", text: "كلمة٣" },
       { ref: "1:1", text: "كلمة٢" },
@@ -82,7 +82,7 @@ function buildSteps(): Step[] {
     questionId: MOCK_QUESTION_IDS.segment,
     type: "word_choice",
     variant: "segment",
-    context: { before: [{ ref: "1:0", text: "كلمة١" }, { ref: "1:1", text: "كلمة٢" }], after: [] },
+    context: mockContext(NEW_PASSAGE, "1:2", "1:3"),
     options: [
       { optionId: "seg-a", text: "كلمة٣ كلمة٤" },
       { optionId: "seg-b", text: "كلمة٧ كلمة٨" },
@@ -94,7 +94,7 @@ function buildSteps(): Step[] {
     ...training,
     questionId: MOCK_QUESTION_IDS.recall,
     type: "word_recall",
-    context: { before: [{ ref: "2:0", text: "كلمة٥" }], after: [{ ref: "2:2", text: "كلمة٧" }] },
+    context: mockContext(NEW_PASSAGE, "2:1"),
     hintFirstLetter: MOCK_RECALL_WORD.charAt(0),
     answerKey: { acceptedNorms: [normalizeArabicWord(MOCK_RECALL_WORD)] },
   };
@@ -102,7 +102,7 @@ function buildSteps(): Step[] {
     ...training,
     questionId: MOCK_QUESTION_IDS.similar,
     type: "similar_distinction",
-    context: { before: [{ ref: "2:0", text: "كلمة٥" }], after: [] },
+    context: mockContext(NEW_PASSAGE, "2:1"),
     options: [
       { optionId: "sim-a", text: "متشابه١" },
       { optionId: "sim-b", text: "متشابه٢" },
@@ -116,7 +116,7 @@ function buildSteps(): Step[] {
     passageId: MOCK_NEW_PASSAGE_ID,
     role: "test",
     reviewRoundId: null,
-    context: { before: [{ ref: "2:0", text: "كلمة٥" }], after: [{ ref: "2:2", text: "كلمة٧" }] },
+    context: mockContext(NEW_PASSAGE, "2:1"),
     policy,
     source: source("2:2"),
     options: [
@@ -135,6 +135,7 @@ function buildSteps(): Step[] {
         passageId: MOCK_NEW_PASSAGE_ID,
         path: "quran",
         reference: "2:1-2",
+        referenceAr: "سورة اصطناعية، الآيات ١\u2013٢",
         sectionTitleAr: "اسم القسم (عنصر نائب) ٢",
         units: [
           { unitRef: 1, kind: "ayah", reference: "2:1", text: "كلمة١ كلمة٢ كلمة٣ كلمة٤" },

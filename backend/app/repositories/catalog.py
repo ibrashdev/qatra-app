@@ -13,6 +13,13 @@ Two sources behind the same small protocols:
   read with the learner's access token under row-level security (the passage table holds ids,
   paths and counts, no text).
 
+Whole-unit counts (D92): a surah section carries its ayah count (``SectionData.unit_count``) so
+that the plan can tell the learner "3 ayat a day". Memory mode counts the bundle's ayah units. The
+public views do not expose units (and this package adds no migration), so Supabase mode uses
+``QURAN_AYAH_COUNTS``, the table the content workflow validates every published surah against
+(``ayat_count`` in ``workflow.validation``): both give the same number for a published edition.
+A surah outside that table has no count, and the plan then shows the words figure instead.
+
 Editions are ordered by ``edition_key``. API-spec §1.13 says "category display order, then
 ``editionKey``", but the views do not expose ``categories.display_order`` and the content
 publisher leaves it at its default 0, so the two orders coincide until a category is given a
@@ -39,6 +46,7 @@ from app.errors import AppError, ErrorCode
 from app.logging_config import log_event
 from app.providers.postgrest import PostgrestClient, require_token
 from app.workflow.bundle import loads_bundle
+from app.workflow.editions import QURAN_AYAH_COUNTS
 from app.workflow.errors import InputError
 
 logger = logging.getLogger("qatra.catalog")
@@ -95,6 +103,17 @@ _FORMATS = frozenset({"quran", "hadith_collection"})
 _KINDS = frozenset({"surah", "hadith"})
 
 
+def _ayah_count(kind: str, reference: str, counted: int | None) -> int | None:
+    """The ayat of a surah section (D92): the ``counted`` units when the source has them, else the
+    validated per-surah table (the section ``reference`` is the surah number). ``None`` for a
+    hadith section or a surah the table does not know."""
+    if kind != "surah":
+        return None
+    if counted:
+        return counted
+    return QURAN_AYAH_COUNTS.get(int(reference)) if reference.isdecimal() else None
+
+
 def edition_from_bundle(bundle: Mapping[str, Any]) -> tuple[EditionData, tuple[PassageRow, ...]]:
     """Catalog data of one bundle (contract §2.6). Reads metadata, sections and passages only."""
     try:
@@ -116,6 +135,10 @@ def edition_from_bundle(bundle: Mapping[str, Any]) -> tuple[EditionData, tuple[P
             words[row.section_ordinal][row.path] += row.words
             counts.setdefault(row.section_ordinal, {}).setdefault(row.path, 0)
             counts[row.section_ordinal][row.path] += 1
+        ayat: dict[int, int] = {}
+        for unit in bundle.get("units") or ():
+            if unit.get("kind") == "ayah":
+                ayat[unit["sectionOrdinal"]] = ayat.get(unit["sectionOrdinal"], 0) + 1
         sections = tuple(
             SectionData(
                 section_id=_text(raw["id"]),
@@ -126,6 +149,11 @@ def edition_from_bundle(bundle: Mapping[str, Any]) -> tuple[EditionData, tuple[P
                 title_en=_text(raw["titleEn"]),
                 path_words=words.get(raw["ordinal"], {}),
                 path_passages=counts.get(raw["ordinal"], {}),
+                unit_count=_ayah_count(
+                    _choice(raw["kind"], _KINDS),
+                    _text(raw["reference"]),
+                    ayat.get(raw["ordinal"]),
+                ),
             )
             for raw in sorted(bundle["sections"], key=lambda item: item["ordinal"])
         )
@@ -256,15 +284,18 @@ def _section_from_row(row: Mapping[str, Any]) -> SectionData:
             raise ValueError("path_stats")
         words[path] = _int(item.get("words"))
         passages[path] = _int(item.get("passages"))
+    kind = _choice(row["kind"], _KINDS)
+    reference = _text(row["reference"])
     return SectionData(
         section_id=_text(row["section_id"]),
         ordinal=_int(row["ordinal"]),
-        kind=_choice(row["kind"], _KINDS),
-        reference=_text(row["reference"]),
+        kind=kind,
+        reference=reference,
         title_ar=_text(row["title_ar"]),
         title_en=_text(row["title_en"]),
         path_words=words,
         path_passages=passages,
+        unit_count=_ayah_count(kind, reference, None),
     )
 
 
