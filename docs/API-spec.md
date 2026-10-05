@@ -1536,6 +1536,8 @@ Names follow PWA-design §4–§6, where the offline contract is proposed and `N
 | `expectedPlanVersion` | integer ≥ 1 | yes | must equal the plan's `currentVersion`; a stale value is `409 version_conflict` (C-11, resolved) |
 | `downloadTargetRefs` | string[] | yes | non-empty, unique; each is a passage id (the memorization target, D66) inside the plan's edition, scope and selected paths. At most 60 entries (A-12); size and partitioning of a download beyond this cap stay for implementation design [O-25]. Malformed values, unknown references, edition or scope are `422` (C-11) |
 
+> **Amendment 2026-10-06 (D93/D94, coordinator application under the owner's "use best practice"; not the owner's words):** `downloadTargetRefs` is optional. When omitted, the server selects up to 60 passage ids in plan order, starting from the next new passage and including passages in learning or with due reviews, and returns them in `downloadedTargetRefs`. An empty array is still `422` (`target_refs_invalid`). The "Required: yes" and "non-empty" wording in the table above is superseded for the omitted case only.
+
 **Behaviour**
 - The plan must be `active` and the edition published, not revoked and eligible for local download. Local-download rights are checked separately from the right to display a source (D58, D68; rights are owner-accepted and pending the publisher's terms); a failure is `422` rule `edition_not_downloadable` (A-12).
 - The snapshot is immutable and follows contract §7 `PlanSnapshot`: `schemaVersion` and `protocolVersion` = 1; `userId` is a non-secret ownership binding (not a credential and not encryption); `downloadedTargetRefs` are the accepted references; `dailyGoalMs` is the goal in force; `preparedSessions` are `SessionSnapshot`s with `status = prepared` and a server-owned `sessionId`; `lessons` are `PassageView`s with verbatim text and the canonical URL; `games` are the questions with every option and distractor needed offline; `references` are `SourceRef`s.
@@ -1718,6 +1720,8 @@ A demo account is created from the public demo link and carries `is_demo = true`
 
 **Request:** none. **Source:** `fixtures/demo_scenarios.json`, validated against the published editions (Programming-guide); how a scenario whose edition is not published is handled is open [O-19]. **Errors:** `401 unauthenticated`; `403 forbidden`; `429 throttled` [O-03]; `500 internal`. **Side effects:** none.
 
+> **Note 2026-10-06 ([O-19] resolved by the coordinator under D93, best practice; not the owner's words):** scenarios whose edition (matched by `editionKey` prefix) or sections cannot be resolved against the published editions are omitted from this list; E28 answers `422 unknown_scenario` for them.
+
 `200`
 
 ```json
@@ -1803,6 +1807,8 @@ The edition, scope and other plan parameters come from the fixture scenario [O-1
 | Success | `200` `{simulations: …}` — the element shape is not defined by the contract [O-19] |
 
 **Request:** none. **Source:** `fixtures/demo_simulations.json`, computed in advance by the developer. Every simulation is labelled as precomputed and synthetic, never live (PRD M9: «محسوبة سلفًا لا تشغيلًا حيًا»). No writes and no model call. **Errors:** `401 unauthenticated`; `403 forbidden`; `429 throttled` [O-03]; `500 internal`.
+
+> **Note 2026-10-06 ([O-19] resolved by the coordinator under D93, best practice; not the owner's words):** the element shape is fixed as `{simulationId, scenarioId, titleAr, titleEn, label: "precomputed_synthetic", profile: {name, totalWords, sessionMinutes}, learnerScript: {dailyCorrectRate, absentDays, errorDays}, days: [{day, newWords, reviews, lightReviewDay, adjustment, confirmedWordsCumulative, overallPercent}]}`. The example below is shorter and illustrative.
 
 `200` (the element shape is illustrative and not defined by the contract)
 

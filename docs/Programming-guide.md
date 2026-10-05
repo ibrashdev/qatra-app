@@ -91,6 +91,13 @@ qatra-app/
 
 Keep one shared migrations/fixtures path, and frontend/backend tests only; `.github/workflows/keep-warm.yml` (D72) is the only added automation path because GitHub reads workflows solely from `.github/workflows/`. `docs/` is a curated authority destination, not proof of completed approval. Keep the planned structure aligned with approved documents and update concrete existence/status only after authorized implementation.
 
+**File-map additions, 2026-10-06 (option C, D93): Implemented locally (D93), not merged.** These modules exist only on the unmerged branches `option-c-demo` (demo path B10/F12, commits 8fbc901 and 502b8c6) and `option-c-offline` (offline PWA B9/F13, commits 37eef14, 4fa5d3e and 5f3481c); local tests only, no deployment. Inspect the branch before editing and merge main first.
+- Backend, demo (`option-c-demo`): `routers/demo.py`, `services/demo.py`, `services/planner.py`, `domain/demo_policy.py`, `contracts_demo.py`; `backend/scripts/ai_comparison.py` (Q6 harness, not run live).
+- Backend, offline (`option-c-offline`): `routers/offline.py`, `services/offline.py`, `repositories/offline.py`, `domain/offline_policy.py`, `contracts_offline.py`.
+- Frontend, demo (`option-c-demo`): `app/(public)/demo`, `app/(flow)/demo/scenario`, `app/(app)/demo/simulations`, `components/demo/*`.
+- Frontend, offline (`option-c-offline`): `app/offline`, `components/pwa/*`, `lib/offline/*`, `lib/pwa/*`, `scripts/build-sw.mjs`, `app/manifest.ts`.
+- Fixtures: `fixtures/demo_scenarios.json`, `fixtures/demo_simulations.json` (`option-c-demo`); `fixtures/comparison_expectations.json` (Q6, `option-c-demo`).
+
 ## 4. Proposed frontend file contracts
 
 All names/signatures in this section are **Planned / PROPOSED**; no application symbols are present in the clean root. API DTOs must match the reviewed backend contract; `contracts.ts` does not license inventing one. Network failure → explicit retry/pending state; 401 → online reauthentication state; 409 → version conflict; no pretending local success is server acknowledgment.
