@@ -1,6 +1,6 @@
 # Qatra frontend
 
-Next.js (App Router) with strict TypeScript and Tailwind. Package F0 is the foundation: shell, direction and language, design tokens, self-hosted fonts, the API client with the free-server wake-up state, API types and a mock layer. The screens of Batch 1 (account) are built on it one at a time, each approved by the owner before the next: S-01 login and S-02 register are built. The recovery, consent, start, terms and recovery-code routes are placeholders that say so until their screens arrive.
+Next.js (App Router) with strict TypeScript and Tailwind. Package F0 is the foundation: shell, direction and language, design tokens, self-hosted fonts, the API client with the free-server wake-up state, API types and a mock layer. The screens of Batch 1 (account) are built on it one at a time, each approved by the owner before the next: S-01 login, S-02 register and S-03 terms and privacy are built. The recovery, consent, start and recovery-code routes are placeholders that say so until their screens arrive.
 
 Authority: `docs/UI-tokens.md`, `docs/UI-design.md`, `docs/UI-screens.md`, `docs/API-spec.md` and `docs/Implementation-contract.md` section 7. Read `AGENTS.md` first: it points to the Next.js documentation installed in `node_modules/next/dist/docs`.
 
@@ -27,11 +27,13 @@ See `.env.example`. `BACKEND_ORIGIN` (server side) is where `/api/*` is forwarde
 |---|---|
 | `src/app` | routes: `(public)/login`, `register`, `recovery`, `terms`; `(flow)/consent`, `start`, `recovery-code`; `(app)/today`, `games`, `progress`, `settings`; `/` redirects to `/login` until the catalog ships |
 | `src/components/auth` | the account screens (`LoginForm`, `RegisterForm` and `RegisterScreen`, its shell and back control) |
-| `src/components/ui` | shells (public, app, focus flow), navigation, language switch, wake-up status, and the form parts: `Icon` (the only import of the icon set), `BackControl`, `Banner`, `Button`, `Checkbox`, `Notice`, `TextField`, `PasswordField`, `ErrorSummary`, `FormBanners` |
+| `src/components/terms` | S-03: `TermsScreen`, `TermsBody` (the part S-26 shows again in the app shell), `TermsLoading`, `TermsError`, and `use-terms-return.ts` (back to the screen that opened it) |
+| `src/components/ui` | shells (public, app, focus flow), navigation, language switch, wake-up status, and the form parts: `Icon` (the only import of the icon set), `BackControl`, `Banner`, `Button`, `Checkbox`, `Notice`, `Skeleton`, `TextField`, `PasswordField`, `ErrorSummary`, `FormBanners` |
 | `src/lib/api` | client, error types, wake-up controller, endpoints, `types.ts` (contract DTOs), `mock/` |
 | `src/lib/auth` | the safe return path, the login arrival banner and the return path kept for the consent gate (both in memory), the signed-in guard, the E04 and E03 error mappings, the username and password rules (`account-rules.ts`, the client side of the backend policy), the registration draft kept while S-03 is read and the recovery code on its way to S-04 (both in memory) |
-| `src/lib/net`, `src/lib/dom` | connectivity, and the press-safe layout change |
-| `src/i18n` | message catalogs (`messages.ts` with `auth-messages.ts` and `form-messages.ts`), number formatting, locale storage and direction |
+| `src/lib/net`, `src/lib/dom` | connectivity, the press-safe layout change, and two small hooks (`use-after-delay`, `use-hydrated`) |
+| `src/lib/nav` | the route history (the two latest routes of the visit, in memory, fed by `RouteTracker`), and which screens open S-03 |
+| `src/i18n` | message catalogs (`messages.ts` with `auth-messages.ts`, `form-messages.ts` and `terms-messages.ts`), the text of S-03 (`terms-text.ts`, loaded with its route only), number formatting, locale storage and direction |
 | `src/styles` | `tokens.css` (the `--q-*` tokens), `theme.css` (Tailwind mapping), `fonts.css` |
 
 ## Mock accounts (development, `NEXT_PUBLIC_API_MODE=mock`)
@@ -67,6 +69,9 @@ E03 (register) judges the username and password with the same rules as the scree
 - Light theme only, logical CSS properties only, no service worker, no PWA (deferred).
 - Icons come from one set (Lucide, ISC licence, pinned to an exact version), imported by name in `src/components/ui/Icon.tsx` only. Each glyph is decorative; the accessible name lives on the control or in the phrase beside it.
 - A form keeps what the visitor typed, shows no value back, and keeps nothing in the browser: the screens store nothing but the language choice. What S-02 keeps while S-03 is read, and the recovery code on its way to S-04, live in module memory only: a reload, a successful registration or a login wipes them.
+- The text of S-03 is the words of `docs/Authentication-and-privacy.md`, with only the codes and table names taken out; `tests/unit/terms-text.test.ts` compares it with that document (and lists the few clauses that join two phrases). The page calls no API, so it shows no wake-up line, has no session probe, and a signed-in visitor stays on it.
+- A link to an anchor (`/terms#privacy`) gets the scroll and the focus once the page is settled (the saved language applied), with the heading below the app bar. A reading page uses `PublicShell reading`: the reading column of UI-tokens 5 is its text measure.
+- The selected segment of the language switch shows a check at the start edge, so the choice is never colour alone; at large text the segments wrap rather than leave the page.
 - The back arrow is the only glyph that mirrors in right-to-left. The password toggle names its action and has no pressed state (O-07).
 - `THIRD_PARTY_NOTICES.md` reproduces the licence text of the icon set; update it with the version when `lucide-react` changes.
 - Mock data is synthetic: placeholders and fake ids, no religious text.

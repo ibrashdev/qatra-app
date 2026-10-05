@@ -135,6 +135,27 @@ describe("PublicShell and the language switch (F0-3, UA-11)", () => {
     expect(screen.getByRole("link", { name: "قطرة غيث" })).toBeInTheDocument();
   });
 
+  it("shows a check at the start edge of the selected segment only, hidden from assistive technology, and moves it with the choice (P-02)", async () => {
+    setLanguage("ar");
+    renderWithApp(<PublicShell>content</PublicShell>);
+    const segment = (name: string) => screen.getByRole("radio", { name }).closest("label") as HTMLElement;
+
+    const check = segment("العربية").querySelector("svg");
+    expect(check).toHaveAttribute("aria-hidden", "true");
+    expect(check).toHaveClass("lucide-check", "size-icon-sm");
+    expect(check).not.toHaveClass("rtl:-scale-x-100");
+    // The glyph comes before the label text in the DOM, so it sits at the start edge in either direction.
+    expect(check?.previousElementSibling).toBe(screen.getByRole("radio", { name: "العربية" }));
+    expect(check?.nextSibling?.textContent).toBe("العربية");
+    expect(segment("English (EN)").querySelector("svg")).toBeNull();
+
+    await userEvent.click(screen.getByRole("radio", { name: "English (EN)" }));
+    expect(segment("العربية").querySelector("svg")).toBeNull();
+    expect(segment("English (EN)").querySelector("svg")).toHaveClass("lucide-check");
+    // The accessible names do not change with the glyph.
+    expect(screen.getAllByRole("radio").map((radio) => radio.getAttribute("aria-label"))).toEqual(["العربية", "English (EN)"]);
+  });
+
   it("still works when localStorage throws (UA-17)", async () => {
     setLanguage("ar");
     renderWithApp(<PublicShell>content</PublicShell>);
@@ -220,10 +241,10 @@ describe("BackControl (UI-tokens 5 and 6.1, P-02)", () => {
 describe("route focus (UI-screens P-01)", () => {
   it("leaves focus alone on the first load, then moves it to the heading when another shell mounts on a new path", () => {
     setLanguage("ar");
-    navigation.pathname = "/terms";
+    navigation.pathname = "/recovery";
     const first = renderWithApp(
       <PublicShell>
-        <PlaceholderPage screen="terms" />
+        <PlaceholderPage screen="recovery" />
       </PublicShell>,
     );
     expect(document.body).toHaveFocus();
@@ -240,16 +261,16 @@ describe("route focus (UI-screens P-01)", () => {
 
   it("does not move focus when a shell mounts again on the same path", () => {
     setLanguage("ar");
-    navigation.pathname = "/terms";
+    navigation.pathname = "/recovery";
     const first = renderWithApp(
       <PublicShell>
-        <PlaceholderPage screen="terms" />
+        <PlaceholderPage screen="recovery" />
       </PublicShell>,
     );
     first.unmount();
     renderWithApp(
       <PublicShell>
-        <PlaceholderPage screen="terms" />
+        <PlaceholderPage screen="recovery" />
       </PublicShell>,
     );
     expect(document.body).toHaveFocus();
@@ -307,7 +328,6 @@ describe("placeholder pages (screens that arrive in a later step)", () => {
     ["games", "الألعاب"],
     ["progress", "التقدم"],
     ["settings", "الإعدادات"],
-    ["terms", "شروط الاستخدام وبيان الخصوصية"],
     ["recovery", "استرجاع الحساب"],
   ] as const)("%s shows its name and says plainly that it is not built yet, with no control", (screen_, name) => {
     setLanguage("ar");

@@ -4,8 +4,10 @@ import { useState } from "react";
 import { useLocale } from "@/i18n/LocaleProvider";
 import { getMessages, type Locale } from "@/i18n/messages";
 import { cx } from "@/lib/cx";
+import { Icon } from "./Icon";
 
 // «العربية | EN» (UA-11, UI-tokens 6.4): native radios, so arrow keys move in the logical direction and focus stays on the switch.
+// The selected segment also shows a check at the start edge, so the choice is never shown by colour and border alone (UI-screens P-02, UI-tokens 6.0).
 export function LanguageSwitch() {
   const { locale, messages, setLocale } = useLocale();
   const [announcement, setAnnouncement] = useState("");
@@ -24,7 +26,8 @@ export function LanguageSwitch() {
 
   return (
     <div>
-      <fieldset role="radiogroup" className="flex gap-q8">
+      {/* The segments wrap when the text is enlarged so far that both no longer fit the bar (the check makes the selected one wider). */}
+      <fieldset role="radiogroup" className="flex flex-wrap gap-q8">
         <legend className="sr-only">{messages.language.groupLabel}</legend>
         {segments.map(({ value, label, name }) => {
           const checked = locale === value;
@@ -33,7 +36,7 @@ export function LanguageSwitch() {
               key={value}
               lang={value}
               className={cx(
-                "relative inline-flex min-h-target min-w-target cursor-pointer items-center justify-center rounded-sm text-body-compact font-semibold transition-[color,background-color,border-color] duration-(--q-duration-fast) has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-focus",
+                "relative inline-flex min-h-target min-w-target cursor-pointer items-center justify-center gap-q4 rounded-sm text-body-compact font-semibold transition-[color,background-color,border-color] duration-(--q-duration-fast) has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-focus",
                 // The selected segment gets a 2 px border, so the unselected one pads by 1 px to keep both the same width.
                 checked
                   ? "border-2 border-edge-selected bg-selection px-q12 text-ink-accent"
@@ -49,6 +52,7 @@ export function LanguageSwitch() {
                 onChange={() => choose(value)}
                 className="absolute -inset-0.5 m-0 size-[calc(100%+4px)] cursor-pointer opacity-0"
               />
+              {checked ? <Icon name="check" size="sm" active /> : null}
               {label}
             </label>
           );
