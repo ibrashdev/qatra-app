@@ -438,7 +438,7 @@ describe("the assistant's fixed messages (c9 to c11)", () => {
     const user = userEvent.setup();
     await user.type(composer(), "something unclear{Enter}");
     await screen.findByText("المساعد غير متاح الآن؛ يمكنك متابعة التعديل بالخيارات أدناه.");
-    expect(screen.getByRole("link", { name: "تعديل بالنموذج" })).toHaveAttribute("href", "/plan/revise");
+    expect(screen.getByRole("link", { name: "تعديل بالنموذج" })).toHaveAttribute("href", "/plan/revise?form=1");
   });
 
   it("shows the cap banner when no model turns are left and the server answered with a fallback, never the number", async () => {

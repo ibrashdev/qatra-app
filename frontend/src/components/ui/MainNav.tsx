@@ -18,8 +18,12 @@ export const TAB_ITEMS: readonly { id: TabId; href: string }[] = [
 // S-20 (the result of a session) belongs to the progress tab. S-19 (/session/<id>) is a focus flow and matches no tab.
 const SESSION_RESULT_PATH = /^\/session\/[^/]+\/result\/?$/;
 
+// S-12 (/plan) and S-13 (/plan/revise) are children of the today tab (UI-design 2.1). S-34 (/plan/chat/<id>) is a focus flow and matches no tab.
+const TODAY_CHILD_PATH = /^\/plan(?:\/revise)?\/?$/;
+
 function isActive(pathname: string | null, href: string): boolean {
   if (href === "/progress" && pathname !== null && SESSION_RESULT_PATH.test(pathname)) return true;
+  if (href === "/today" && pathname !== null && TODAY_CHILD_PATH.test(pathname)) return true;
   return pathname === href || (pathname?.startsWith(`${href}/`) ?? false);
 }
 

@@ -41,6 +41,28 @@ describe("main navigation: the active tab", () => {
     expect(activeTabs("/session/abc/result/")).toEqual(["/progress", "/progress"]);
   });
 
+  it("marks the today tab on the plan overview (S-12) and the plan revision (S-13)", () => {
+    expect(activeTabs("/plan")).toEqual(["/today", "/today"]);
+    document.body.innerHTML = "";
+    expect(activeTabs("/plan/")).toEqual(["/today", "/today"]);
+    document.body.innerHTML = "";
+    expect(activeTabs("/plan/revise")).toEqual(["/today", "/today"]);
+    document.body.innerHTML = "";
+    expect(activeTabs("/plan/revise/")).toEqual(["/today", "/today"]);
+  });
+
+  it("marks no tab on the plan conversation (S-34, a focus flow) or on lookalike plan paths", () => {
+    for (const path of ["/plan/chat/abc", "/plan/revise/extra", "/planning", "/plan/other"]) {
+      document.body.innerHTML = "";
+      expect(activeTabs(path), path).toEqual([]);
+    }
+  });
+
+  it("keeps the session result on the progress tab next to the plan rule", () => {
+    document.body.innerHTML = "";
+    expect(activeTabs("/session/abc/result")).toEqual(["/progress", "/progress"]);
+  });
+
   it("marks no tab on the session itself (S-19, a focus flow) or on lookalike paths", () => {
     for (const path of ["/session/abc", "/session/abc/other", "/session/abc/result/extra", "/session/result", "/session//result", null]) {
       document.body.innerHTML = "";

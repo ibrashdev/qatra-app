@@ -87,7 +87,7 @@ export function ChatThread({
         {card !== null ? <PlanCard proposal={card} current={version === proposal?.proposalVersion} domId={version === proposal?.proposalVersion ? CURRENT_CARD_ID : undefined} /> : null}
         {message.kind === "fallback" && message.messageId === noticeId && revision ? (
           <div>
-            <TextLink href="/plan/revise">{text.fallbackModel}</TextLink>
+            <TextLink href="/plan/revise?form=1">{text.fallbackModel}</TextLink>
           </div>
         ) : null}
       </div>
