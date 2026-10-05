@@ -12,5 +12,8 @@ export default defineConfig({
     setupFiles: ["tests/unit/setup.ts"],
     restoreMocks: true,
     unstubEnvs: true,
+    // Heavy screen suites pass alone but exceed the 5 s default when many jsdom workers run in parallel.
+    testTimeout: 15000,
+    hookTimeout: 15000,
   },
 });
