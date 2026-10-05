@@ -10,6 +10,7 @@ import { questionMessages } from "@/i18n/question-messages";
 import { sessionMessages } from "@/i18n/session-messages";
 import type { PassageView } from "@/lib/api/types";
 import { cx } from "@/lib/cx";
+import { HadithRecord } from "./HadithRecord";
 import { needsLegend, segmentUnit } from "./session-model";
 
 // The learn step (UI-screens S-19 c7 to c14): the passage as received, in its whole unit, with today's range marked; the clean reference line (D90: the
@@ -17,7 +18,7 @@ import { needsLegend, segmentUnit } from "./session-model";
 // record block and, only when the snapshot says so, the D50 notice; the hide toggle; the instruction. The primary button lives in the action bar.
 // Hidden text is removed from the page and the accessibility tree, not blurred (UI-tokens 6.12).
 export function LearnStep({ passage, textKind, hidden, onToggle }: { passage: PassageView; textKind: TextKind; hidden: boolean; onToggle: () => void }) {
-  const { locale, direction } = useLocale();
+  const { locale } = useLocale();
   const t = sessionMessages(locale).learn;
   const notice = questionMessages(locale).d50Notice;
   const unitSegments = passage.units.map((unit) => ({ unit, segments: segmentUnit(unit, passage.highlight) }));
@@ -67,16 +68,7 @@ export function LearnStep({ passage, textKind, hidden, onToggle }: { passage: Pa
 
       <QuestionSource source={passage.source} />
 
-      {hadith ? (
-        <div lang={locale} dir={direction} className="flex flex-col gap-q4 text-small text-ink-secondary">
-          <p>
-            {t.takhrij} <bdi lang="ar">{passage.takhrij ?? t.notStated}</bdi>
-          </p>
-          <p>
-            {t.grade} <bdi lang="ar">{passage.grade ?? t.notStated}</bdi>
-          </p>
-        </div>
-      ) : null}
+      {hadith ? <HadithRecord takhrij={passage.takhrij} grade={passage.grade} /> : null}
       {passage.showD50Notice ? <Notice>{notice}</Notice> : null}
 
       <div>

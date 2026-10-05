@@ -137,8 +137,9 @@ describe("message catalog", () => {
     expect(shape(getMessages("ar"))).toEqual(shape(getMessages("en")));
   });
 
-  it("fixes the four tabs and the wake-up line as the documents give them", () => {
-    expect(getMessages("ar").tabs).toEqual({ today: "اليوم", games: "الألعاب", progress: "التقدم", settings: "الإعدادات" });
+  it("fixes the five tabs and the wake-up line as the documents give them", () => {
+    expect(getMessages("ar").tabs).toEqual({ today: "اليوم", lessons: "الدروس", games: "الألعاب", progress: "التقدم", settings: "الإعدادات" });
+    expect(getMessages("en").tabs).toEqual({ today: "Today", lessons: "Lessons", games: "Games", progress: "Progress", settings: "Settings" });
     expect(getMessages("ar").server.waking).toBe("جارٍ تشغيل الخادم المجاني، قد يستغرق ذلك دقيقة.");
     expect(getMessages("en").server.waking).toBe("Starting the free server, this may take about a minute.");
     expect(getMessages("ar").appName).toBe("قطرة غيث");

@@ -1,7 +1,7 @@
 import { mockProfile } from "../../src/lib/api/mock";
 import { expect, NAV_NAME, TAB_NAMES, test, VIEWPORTS } from "./fixtures";
 
-test.describe("direction, language and the four tabs (Arabic default)", () => {
+test.describe("direction, language and the five tabs (Arabic default)", () => {
   test.use({ viewport: VIEWPORTS.phone });
 
   test("/ redirects to /login, the login screen in the public shell", async ({ page }) => {
@@ -57,17 +57,17 @@ test.describe("direction, language and the four tabs (Arabic default)", () => {
     await expect(page.getByRole("navigation")).toHaveCount(0);
   });
 
-  test("the shell renders dir=rtl with the four tabs, today first at the start edge (the right)", async ({ page }) => {
+  test("the shell renders dir=rtl with the five tabs, today first at the start edge (the right)", async ({ page }) => {
     await page.goto("/today");
     await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
     const nav = page.getByRole("navigation", { name: NAV_NAME.ar });
     const links = nav.getByRole("link");
     await expect(links).toHaveText([...TAB_NAMES.ar]);
-    await expect(links).toHaveCount(4);
+    await expect(links).toHaveCount(5);
     const hrefs = await links.evaluateAll((items) => items.map((item) => item.getAttribute("href")));
-    expect(hrefs).toEqual(["/today", "/games", "/progress", "/settings"]);
+    expect(hrefs).toEqual(["/today", "/lessons", "/games", "/progress", "/settings"]);
 
-    const boxes = await Promise.all([0, 1, 2, 3].map((index) => links.nth(index).boundingBox()));
+    const boxes = await Promise.all([0, 1, 2, 3, 4].map((index) => links.nth(index).boundingBox()));
     const xs = boxes.map((box) => (box?.x ?? 0) + (box?.width ?? 0) / 2);
     expect(xs).toEqual([...xs].sort((a, b) => b - a));
     expect(xs[0]).toBeGreaterThan(VIEWPORTS.phone.width / 2);

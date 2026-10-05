@@ -494,3 +494,31 @@ export interface CatalogResponse {
 export interface ErrorEnvelope {
   error: { code: string; message: string; details?: Record<string, unknown> };
 }
+
+// The lessons reader (D90, owner approval of 5 October 2026): GET /api/lessons and GET /api/lessons/{sectionId}. A session without questions or games that only
+// shows the verses or hadiths of the learner's active plan, read only. `sectionId` is the ordinal of the section in the plan's edition. The text is the
+// PassageView of a learn step, verbatim.
+export type LessonKind = "surah" | "hadith";
+
+export interface LessonSection {
+  sectionId: number;
+  kind: LessonKind;
+  referenceAr: string;
+  passageCount: number; // the passages of this section on the plan's selected paths
+}
+
+// `planId` and `planVersion` are the active plan's: the reader credits its reading time to today's daily session (E20, E21), which needs them.
+export interface LessonsResponse {
+  planId: string;
+  planVersion: number;
+  sections: LessonSection[];
+}
+
+export interface LessonSectionDetail {
+  sectionId: number;
+  kind: LessonKind;
+  referenceAr: string;
+  bookTitleAr: string;
+  sourceUrl: string;
+  passages: PassageView[]; // the in-scope passages of the section in book order
+}

@@ -943,12 +943,9 @@ class SessionService:
     ) -> str:
         """What the learner reads as the reference (D90): the hadith title, or for the Quran the
         surah with the ayah or the ayah range of the passage, in Arabic-Indic digits."""
-        title = section.title_ar.strip() if section is not None else ""
-        if edition.content_format != "quran":
-            return title
-        if not title:
-            return ""
-        name = title if title.startswith("سورة") else f"سورة {title}"
+        name = section_reference_ar(edition, section)
+        if edition.content_format != "quran" or not name:
+            return name
         first = _ayah_number(units.unit(_ref_key(passage.start_ref)[0]).reference)
         last = _ayah_number(units.unit(_ref_key(passage.end_ref)[0]).reference)
         if first is None or last is None:
@@ -960,41 +957,7 @@ class SessionService:
     def _passage_view(
         self, edition: EditionInfo, passage: BankPassage, units: _Units
     ) -> PassageView:
-        first, _ = _ref_key(passage.start_ref)
-        last, _ = _ref_key(passage.end_ref)
-        spanned = [units.unit(ordinal) for ordinal in range(first, last + 1)]
-        section = units.sections.get(passage.section_ordinal)
-        siblings = units.by_section[passage.section_ordinal]
-        takhrij = next((u.text for u in siblings if u.kind == "hadith_takhrij"), None)
-        grade = next((u.text for u in siblings if u.kind == "hadith_grade"), None)
-        meta = next(
-            (u.hadith_meta for u in siblings if u.kind == "hadith_narration" and u.hadith_meta),
-            next((u.hadith_meta for u in siblings if u.hadith_meta), None),
-        )
-        reference_ar = self._reference_ar(edition, section, passage, units)
-        return PassageView(
-            passage_id=passage.id,
-            path=passage.path,  # type: ignore[arg-type]
-            reference=passage.reference,
-            reference_ar=reference_ar,
-            section_title_ar=section.title_ar if section is not None else "",
-            units=[
-                PassageUnit(
-                    unit_ref=unit.ordinal,
-                    kind=unit.kind,  # type: ignore[arg-type]
-                    reference=unit.reference,
-                    text=unit.text,
-                )
-                for unit in spanned
-            ],
-            highlight=Highlight(start_ref=passage.start_ref, end_ref=passage.end_ref),
-            takhrij=takhrij,
-            grade=grade,
-            show_d50_notice=bool(meta.get("showD50Notice")) if meta else False,
-            source=self._source(
-                edition, passage.reference, units.source_url(first, section), reference_ar
-            ),
-        )
+        return build_passage_view(edition, passage, units)
 
     def _question(
         self,
@@ -1071,6 +1034,79 @@ class SessionService:
                 answer_key=RecallAnswerKey(accepted_norms=norms),
             )
         raise ValueError("unknown question type")
+
+
+# --- the passage as the learner reads it ----------------------------------------------------------
+
+
+def section_reference_ar(edition: EditionInfo, section: BankSection | None) -> str:
+    """The section's own reference line (D90): the hadith title, or for the Quran the surah name
+    with the word «سورة» in front when the title lacks it. Empty when the section has no title."""
+    title = section.title_ar.strip() if section is not None else ""
+    if edition.content_format != "quran" or not title:
+        return title
+    return title if title.startswith("سورة") else f"سورة {title}"
+
+
+def build_passage_view(edition: EditionInfo, passage: BankPassage, units: _Units) -> PassageView:
+    """The ``PassageView`` of a passage, verbatim: the units it spans, the range to mark, the
+    takhrij and grade of its hadith and the clean source line. ``units`` must hold the units of the
+    passage's section (``load_section_units``). Shared by the learn step of a session and by the
+    lessons reader (D90), so both show the same text."""
+    first, _ = _ref_key(passage.start_ref)
+    last, _ = _ref_key(passage.end_ref)
+    spanned = [units.unit(ordinal) for ordinal in range(first, last + 1)]
+    section = units.sections.get(passage.section_ordinal)
+    siblings = units.by_section[passage.section_ordinal]
+    takhrij = next((u.text for u in siblings if u.kind == "hadith_takhrij"), None)
+    grade = next((u.text for u in siblings if u.kind == "hadith_grade"), None)
+    meta = next(
+        (u.hadith_meta for u in siblings if u.kind == "hadith_narration" and u.hadith_meta),
+        next((u.hadith_meta for u in siblings if u.hadith_meta), None),
+    )
+    reference_ar = SessionService._reference_ar(edition, section, passage, units)
+    return PassageView(
+        passage_id=passage.id,
+        path=passage.path,  # type: ignore[arg-type]
+        reference=passage.reference,
+        reference_ar=reference_ar,
+        section_title_ar=section.title_ar if section is not None else "",
+        units=[
+            PassageUnit(
+                unit_ref=unit.ordinal,
+                kind=unit.kind,  # type: ignore[arg-type]
+                reference=unit.reference,
+                text=unit.text,
+            )
+            for unit in spanned
+        ],
+        highlight=Highlight(start_ref=passage.start_ref, end_ref=passage.end_ref),
+        takhrij=takhrij,
+        grade=grade,
+        show_d50_notice=bool(meta.get("showD50Notice")) if meta else False,
+        source=SessionService._source(
+            edition, passage.reference, units.source_url(first, section), reference_ar
+        ),
+    )
+
+
+def read_passage_views(
+    bank: BankRepository,
+    ctx: SessionContext,
+    edition: EditionInfo,
+    passages: Sequence[BankPassage],
+) -> tuple[list[PassageView], BankSection | None]:
+    """The views of ``passages`` of one section in the order given, and that section (for its
+    title and canonical URL). Reads the section's units once. A bank that lacks a unit a passage
+    spans is an integrity fault (500), as for a learn step."""
+    units = _Units(bank, ctx, edition)
+    units.load_section_units(p.section_ordinal for p in passages)
+    try:
+        views = [build_passage_view(edition, passage, units) for passage in passages]
+    except (KeyError, IndexError, ValueError):
+        raise _integrity() from None
+    section = units.sections.get(passages[0].section_ordinal) if passages else None
+    return views, section
 
 
 # --- E21 and E22 helpers -------------------------------------------------------------------------

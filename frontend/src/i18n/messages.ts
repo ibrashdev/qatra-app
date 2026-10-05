@@ -7,7 +7,7 @@ import { termsAr, termsEn, type TermsMessages } from "./terms-messages";
 
 export type Locale = "ar" | "en";
 export type Direction = "rtl" | "ltr";
-export type TabId = "today" | "games" | "progress" | "settings";
+export type TabId = "today" | "lessons" | "games" | "progress" | "settings";
 
 export const LOCALES: readonly Locale[] = ["ar", "en"];
 export const DEFAULT_LOCALE: Locale = "ar";
@@ -51,7 +51,7 @@ const ar: UiMessages = {
   documentTitle: (screen) => `${screen} · قطرة غيث`,
   skipToContent: "انتقل إلى المحتوى",
   mainNavigationLabel: "التنقل الرئيسي",
-  tabs: { today: "اليوم", games: "الألعاب", progress: "التقدم", settings: "الإعدادات" },
+  tabs: { today: "اليوم", lessons: "الدروس", games: "الألعاب", progress: "التقدم", settings: "الإعدادات" },
   language: {
     groupLabel: "اللغة",
     arabicLabel: "العربية",
@@ -93,7 +93,7 @@ const en: UiMessages = {
   documentTitle: (screen) => `${screen} · Qatra`,
   skipToContent: "Skip to content",
   mainNavigationLabel: "Main navigation",
-  tabs: { today: "Today", games: "Games", progress: "Progress", settings: "Settings" },
+  tabs: { today: "Today", lessons: "Lessons", games: "Games", progress: "Progress", settings: "Settings" },
   language: {
     groupLabel: "Language",
     arabicLabel: "العربية",

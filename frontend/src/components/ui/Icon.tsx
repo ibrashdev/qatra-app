@@ -1,4 +1,4 @@
-import { ArrowLeft, ArrowLeftRight, CalendarCheck, ChartColumn, Check, CircleAlert, CircleCheck, Clock, Contrast, Copy, Download, Droplet, ExternalLink, Eye, EyeOff, Info, Lightbulb, ListOrdered, Lock, MousePointerClick, Pause, Puzzle, RefreshCw, Settings, TextCursorInput, TriangleAlert, Undo2, X, type LucideIcon } from "lucide-react";
+import { ArrowLeft, ArrowLeftRight, BookOpen, CalendarCheck, ChartColumn, Check, CircleAlert, CircleCheck, Clock, Contrast, Copy, Download, Droplet, ExternalLink, Eye, EyeOff, Info, Lightbulb, ListOrdered, Lock, MousePointerClick, Pause, Puzzle, RefreshCw, Settings, TextCursorInput, TriangleAlert, Undo2, X, type LucideIcon } from "lucide-react";
 import { cx } from "@/lib/cx";
 
 // The only place that imports the icon set (Lucide, owner decision of 4 October 2026). Screens ask for a meaning, never a glyph.
@@ -19,6 +19,7 @@ const GLYPHS = {
   half: Contrast, // a circle with one half filled: the lucide set has no circle-half, and this is its closest glyph
   hint: Lightbulb,
   info: Info,
+  lessons: BookOpen, // main navigation, the Lessons destination (D90)
   lock: Lock,
   order: ListOrdered, // the "order" glyph the Figma handoff names for the first step of the login helper strip (FC-06)
   pause: Pause,
