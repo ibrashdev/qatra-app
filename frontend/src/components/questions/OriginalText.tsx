@@ -15,9 +15,10 @@ export function originalFontClass(textKind: TextKind): string {
 
 // UI-tokens 6.12 and P-20: right to left and Arabic in both interface languages, aligned to the start, never truncated, no letter spacing.
 // `tint` is the feedback block, where the text sits on the status tint instead of the reading surface.
+// FC-09 (D86): the reading surface has 24 px of padding on every side; it has no fixed or minimum height, so it grows with the text and the text size.
 export function OriginalText({ textKind, tint = false, children }: { textKind: TextKind; tint?: boolean; children: ReactNode }) {
   return (
-    <div dir="rtl" lang="ar" className={cx("text-start text-token text-ink [overflow-wrap:anywhere]", originalFontClass(textKind), !tint && "rounded-md bg-surface px-q16 py-q12")}>
+    <div dir="rtl" lang="ar" className={cx("text-start text-token text-ink [overflow-wrap:anywhere]", originalFontClass(textKind), !tint && "rounded-md bg-surface p-q24")}>
       {children}
     </div>
   );
