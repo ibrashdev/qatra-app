@@ -134,8 +134,8 @@ export function gamesMessages(locale: Locale): GamesMessages {
   return CATALOGS[locale];
 }
 
-// FC-13 (docs/Figma-code-handoff.md): the heading and the caption are verbatim from the handoff. The three stage labels are read from the Figma reference
-// (node 203:2124), which the handoff names as the visual source; the handoff itself gives them in English only. English is proposed.
+// FC-13 (docs/Figma-code-handoff.md): the heading and the caption are verbatim from the handoff. The three stage labels in both languages were approved by the
+// owner on 5 October 2026.
 export interface LearningCueMessages {
   heading: string;
   stages: readonly [string, string, string]; // training and coverage, successful reviews on days 1, 3 and 7, confirmed mastery
@@ -150,7 +150,7 @@ const cueAr: LearningCueMessages = {
 
 const cueEn: LearningCueMessages = {
   heading: "Mastery path · general steps",
-  stages: ["Training and coverage", "Successful reviews on days 1, 3 and 7", "Confirmed mastery"],
+  stages: ["Practice and coverage", "Reviews pass on days 1, 3, 7", "Mastery confirmed"],
   caption: "Training and review help you make your memorization stick.",
 };
 

@@ -23,9 +23,9 @@ describe("the learning-cycle cue (FC-13)", () => {
     renderInLocale(<LearningCue />, "en");
     const note = screen.getByRole("note", { name: "Mastery path · general steps" });
     expect(within(note).getAllByRole("listitem").map((stage) => stage.textContent)).toEqual([
-      "Training and coverage",
-      "Successful reviews on days 1, 3 and 7",
-      "Confirmed mastery",
+      "Practice and coverage",
+      "Reviews pass on days 1, 3, 7",
+      "Mastery confirmed",
     ]);
     expect(within(note).getByText("Training and review help you make your memorization stick.")).toBeInTheDocument();
   });

@@ -1,10 +1,11 @@
-import { ArrowLeft, CalendarCheck, ChartColumn, Check, CircleAlert, CircleCheck, Clock, Contrast, Copy, Download, Droplet, ExternalLink, Eye, EyeOff, Info, Lightbulb, ListOrdered, Lock, Pause, Puzzle, RefreshCw, Settings, TriangleAlert, Undo2, X, type LucideIcon } from "lucide-react";
+import { ArrowLeft, ArrowLeftRight, CalendarCheck, ChartColumn, Check, CircleAlert, CircleCheck, Clock, Contrast, Copy, Download, Droplet, ExternalLink, Eye, EyeOff, Info, Lightbulb, ListOrdered, Lock, MousePointerClick, Pause, Puzzle, RefreshCw, Settings, TextCursorInput, TriangleAlert, Undo2, X, type LucideIcon } from "lucide-react";
 import { cx } from "@/lib/cx";
 
 // The only place that imports the icon set (Lucide, owner decision of 4 October 2026). Screens ask for a meaning, never a glyph.
 const GLYPHS = {
   back: ArrowLeft,
   check: Check,
+  choose: MousePointerClick, // the word or segment choice game (S-16)
   clock: Clock,
   close: X,
   copy: Copy,
@@ -22,8 +23,10 @@ const GLYPHS = {
   order: ListOrdered, // the "order" glyph the Figma handoff names for the first step of the login helper strip (FC-06)
   pause: Pause,
   progress: ChartColumn, // main navigation, the Progress destination
+  recall: TextCursorInput, // the word recall game (S-18)
   refresh: RefreshCw,
   settings: Settings, // main navigation, the Settings destination
+  similar: ArrowLeftRight, // the similar distinction game (S-17); two ways at once, so it is symmetric and does not mirror
   success: CircleCheck,
   today: CalendarCheck, // main navigation, the Today destination
   undo: Undo2,
@@ -33,7 +36,7 @@ const GLYPHS = {
 export type IconName = keyof typeof GLYPHS;
 
 // UI-tokens 5: direction arrows mirror in right-to-left (back, and the undo arrow of 6.16); check, close, copy, download, info, warning, error, eye,
-// the droplet, the lightbulb, the lock, refresh, external-link and the four tab icons do not.
+// the droplet, the lightbulb, the lock, refresh, external-link, the four tab icons and the symmetric left-right arrow of the similar-distinction game do not.
 const MIRRORED: ReadonlySet<IconName> = new Set<IconName>(["back", "undo"]);
 
 // UI-tokens 4: 16, 20, 24 and 32 px. The classes follow the --q-icon-* tokens, so the glyphs scale with the browser font size.

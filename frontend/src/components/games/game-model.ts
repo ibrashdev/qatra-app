@@ -13,16 +13,16 @@ import type { GameKind, Question, SessionSnapshot } from "@/lib/api/types";
 export interface GameEntry {
   kind: GameKind;
   route: string; // the round route of the game (UI-screens S-15 to S-18, "Entry")
-  // FC-12: a distinct supplemental icon per game, from the glyphs the shared adapter already has. The text label carries the meaning, never the glyph.
+  // FC-12: a distinct supplemental icon per game, one glyph each in the shared adapter. The text label carries the meaning, never the glyph.
   icon: IconName;
 }
 
 // The order of the inventory (S-14 c4 to c7): word order, word or segment choice, similar distinction, word recall.
 export const GAMES: readonly GameEntry[] = [
-  { kind: "word_order", route: "/games/word-order", icon: "games" },
-  { kind: "word_choice", route: "/games/word-choice", icon: "check" },
-  { kind: "similar_distinction", route: "/games/similar-distinction", icon: "half" },
-  { kind: "word_recall", route: "/games/word-recall", icon: "hint" },
+  { kind: "word_order", route: "/games/word-order", icon: "order" },
+  { kind: "word_choice", route: "/games/word-choice", icon: "choose" },
+  { kind: "similar_distinction", route: "/games/similar-distinction", icon: "similar" },
+  { kind: "word_recall", route: "/games/word-recall", icon: "recall" },
 ];
 
 export function gameEntry(kind: GameKind): GameEntry {
