@@ -1,6 +1,6 @@
 # Qatra frontend
 
-Next.js (App Router) with strict TypeScript and Tailwind. Package F0 is the foundation: shell, direction and language, design tokens, self-hosted fonts, the API client with the free-server wake-up state, API types and a mock layer. The screens of Batch 1 (account) are built on it one at a time, each approved by the owner before the next: S-01 login, S-02 register and S-03 terms and privacy are built. The recovery, consent, start and recovery-code routes are placeholders that say so until their screens arrive.
+Next.js (App Router) with strict TypeScript and Tailwind. Package F0 is the foundation: shell, direction and language, design tokens, self-hosted fonts, the API client with the free-server wake-up state, API types and a mock layer. The screens of Batch 1 (account) are built on it one at a time, each approved by the owner before the next: S-01 login, S-02 register, S-03 terms and privacy and S-04 recovery-code save are built. The recovery, consent and start routes are placeholders that say so until their screens arrive.
 
 Authority: `docs/UI-tokens.md`, `docs/UI-design.md`, `docs/UI-screens.md`, `docs/API-spec.md` and `docs/Implementation-contract.md` section 7. Read `AGENTS.md` first: it points to the Next.js documentation installed in `node_modules/next/dist/docs`.
 
