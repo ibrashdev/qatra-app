@@ -84,7 +84,7 @@ def statement(statements: list[str], prefix: str) -> str:
 
 
 def files(build: Path) -> list[str]:
-    return sorted(str(p.relative_to(build)) for p in build.rglob("*") if p.is_file())
+    return sorted(p.relative_to(build).as_posix() for p in build.rglob("*") if p.is_file())
 
 
 # --- the file ------------------------------------------------------------------------------
