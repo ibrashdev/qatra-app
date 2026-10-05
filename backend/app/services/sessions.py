@@ -27,13 +27,41 @@ Design choices where the contract is silent (also in the package report):
   another plan (the learner switched plans today) is completed first, because nothing can be
   recorded in the session of a plan that is not active.
 - Nothing logs a request body, a question or an answer.
+
+Package B6 adds E21 ``POST /api/sessions/:id/events`` (``record_events``) and E22
+``POST /api/sessions/:id/complete`` (``complete_session``) to the same service. An E21 request
+is processed event by event in array order on a working copy of the passage states
+(``_EventBatch``), with the pure rules of ``domain/mastery_policy.py`` and
+``domain/time_policy.py``, and persisted with one call of ``app_apply_events`` (plus an
+empty-events call for every further learning date). An acknowledged ``clientEventId`` is never
+applied twice (the ids are looked up first; the database constraint is the final arbiter). Where
+the specification leaves the outcome open:
+
+- Every event gets exactly one outcome. Order of the checks: duplicate, session completed
+  (``session_closed``), edition not readable (``edition_mismatch``), the offline envelope against
+  the session's pinned values or, for a prepared session, its absence (``envelope_mismatch``: an
+  online event needs an open session and a replay opens it, API-spec E21 step 4), a replay whose
+  plan moved to another version (``pending`` ``plan_changed_unverifiable``, D59), an online event
+  for a paused plan (``plan_not_active``; a completed plan serves maintenance sessions and is
+  accepted).
+- Answers: ``question_not_in_session`` (S-3), ``invalid_answer_shape`` and ``pending``
+  ``policy_unsupported`` (answer policy), ``out_of_scope`` (the plan's scope and paths, S-2),
+  ``pending`` ``content_unverifiable`` (the pinned bank cannot be read). Placement sessions record
+  the attempt only (no mastery, no evidence) and report an empty passage state.
+- Activity: ``activity_out_of_bounds`` (time policy). Placement activity is acknowledged and
+  dropped. The learning date of an interval is the date of ``startedAt`` in the account zone, read
+  once per request from the calendar's optional ``learning_zone`` (D57); without it the session's
+  own date is used.
+- ``EventsResponse.daily`` and the ``daily`` of E22 are today's learning date. The goal of a date
+  is kept from its first ``daily_progress`` row (D57), else the plan's minutes in force.
 """
 
 from __future__ import annotations
 
 import uuid
-from collections import defaultdict
+from collections import Counter, defaultdict
 from collections.abc import Callable, Iterable, Sequence
+from contextlib import nullcontext
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from typing import Any, Literal, Protocol, TypeVar
@@ -43,21 +71,34 @@ from pydantic import TypeAdapter
 
 from app.config import Settings
 from app.contracts_sessions import (
+    ActivityEvent,
+    AnswerEvent,
+    AnswerExpected,
+    AnswerPassageState,
+    AnswerResult,
     ChoiceOption,
+    CompleteResponse,
+    CompleteSummary,
+    DailyProgress,
     DailySessionRequest,
+    EventsRequest,
+    EventsResponse,
     GameSessionRequest,
     Highlight,
     LearnStep,
+    OfflineEnvelope,
     OptionAnswerKey,
     OrderAnswerKey,
     PassageUnit,
     PassageView,
+    PendingEvent,
     PlacementSessionRequest,
     QuestionContext,
     QuestionPolicy,
     QuestionStep,
     RecallAnswerKey,
     RecallQuestion,
+    RejectedEvent,
     RequestViolation,
     SessionRequest,
     SessionSnapshot,
@@ -69,6 +110,8 @@ from app.contracts_sessions import (
     WordOrderQuestion,
     option_id_for_refs,
     parse_create_session_request,
+    parse_events_request,
+    refs_for_option_id,
 )
 from app.contracts_sessions import Question as QuestionDto
 from app.dependencies import SessionContext
@@ -77,8 +120,25 @@ from app.domain.answer_policy import (
     WORD_CHOICE,
     WORD_ORDER,
     WORD_RECALL,
+    GradingUnavailable,
+    RejectedAnswer,
+    ValidatedAttempt,
+    evaluate_answer,
+    key_from_question,
+)
+from app.domain.learning_state import AttemptRecord, PassageMastery
+from app.domain.mastery_policy import (
+    AcknowledgedIds,
+    RoundAnswer,
+    advance_target_streak,
+    apply_round,
+    attempt_counts_for_mastery,
+    coverage_counts,
+    round_is_complete,
+    summarize_round,
 )
 from app.domain.session_policy import (
+    ROLE_REVIEW,
     DailyInputs,
     GameInputs,
     PassageData,
@@ -90,6 +150,19 @@ from app.domain.session_policy import (
     compose_game,
     compose_placement,
     stable_hash,
+)
+from app.domain.time_policy import (
+    ActivityIgnored,
+    ActivityRejected,
+    Interval,
+    credited_interval,
+    learning_date_at,
+    resolve_goal_ms,
+    session_active_ms,
+    should_record_completion,
+    summarize_day,
+    union_ms,
+    validate_activity,
 )
 from app.errors import AppError, ErrorCode
 from app.providers.postgrest import PostgrestClient
@@ -104,7 +177,12 @@ from app.repositories.bank import (
     PostgrestBankRepository,
 )
 from app.repositories.learning import (
+    AttemptWrite,
+    DailyWrite,
+    EventWrite,
+    EvidenceWrite,
     InMemoryLearningStore,
+    IntervalWrite,
     LearningRepository,
     NewSession,
     PostgrestLearningRepository,
@@ -117,7 +195,7 @@ T = TypeVar("T")
 _STEPS = TypeAdapter(list[Step])
 
 
-# --- ports ----------------------------------------------------------------------------------------
+# --- ports ---------------------------------------------------------------------------------------
 
 
 @dataclass(frozen=True, slots=True)
@@ -152,6 +230,23 @@ class LearningCalendar(Protocol):
         """Today's learning date in the account's time zone (API-spec §1.10)."""
 
 
+class LearningZoneLike(Protocol):
+    """What the learning date of an instant needs (``LearningZone`` of package B4 has it)."""
+
+    time_zone: str
+    pending_time_zone: str | None
+    pending_effective: date | None
+
+
+class ZoneAwareCalendar(Protocol):
+    """Optional companion of ``LearningCalendar``: the account's time zone and a pending change, so
+    that E21 can date an activity event by its ``startedAt`` (D57). A calendar without it makes E21
+    use the session's own learning date for the intervals of its activity events."""
+
+    def learning_zone(self, ctx: SessionContext) -> LearningZoneLike:
+        """The zone in force and a pending change; E21 reads it once per request."""
+
+
 class _UnboundPlans:
     def load_for_session(self, ctx: SessionContext, plan_id: UUID) -> PlanSnapshot:
         raise AppError(ErrorCode.unavailable)  # nothing is faked before B4 binds the port
@@ -170,7 +265,7 @@ class CreatedSession:
     created: bool
 
 
-# --- helpers --------------------------------------------------------------------------------------
+# --- helpers -------------------------------------------------------------------------------------
 
 
 def _violation(*pairs: tuple[str, str]) -> AppError:
@@ -326,7 +421,7 @@ class _Questions:
                 self._last_type.setdefault(part_id, question.type)
 
 
-# --- the service ----------------------------------------------------------------------------------
+# --- the service ---------------------------------------------------------------------------------
 
 
 class SessionService:
@@ -354,6 +449,109 @@ class SessionService:
     @property
     def learning(self) -> LearningRepository:
         return self._learning
+
+    @property
+    def plans(self) -> PlanAccess:
+        return self._plans
+
+    @property
+    def calendar(self) -> LearningCalendar:
+        return self._calendar
+
+    @property
+    def clock(self) -> Callable[[], datetime]:
+        return self._clock
+
+    # -- E21 and E22 ---------------------------------------------------------------------------
+
+    def parse_events(self, raw: Any) -> EventsRequest:
+        """Validate the E21 body: 1 to 100 events, strict, the rule names of API-spec E21 (a
+        forbidden property reads ``events[3].correct``). Any failure fails the whole request; values
+        are never echoed."""
+        try:
+            return parse_events_request(raw)
+        except RequestViolation as violation:
+            raise _violation(*violation.fields) from None
+
+    def record_events(self, ctx: SessionContext, session_id: UUID, raw: Any) -> EventsResponse:
+        """E21: grade, record and credit the events of one of the caller's sessions. ``raw`` is the
+        JSON body. The order of the failures is the one of API-spec E21: the session (404) before
+        the body schema (422)."""
+        lock = getattr(self._learning, "lock", None)  # memory mode: one writer at a time
+        with lock if lock is not None else nullcontext():
+            session = self._learning.read_session(ctx, session_id)
+            if session is None:
+                raise AppError(ErrorCode.not_found)
+            request = self.parse_events(raw)
+            batch = _EventBatch(
+                self, ctx, session, self._clock(), self._calendar.learning_date(ctx)
+            )
+            return batch.run(request.events)
+
+    def complete_session(self, ctx: SessionContext, session_id: UUID) -> CompleteResponse:
+        """E22: close the session and report what its acknowledged events came to. Adds no time and
+        no completion of the day; repeating the call returns the same summary."""
+        lock = getattr(self._learning, "lock", None)
+        with lock if lock is not None else nullcontext():
+            session = self._learning.read_session(ctx, session_id)
+            if session is None:
+                raise AppError(ErrorCode.not_found)
+            today = self._calendar.learning_date(ctx)
+            attempts = self._learning.attempts_for_session(ctx, session_id)
+            credited = [
+                credited_interval(i.started_at, i.ended_at, i.active_ms)
+                for i in self._learning.intervals_for_session(ctx, session_id)
+            ]
+            computed_ms = session_active_ms(credited)
+            completed = session.status == "completed"
+            passed, failed = _rounds_outcome(session, attempts)
+            summary = CompleteSummary(
+                answered=len(attempts),
+                correct=sum(1 for a in attempts if a.correct),
+                new_passages=self._new_passages(ctx, session, attempts),
+                reviews_passed=passed,
+                reviews_failed=failed,
+                active_ms=session.elapsed_ms if completed else computed_ms,
+            )
+            if not completed:
+                self._learning.complete_session(ctx, session_id, computed_ms)
+            daily = daily_progress_dto(
+                self._learning, ctx, today, session_minutes=lambda: self._minutes(ctx, session)
+            )
+            return CompleteResponse(summary=summary, daily=daily)
+
+    def _minutes(self, ctx: SessionContext, session: StoredSession) -> int | None:
+        """The plan's session minutes in force, for the goal of a day that has no row yet."""
+        if session.plan_id is None:
+            return None
+        try:
+            return self._plans.load_for_session(ctx, session.plan_id).session_minutes
+        except AppError as error:
+            if error.code is ErrorCode.not_found:
+                return None
+            raise
+
+    def _new_passages(
+        self, ctx: SessionContext, session: StoredSession, attempts: Sequence[AttemptRecord]
+    ) -> int:
+        """Passages whose first attempt of the account was in this session (API-spec E22). The first
+        attempt is the earliest by ``occurredAt``, then ``clientEventId`` (the replay order of
+        A-12), so a session replayed late is still the one that introduced its passages."""
+        passage_ids = list(dict.fromkeys(a.passage_id for a in attempts))
+        if not passage_ids:
+            return 0
+        first: dict[UUID, AttemptRecord] = {}
+        ordered = sorted(
+            self._learning.attempts_for_passages(ctx, passage_ids),
+            key=lambda a: (a.occurred_at, str(a.client_event_id)),
+        )
+        for attempt in ordered:
+            first.setdefault(attempt.passage_id, attempt)
+        return sum(
+            1
+            for passage_id in passage_ids
+            if (found := first.get(passage_id)) is not None and found.session_id == session.id
+        )
 
     # -- E20 -----------------------------------------------------------------------------------
 
@@ -776,7 +974,626 @@ class SessionService:
         raise ValueError("unknown question type")
 
 
-# --- wiring ---------------------------------------------------------------------------------------
+# --- E21 and E22 helpers -------------------------------------------------------------------------
+
+
+def daily_progress_dto(
+    learning: LearningRepository,
+    ctx: SessionContext,
+    today: date,
+    *,
+    session_minutes: Callable[[], int | None],
+) -> DailyProgress:
+    """The ``DailyProgress`` of ``today`` from the stored row and the single completion (D40). The
+    goal is the one the row was created with (D57); ``session_minutes`` is asked only when the day
+    has no row yet."""
+    rows = learning.daily_progress_between(ctx, today, today)
+    row = rows[0] if rows else None
+    completed = today in learning.completion_dates(ctx, today, today)
+    goal = (
+        row.goal_ms
+        if row is not None and row.goal_ms > 0
+        else resolve_goal_ms(None, session_minutes())
+    )
+    summary = summarize_day(
+        today, row.active_ms if row is not None else 0, goal, completed=completed
+    )
+    return DailyProgress(
+        learning_date=today,
+        daily_active_ms=summary.active_ms,
+        daily_goal_ms=summary.goal_ms,
+        daily_percent=summary.percent,
+        daily_completed=summary.completed,
+        extra_active_ms=summary.extra_ms,
+    )
+
+
+def _question_steps(session: StoredSession) -> dict[UUID, dict[str, Any]]:
+    """The question steps of the immutable snapshot by question id (S-3)."""
+    found: dict[UUID, dict[str, Any]] = {}
+    try:
+        for step in session.steps:
+            if step.get("type") == "question":
+                question = step["question"]
+                found[UUID(str(question["questionId"]))] = question
+    except (KeyError, TypeError, ValueError, AttributeError):
+        raise _integrity() from None
+    return found
+
+
+def _first_attempts(attempts: Sequence[AttemptRecord]) -> dict[UUID, AttemptRecord]:
+    """The first attempt of every question: the oldest by receipt time, then by the client's own
+    time and id (the rows of one request share the receipt time)."""
+    first: dict[UUID, AttemptRecord] = {}
+    for attempt in sorted(
+        attempts, key=lambda a: (a.created_at, a.occurred_at, str(a.client_event_id))
+    ):
+        first.setdefault(attempt.question_id, attempt)
+    return first
+
+
+def _rounds_outcome(session: StoredSession, attempts: Sequence[AttemptRecord]) -> tuple[int, int]:
+    """``(passed, failed)`` review rounds of the session: a round counts once every one of its
+    questions has its first attempt (an unfinished round is not evaluated)."""
+    members: dict[UUID, list[UUID]] = defaultdict(list)
+    for question_id, question in _question_steps(session).items():
+        if question.get("role") == ROLE_REVIEW and question.get("reviewRoundId") is not None:
+            members[UUID(str(question["reviewRoundId"]))].append(question_id)
+    first = _first_attempts(attempts)
+    passed = failed = 0
+    for question_ids in members.values():
+        if not round_is_complete(question_ids, first):
+            continue
+        answers = [RoundAnswer(q, first[q].correct, first[q].assisted, ()) for q in question_ids]
+        if summarize_round(answers).passed:
+            passed += 1
+        else:
+            failed += 1
+    return passed, failed
+
+
+def _wrong_token_ref(evaluation: ValidatedAttempt) -> str | None:
+    """The first token reference of the option a learner picked wrongly in a choice game (D31);
+    never the text of a recall answer."""
+    if evaluation.correct or evaluation.chosen_option_id is None:
+        return None
+    try:
+        return refs_for_option_id(evaluation.chosen_option_id)[0]
+    except ValueError:
+        return None
+
+
+class _once:
+    """A per-instance memo like ``functools.cached_property`` without its lock. In Python 3.11 that
+    decorator holds one lock for the property across every instance, so two requests that ran at the
+    same time waited for each other's database calls. A batch belongs to one request and one thread,
+    so it needs no lock."""
+
+    def __init__(self, getter: Callable[[Any], Any]) -> None:
+        self._getter = getter
+        self._name = getter.__name__
+
+    def __set_name__(self, owner: type, name: str) -> None:
+        self._name = name
+
+    def __get__(self, instance: Any, owner: type | None = None) -> Any:
+        if instance is None:
+            return self
+        value = self._getter(instance)
+        instance.__dict__[self._name] = value
+        return value
+
+
+@dataclass(slots=True)
+class _Outcome:
+    """What one event came to: ``acknowledged``, ``duplicate``, ``pending`` or ``rejected``.
+    ``code`` is the ``reasonCode`` or the rejection code. ``write_index`` points at the element sent
+    to the repository, so that a ``duplicate`` reported by the database overrules the
+    acknowledgment (two requests that share an id)."""
+
+    kind: str
+    code: str | None = None
+    result: AnswerResult | None = None
+    write_index: int | None = None
+
+
+class _EventBatch:
+    """One E21 request. Everything the batch changes is worked out in memory, event by event in
+    array order, so a later event sees the effect of an earlier one (the streak, the evidence, a
+    round that just completed); then one call persists it. Collaborators load lazily: a batch of
+    duplicates reads almost nothing."""
+
+    def __init__(
+        self,
+        service: SessionService,
+        ctx: SessionContext,
+        session: StoredSession,
+        now: datetime,
+        today: date,
+    ) -> None:
+        self._service = service
+        self._ctx = ctx
+        self._session = session
+        self._now = now
+        self._today = today
+        self._learning = service.learning
+        self._bank = service.bank
+        self._questions = _question_steps(session)
+        self._round_members: dict[UUID, list[UUID]] = defaultdict(list)
+        for question_id, question in self._questions.items():
+            if question.get("reviewRoundId") is not None:
+                self._round_members[UUID(str(question["reviewRoundId"]))].append(question_id)
+        self._ledger = AcknowledgedIds()
+        self._writes: list[EventWrite] = []
+        self._new_intervals: dict[date, list[Interval]] = defaultdict(list)
+        self._attempt_counts: Counter[UUID] = Counter()
+        self._prior: list[AttemptRecord] | None = None
+        self._round_cache: dict[UUID, dict[UUID, RoundAnswer]] = {}
+        self._bank_questions: dict[UUID, BankQuestion] = {}
+        self._loaded_passages: set[UUID] = set()
+        self._units: dict[int, BankUnit] = {}
+
+    # -- lazy collaborators ---------------------------------------------------------------------
+
+    @_once
+    def _plan(self) -> PlanSnapshot | None:
+        if self._session.plan_id is None:
+            return None
+        return self._service.plans.load_for_session(self._ctx, self._session.plan_id)
+
+    @_once
+    def _edition(self) -> EditionInfo | None:
+        return self._bank.edition(self._ctx, self._session.edition_id)
+
+    @_once
+    def _scope(self) -> dict[UUID, BankPassage]:
+        plan = self._plan
+        if plan is None:
+            return {}
+        passages = self._bank.passages(
+            self._ctx,
+            self._session.edition_id,
+            bank_version=self._session.bank_version,
+            section_ordinals=plan.section_ordinals,
+            paths=plan.paths,
+        )
+        return {passage.id: passage for passage in passages}
+
+    @_once
+    def _mastery(self) -> dict[UUID, PassageMastery]:
+        assert self._plan is not None
+        return dict(self._learning.mastery_for_plan(self._ctx, self._plan.plan_id))
+
+    @_once
+    def _covered(self) -> set[UUID]:
+        assert self._plan is not None
+        return set(self._learning.covered_parts(self._ctx, self._plan.plan_id))
+
+    def _prior_attempts(self) -> list[AttemptRecord]:
+        if self._prior is None:
+            self._prior = self._learning.attempts_for_session(self._ctx, self._session.id)
+            self._attempt_counts.update(a.question_id for a in self._prior)
+        return self._prior
+
+    def _bank_question(self, passage_id: UUID, question_id: UUID) -> BankQuestion | None:
+        if passage_id not in self._loaded_passages:
+            for question in self._bank.questions(
+                self._ctx,
+                self._session.edition_id,
+                bank_version=self._session.bank_version,
+                passage_ids=[passage_id],
+            ):
+                self._bank_questions[question.id] = question
+            self._loaded_passages.add(passage_id)
+        return self._bank_questions.get(question_id)
+
+    def _target_word(self, question: BankQuestion) -> str | None:
+        """The verbatim text of a recall question's target word (shown as the original)."""
+        try:
+            ordinal, index = _ref_key(question.token_refs[0])
+            unit = self._units.get(ordinal)
+            if unit is None:
+                unit = self._bank.units(self._ctx, self._session.edition_id, [ordinal]).get(ordinal)
+                if unit is None:
+                    return None
+                self._units[ordinal] = unit
+            return unit.surface(index)
+        except (IndexError, ValueError):
+            return None
+
+    # -- the request ------------------------------------------------------------------------------
+
+    def run(self, events: Sequence[Any]) -> EventsResponse:
+        ids = [event.client_event_id for event in events]
+        self._ledger = AcknowledgedIds(self._learning.acknowledged_event_ids(self._ctx, ids))
+        outcomes = [self._event(event) for event in events]
+        self._persist(outcomes)
+        return self._response(events, outcomes)
+
+    def _event(self, event: AnswerEvent | ActivityEvent) -> _Outcome:
+        session = self._session
+        if self._ledger.is_duplicate(event.client_event_id):
+            return _Outcome("duplicate")
+        if session.status == "completed":
+            return _Outcome("rejected", "session_closed")
+        if self._edition is None:
+            return _Outcome("rejected", "edition_mismatch")
+        envelope = event.envelope()
+        if envelope is None and session.status == "prepared":
+            # An online event needs an open session (API-spec E21 step 4). A prepared session is
+            # opened by the replay of its run, and a replay carries the offline envelope.
+            return _Outcome("rejected", "envelope_mismatch")
+        if envelope is not None:
+            if not self._envelope_matches(envelope):
+                return _Outcome("rejected", "envelope_mismatch")
+            plan = self._plan
+            if plan is not None and plan.current_version != session.plan_version:
+                return _Outcome("pending", "plan_changed_unverifiable")
+        elif self._plan is not None and self._plan.status == "paused":
+            return _Outcome("rejected", "plan_not_active")
+        if isinstance(event, ActivityEvent):
+            return self._activity(event)
+        return self._answer(event, envelope)
+
+    def _envelope_matches(self, envelope: OfflineEnvelope) -> bool:
+        """The replay envelope against the session's pinned values (API-spec S-10)."""
+        session = self._session
+        return (
+            envelope.protocol_version == 1
+            and session.offline_snapshot_id is not None
+            and envelope.snapshot_id == session.offline_snapshot_id
+            and envelope.edition_id == session.edition_id
+            and envelope.bank_version == session.bank_version
+            and session.plan_version is not None
+            and envelope.plan_version == session.plan_version
+        )
+
+    # -- activity ---------------------------------------------------------------------------------
+
+    @_once
+    def _zone(self) -> LearningZoneLike | None:
+        lookup = getattr(self._service.calendar, "learning_zone", None)
+        return lookup(self._ctx) if callable(lookup) else None
+
+    def _activity_date(self, started_at: datetime) -> date:
+        zone = self._zone
+        if zone is None:
+            return self._session.learning_date
+        try:
+            return learning_date_at(
+                started_at, zone.time_zone, zone.pending_time_zone, zone.pending_effective
+            )
+        except ValueError:  # an unknown zone name in the profile
+            raise AppError(ErrorCode.internal) from None
+
+    def _activity(self, event: ActivityEvent) -> _Outcome:
+        verdict = validate_activity(
+            started_at=event.started_at,
+            ended_at=event.ended_at,
+            active_ms=event.active_ms,
+            server_now=self._now,
+            session_created_at=self._session.created_at,
+            session_kind=self._session.kind,
+            learning_date=self._activity_date(event.started_at),
+        )
+        if isinstance(verdict, ActivityRejected):
+            return _Outcome("rejected", "activity_out_of_bounds")
+        self._ledger.acknowledge(event.client_event_id)
+        if isinstance(verdict, ActivityIgnored):
+            return _Outcome("acknowledged")  # a placement session: acknowledged, never counted
+        self._writes.append(
+            IntervalWrite(
+                client_event_id=event.client_event_id,
+                started_at=event.started_at,
+                ended_at=event.ended_at,
+                active_ms=event.active_ms,
+                learning_date=verdict.learning_date,
+            )
+        )
+        self._new_intervals[verdict.learning_date].append(verdict.interval)
+        return _Outcome("acknowledged", write_index=len(self._writes) - 1)
+
+    # -- answers ----------------------------------------------------------------------------------
+
+    def _answer(self, event: AnswerEvent, envelope: OfflineEnvelope | None) -> _Outcome:
+        question = self._questions.get(event.question_id)
+        if question is None:
+            return _Outcome("rejected", "question_not_in_session")
+        try:
+            key = key_from_question(question)
+            passage_id = UUID(str(question["passageId"]))
+            role = str(question["role"])
+            round_id = (
+                None
+                if question.get("reviewRoundId") is None
+                else UUID(str(question["reviewRoundId"]))
+            )
+            policy = question.get("policy") or {}
+        except (KeyError, TypeError, ValueError, AttributeError):
+            raise _integrity() from None
+        if envelope is not None:
+            normalization = envelope.normalization_policy_version
+            scoring = envelope.scoring_policy_version
+        else:
+            normalization = policy.get("normalizationPolicyVersion")
+            scoring = policy.get("scoringPolicyVersion")
+        evaluation = evaluate_answer(
+            key,
+            event.answer.model_dump(by_alias=True),
+            hint_used=event.hint_used,
+            normalization_policy=normalization,
+            scoring_policy=scoring,
+        )
+        if isinstance(evaluation, RejectedAnswer):
+            return _Outcome("rejected", "invalid_answer_shape")
+        if isinstance(evaluation, GradingUnavailable):
+            return _Outcome("pending", "policy_unsupported")
+        self._prior_attempts()
+        if self._session.kind == "placement":
+            return self._placement_answer(event, evaluation, passage_id, round_id, key.type)
+        return self._plan_answer(event, evaluation, passage_id, role, round_id)
+
+    def _write_attempt(
+        self,
+        event: AnswerEvent,
+        evaluation: ValidatedAttempt,
+        passage_id: UUID,
+        round_id: UUID | None,
+        mastery: PassageMastery | None,
+        evidence: tuple[EvidenceWrite, ...],
+    ) -> int:
+        self._writes.append(
+            AttemptWrite(
+                client_event_id=event.client_event_id,
+                question_id=event.question_id,
+                passage_id=passage_id,
+                correct=evaluation.correct,
+                assisted=evaluation.assisted,
+                error_kind=evaluation.error_kind,
+                duration_ms=event.duration_ms,
+                occurred_at=event.occurred_at,
+                wrong_token_ref=_wrong_token_ref(evaluation),
+                review_round_id=round_id,
+                mastery=mastery,
+                evidence=evidence,
+            )
+        )
+        self._attempt_counts[event.question_id] += 1
+        self._ledger.acknowledge(event.client_event_id)
+        return len(self._writes) - 1
+
+    def _expected(
+        self, evaluation: ValidatedAttempt, question: BankQuestion | None
+    ) -> AnswerExpected | None:
+        if evaluation.expected_order is not None:
+            return AnswerExpected(order=list(evaluation.expected_order))
+        if evaluation.expected_option_id is not None:
+            return AnswerExpected(option_id=evaluation.expected_option_id)
+        word = None if question is None else self._target_word(question)
+        return None if word is None else AnswerExpected(word=word)
+
+    def _placement_answer(
+        self,
+        event: AnswerEvent,
+        evaluation: ValidatedAttempt,
+        passage_id: UUID,
+        round_id: UUID | None,
+        question_type: str,
+    ) -> _Outcome:
+        """A placement attempt is recorded for the estimate and gives no mastery credit."""
+        bank_question = (
+            self._bank_question(passage_id, event.question_id)
+            if question_type == WORD_RECALL
+            else None
+        )
+        expected = self._expected(evaluation, bank_question)
+        if expected is None:
+            return _Outcome("pending", "content_unverifiable")
+        index = self._write_attempt(event, evaluation, passage_id, round_id, None, ())
+        result = AnswerResult(
+            client_event_id=event.client_event_id,
+            question_id=event.question_id,
+            correct=evaluation.correct,
+            assisted=evaluation.assisted,
+            expected=expected,
+            passage=AnswerPassageState(
+                passage_id=passage_id,
+                status="new",
+                covered_parts=0,
+                total_parts=0,
+                consecutive_correct=0,
+            ),
+        )
+        return _Outcome("acknowledged", result=result, write_index=index)
+
+    def _plan_answer(
+        self,
+        event: AnswerEvent,
+        evaluation: ValidatedAttempt,
+        passage_id: UUID,
+        role: str,
+        round_id: UUID | None,
+    ) -> _Outcome:
+        plan, session = self._plan, self._session
+        assert plan is not None
+        if not self._scope:
+            return _Outcome("pending", "content_unverifiable")
+        passage = self._scope.get(passage_id)
+        if passage is None:
+            return _Outcome("rejected", "out_of_scope")
+        bank_question = self._bank_question(passage_id, event.question_id)
+        expected = self._expected(evaluation, bank_question)
+        if bank_question is None or expected is None:
+            return _Outcome("pending", "content_unverifiable")
+        part_ids = tuple(part.id for part in passage.parts)
+        before = self._mastery.get(passage_id) or PassageMastery(
+            plan_id=plan.plan_id, passage_id=passage_id
+        )
+        after, evidence = before, ()
+        counts = attempt_counts_for_mastery(role, self._attempt_counts[event.question_id])
+        if counts:
+            effect = advance_target_streak(
+                before,
+                evaluation,
+                question_part_ids=bank_question.covered_part_ids,
+                passage_part_ids=part_ids,
+                covered_part_ids=self._covered,
+                learning_date=session.learning_date,
+                now=self._now,
+            )
+            after = effect.state
+            self._covered.update(effect.new_evidence_part_ids)
+            evidence = tuple(
+                EvidenceWrite(plan.plan_id, passage_id, part, session.learning_date)
+                for part in effect.new_evidence_part_ids
+            )
+            if role == ROLE_REVIEW and round_id is not None:
+                after = self._round(
+                    round_id,
+                    event.question_id,
+                    evaluation,
+                    bank_question,
+                    passage_id,
+                    after,
+                    part_ids,
+                )
+            self._mastery[passage_id] = after
+        index = self._write_attempt(
+            event, evaluation, passage_id, round_id, after if counts else None, evidence
+        )
+        covered_parts, total_parts = coverage_counts(part_ids, self._covered)
+        result = AnswerResult(
+            client_event_id=event.client_event_id,
+            question_id=event.question_id,
+            correct=evaluation.correct,
+            assisted=evaluation.assisted,
+            expected=expected,
+            passage=AnswerPassageState(
+                passage_id=passage_id,
+                status=after.status,  # type: ignore[arg-type]
+                covered_parts=covered_parts,
+                total_parts=total_parts,
+                consecutive_correct=after.consecutive_correct,
+            ),
+        )
+        return _Outcome("acknowledged", result=result, write_index=index)
+
+    def _round(
+        self,
+        round_id: UUID,
+        question_id: UUID,
+        evaluation: ValidatedAttempt,
+        bank_question: BankQuestion,
+        passage_id: UUID,
+        state: PassageMastery,
+        part_ids: tuple[UUID, ...],
+    ) -> PassageMastery:
+        """Record the first attempt of a round question and, when it was the last one missing,
+        evaluate the round and move the ladder (API-spec E21 step 5)."""
+        answers = self._round_answers(round_id, passage_id)
+        answers[question_id] = RoundAnswer(
+            question_id, evaluation.correct, evaluation.assisted, bank_question.covered_part_ids
+        )
+        members = self._round_members[round_id]
+        if not round_is_complete(members, answers):
+            return state
+        return apply_round(
+            state,
+            summarize_round(answers[member] for member in members),
+            passage_part_ids=part_ids,
+            covered_part_ids=self._covered,
+            review_date=self._session.learning_date,
+            now=self._now,
+        )
+
+    def _round_answers(self, round_id: UUID, passage_id: UUID) -> dict[UUID, RoundAnswer]:
+        """The first attempts already recorded for the round, read once per request."""
+        cached = self._round_cache.get(round_id)
+        if cached is not None:
+            return cached
+        recorded = [a for a in self._prior_attempts() if a.review_round_id == round_id]
+        found: dict[UUID, RoundAnswer] = {}
+        for question_id, attempt in _first_attempts(recorded).items():
+            bank_question = self._bank_question(passage_id, question_id)
+            parts = () if bank_question is None else bank_question.covered_part_ids
+            found[question_id] = RoundAnswer(question_id, attempt.correct, attempt.assisted, parts)
+        self._round_cache[round_id] = found
+        return found
+
+    # -- persistence and answer -------------------------------------------------------------------
+
+    def _daily_writes(self) -> list[DailyWrite]:
+        """One ``daily_progress`` write per learning date that gained an interval: the union of the
+        stored intervals of the date and the new ones, never less than the stored figure."""
+        plan = self._plan
+        found: list[DailyWrite] = []
+        for day, fresh in sorted(self._new_intervals.items()):
+            rows = self._learning.daily_progress_between(self._ctx, day, day)
+            row = rows[0] if rows else None
+            stored = [
+                credited_interval(i.started_at, i.ended_at, i.active_ms)
+                for i in self._learning.intervals_for_date(self._ctx, day)
+            ]
+            active = max(union_ms([*stored, *fresh]), row.active_ms if row is not None else 0)
+            goal = resolve_goal_ms(
+                row.goal_ms if row is not None else None,
+                plan.session_minutes if plan is not None else None,
+            )
+            if goal <= 0 or plan is None:
+                continue  # no goal, no day to write (cannot happen for a plan session)
+            reached = should_record_completion(active, goal, already_completed=False)
+            found.append(DailyWrite(day, active, goal, reached, plan.plan_id if reached else None))
+        return found
+
+    def _persist(self, outcomes: list[_Outcome]) -> None:
+        session = self._session
+        opens = session.status == "prepared" and any(o.kind == "acknowledged" for o in outcomes)
+        dailies = self._daily_writes()
+        if not self._writes and not opens and not dailies:
+            return
+        first = dailies[-1] if dailies else None  # the latest date goes with the events
+        result = self._learning.apply_events(
+            self._ctx, session.id, self._writes, first, open_session=opens
+        )
+        for other in dailies[:-1]:
+            self._learning.apply_events(self._ctx, session.id, [], other, open_session=False)
+        for outcome in outcomes:
+            if (
+                outcome.write_index is not None
+                and result.outcomes[outcome.write_index] == "duplicate"
+            ):
+                outcome.kind, outcome.result = (
+                    "duplicate",
+                    None,
+                )  # another request recorded it first
+
+    def _response(self, events: Sequence[Any], outcomes: list[_Outcome]) -> EventsResponse:
+        def of(kind: str) -> list[tuple[Any, _Outcome]]:
+            return [(e, o) for e, o in zip(events, outcomes, strict=True) if o.kind == kind]
+
+        daily = daily_progress_dto(
+            self._learning,
+            self._ctx,
+            self._today,
+            session_minutes=lambda: self._plan.session_minutes if self._plan else None,
+        )
+        return EventsResponse(
+            acknowledged=[e.client_event_id for e, _ in of("acknowledged")],
+            duplicate=[e.client_event_id for e, _ in of("duplicate")],
+            pending=[
+                PendingEvent(client_event_id=e.client_event_id, reason_code=o.code)  # type: ignore[arg-type]
+                for e, o in of("pending")
+            ],
+            rejected=[
+                RejectedEvent(client_event_id=e.client_event_id, code=o.code)  # type: ignore[arg-type]
+                for e, o in of("rejected")
+            ],
+            results=[o.result for _, o in of("acknowledged") if o.result is not None],
+            daily=daily,
+        )
+
+
+# --- wiring --------------------------------------------------------------------------------------
 
 
 def build_sessions_service(

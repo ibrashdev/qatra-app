@@ -114,14 +114,18 @@ def advance_target_streak(
     """Apply one server-graded attempt to the passage (contract §4.1 and §4.2).
 
     - Correct and unassisted: ``consecutive_correct + 1``; every part the question tests that has no
-      evidence yet gains it. The first time the streak reaches ``STREAK_TARGET`` the passage has its
-      initial evidence: ``reviewing``, stage 1, due ``learning_date + 1``.
+      evidence yet gains it, and the tested parts leave ``error_part_ids`` (they were recalled
+      independently since the error). The first time the streak reaches ``STREAK_TARGET`` the
+      passage has its initial evidence: ``reviewing``, stage 1, due ``learning_date + 1``.
     - Incorrect: the streak is 0 and the tested parts are added to ``error_part_ids``.
     - Assisted (a hint was used), correct or not: training time only. No streak change, no evidence,
-      no error parts.
+      and ``error_part_ids`` is left alone. A round that a hint failed adds its parts afterwards
+      (``apply_round``).
 
     Decision: a ``new`` passage becomes ``learning`` on its first graded attempt of any kind, so a
     passage the learner started (even with a hint) is "being learned" for session preparation.
+    Decision (coordinator, checkpoint 2): a part leaves ``error_part_ids`` on a correct, unassisted
+    answer of any role, so the focus list does not grow without bound.
     """
     tested = _within(question_part_ids, passage_part_ids)
     started = replace(state, status="learning") if state.status == "new" else state
@@ -131,7 +135,8 @@ def advance_target_streak(
         errors = _distinct((*started.error_part_ids, *tested))
         return AttemptEffect(replace(started, consecutive_correct=0, error_part_ids=errors))
     streak = started.consecutive_correct + 1
-    advanced = replace(started, consecutive_correct=streak)
+    remaining = tuple(part for part in started.error_part_ids if part not in tested)
+    advanced = replace(started, consecutive_correct=streak, error_part_ids=remaining)
     fresh = tuple(part for part in tested if part not in covered_part_ids)
     if advanced.initial_success_at is None and streak >= STREAK_TARGET:
         advanced = replace(
@@ -260,12 +265,13 @@ def _passed_ladder_stage(
             next_review_due=_after(review_date, FIRST_MAINTENANCE_DAYS),
             last_review_date=review_date,
         )
-    # Decision: stage 3 passed with a part still uncovered. The contract does not say what is
-    # scheduled. The passage stays at stage 3 and its next round comes after the stage 3 interval,
-    # choosing uncovered parts first, so the confirmation follows the round that completes coverage.
+    # Decision (coordinator): stage 3 passed with a part still uncovered. Retention is shown and
+    # coverage is the only missing condition, so the passage stays at stage 3 with no lapse and its
+    # next round is due the next learning day, uncovered parts first. The confirmation follows the
+    # round that completes coverage.
     return replace(
         state,
-        next_review_due=_after(review_date, REVIEW_INTERVAL_DAYS[-1]),
+        next_review_due=_after(review_date, 1),
         last_review_date=review_date,
     )
 
@@ -308,12 +314,17 @@ def apply_round(
       ``needs_refresh`` passage is ``needs_refresh`` with ``confirmed_at`` cleared and
       ``first_confirmed_at`` kept.
     - Pass on the ladder: one stage, next due after the next interval. Stage 3 with every part
-      covered confirms (maintenance due after 14 days).
+      covered confirms (maintenance due after 14 days); with a part uncovered it stays at stage 3
+      and the next round is due the next learning day.
     - Pass on a confirmed passage: the next maintenance interval (30, then 60 days).
 
-    A passage that is not on the ladder (``new`` or ``learning``) is returned unchanged.
+    A passage that is not on the ladder (``new`` or ``learning``) is returned unchanged, and so is a
+    passage whose last round is later than ``review_date``: a stale replay has no effect, because a
+    later round has already moved the ladder.
     """
     if state.status not in LADDER_STATUSES:
+        return state
+    if state.last_review_date is not None and review_date < state.last_review_date:
         return state
     if not result.passed:
         return _reset_to_stage_one(state, result.failing_part_ids, passage_part_ids, review_date)

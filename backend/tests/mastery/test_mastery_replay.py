@@ -253,6 +253,8 @@ def check_step(
     assert after.lapse_count - before.lapse_count in (0, 1)
     assert after.review_stage <= before.review_stage + 1
     assert after.consecutive_correct >= 0
+    assert len(set(after.error_part_ids)) == len(after.error_part_ids)
+    assert set(after.error_part_ids) <= set(learner.parts)
     if after.status == "confirmed":
         assert is_fully_covered(learner.parts, learner.covered)
         assert after.maintenance_stage >= 1

@@ -240,6 +240,10 @@ class PlanService:
         """The caller's own plan, or ``None`` (unknown and foreign plans look the same)."""
         return self._plans.read_plan(ctx, plan_id)
 
+    def list_plans(self, ctx: SessionContext) -> list[StoredPlan]:
+        """Every plan of the caller, newest first (E18 and E19)."""
+        return self._plans.list_plans(ctx)
+
     def plan_in_force(self, ctx: SessionContext, plan_id: UUID) -> PlanInForce | None:
         """The caller's plan with the values in force on today's learning date (D57), for E20."""
         return self._plans.read_in_force(ctx, plan_id, self.learning_date(ctx))

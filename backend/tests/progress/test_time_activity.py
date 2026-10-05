@@ -213,3 +213,18 @@ def test_active_time_slightly_above_the_span_credits_no_more_than_the_span() -> 
 def test_credited_time_is_never_negative() -> None:
     with pytest.raises(ValueError):
         credited_interval(sec(0), sec(60), -1)
+
+
+def test_a_learning_date_given_by_the_caller_replaces_the_zone_computation() -> None:
+    verdict = check(sec(5), sec(185), 180_000, learning_date=date(2026, 10, 2), time_zone=None)
+    assert isinstance(verdict, ActivityAccepted)
+    assert verdict.learning_date == date(2026, 10, 2)
+
+
+def test_an_accepted_event_needs_a_time_zone_or_a_learning_date() -> None:
+    with pytest.raises(ValueError):
+        check(sec(5), sec(185), 180_000, time_zone=None)
+
+
+def test_an_event_out_of_bounds_needs_neither_a_zone_nor_a_date() -> None:
+    assert isinstance(check(sec(60), sec(30), 0, time_zone=None), ActivityRejected)

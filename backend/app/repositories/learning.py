@@ -21,15 +21,24 @@ mapped as in ``repositories/bank.py`` (``unavailable``, ``unauthenticated``, ``n
 
 Time-based reads: ``last_active_date`` is the latest learning date with verified activity
 (``daily_progress.active_ms > 0``), the input of the absence rule (R07).
+
+Package B6 adds, without touching the methods above: ``daily_progress_between`` and
+``completion_dates`` (E18, E19), ``attempts_for_session``, ``acknowledged_event_ids``,
+``intervals_for_date`` and ``intervals_for_session`` (E21, E22), and the two writes
+``apply_events`` (the function ``app_apply_events``: every element once per ``client_event_id``,
+mastery upserted, evidence once per part, one ``daily_progress`` row and its single completion) and
+``complete_session`` (``app_complete_session``). The memory store mirrors both functions under its
+lock; the supabase repository only calls them, so row-level security stays in force.
 """
 
 from __future__ import annotations
 
 import copy
 import threading
-from collections.abc import Sequence
+import uuid
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, replace
-from datetime import date, datetime
+from datetime import UTC, date, datetime, timedelta
 from typing import Any, Final, Protocol
 from uuid import UUID
 
@@ -105,6 +114,123 @@ class OpenedSession:
     created: bool
 
 
+@dataclass(frozen=True, slots=True)
+class EvidenceWrite:
+    """A part that gains evidence; the covering attempt is the attempt element it belongs to."""
+
+    plan_id: UUID
+    passage_id: UUID
+    part_id: UUID
+    learning_date: date
+
+    def to_payload(self) -> dict[str, Any]:
+        return {
+            "plan_id": str(self.plan_id),
+            "passage_id": str(self.passage_id),
+            "part_id": str(self.part_id),
+            "learning_date": self.learning_date.isoformat(),
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class AttemptWrite:
+    """The ``attempt`` element of ``app_apply_events``: one graded answer with, when it counts for
+    mastery, the passage state after it and the parts that gained evidence. The free-text answer is
+    never part of it."""
+
+    client_event_id: UUID
+    question_id: UUID
+    passage_id: UUID
+    correct: bool
+    assisted: bool
+    error_kind: str
+    duration_ms: int
+    occurred_at: datetime
+    wrong_token_ref: str | None = None
+    review_round_id: UUID | None = None
+    mastery: PassageMastery | None = None
+    evidence: tuple[EvidenceWrite, ...] = ()
+
+    def to_payload(self) -> dict[str, Any]:
+        element: dict[str, Any] = {
+            "attempt": {
+                "client_event_id": str(self.client_event_id),
+                "question_id": str(self.question_id),
+                "passage_id": str(self.passage_id),
+                "correct": self.correct,
+                "assisted": self.assisted,
+                "error_kind": self.error_kind,
+                "wrong_token_ref": self.wrong_token_ref,
+                "review_round_id": None
+                if self.review_round_id is None
+                else str(self.review_round_id),
+                "duration_ms": self.duration_ms,
+                "occurred_at": self.occurred_at.isoformat(),
+            }
+        }
+        if self.mastery is not None:
+            element["mastery"] = self.mastery.to_payload()
+            element["evidence"] = [item.to_payload() for item in self.evidence]
+        return element
+
+
+@dataclass(frozen=True, slots=True)
+class IntervalWrite:
+    """The ``interval`` element of ``app_apply_events``: one validated activity event."""
+
+    client_event_id: UUID
+    started_at: datetime
+    ended_at: datetime
+    active_ms: int
+    learning_date: date
+
+    def to_payload(self) -> dict[str, Any]:
+        return {
+            "interval": {
+                "client_event_id": str(self.client_event_id),
+                "started_at": self.started_at.isoformat(),
+                "ended_at": self.ended_at.isoformat(),
+                "active_ms": self.active_ms,
+                "learning_date": self.learning_date.isoformat(),
+            }
+        }
+
+
+EventWrite = AttemptWrite | IntervalWrite
+
+
+@dataclass(frozen=True, slots=True)
+class DailyWrite:
+    """The ``p_daily`` argument: one account-date. ``active_ms`` never decreases in the store;
+    ``completed`` asks for the single completion of the date (written once)."""
+
+    learning_date: date
+    active_ms: int
+    goal_ms: int
+    completed: bool = False
+    reached_in_plan_id: UUID | None = None
+
+    def to_payload(self) -> dict[str, Any]:
+        return {
+            "learning_date": self.learning_date.isoformat(),
+            "active_ms": self.active_ms,
+            "goal_ms": self.goal_ms,
+            "completed": self.completed,
+            "reached_in_plan_id": None
+            if self.reached_in_plan_id is None
+            else str(self.reached_in_plan_id),
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class ApplyResult:
+    """What ``apply_events`` answers: ``acknowledged`` or ``duplicate`` for every element, in order,
+    and whether this call wrote the completion of the date."""
+
+    outcomes: tuple[str, ...]
+    completion_inserted: bool = False
+
+
 class LearningRepository(Protocol):
     def open_session(self, ctx: SessionContext, new: NewSession) -> OpenedSession:
         """Insert an ``open`` session. For ``kind = daily`` this is an atomic get-or-create over
@@ -135,22 +261,78 @@ class LearningRepository(Protocol):
     def last_active_date(self, ctx: SessionContext, on_or_before: date) -> date | None:
         """The latest learning date up to ``on_or_before`` with verified activity."""
 
+    # -- package B6 -----------------------------------------------------------------------------
 
-# --- memory mode ----------------------------------------------------------------------------------
+    def daily_progress_between(
+        self, ctx: SessionContext, start: date, end: date
+    ) -> list[DailyProgressRow]:
+        """The caller's ``daily_progress`` rows with ``start <= learning_date <= end``, ascending
+        by date."""
+
+    def completion_dates(self, ctx: SessionContext, start: date, end: date) -> frozenset[date]:
+        """Learning dates in ``[start, end]`` that have their single ``daily_completions`` row."""
+
+    def attempts_for_session(self, ctx: SessionContext, session_id: UUID) -> list[AttemptRecord]:
+        """Every attempt of the caller's session, oldest first."""
+
+    def acknowledged_event_ids(
+        self, ctx: SessionContext, event_ids: Sequence[UUID]
+    ) -> frozenset[UUID]:
+        """The ids among ``event_ids`` already recorded for the caller in ``attempts`` or in
+        ``session_activity_intervals`` (``unique(user_id, client_event_id)`` on both)."""
+
+    def intervals_for_date(
+        self, ctx: SessionContext, learning_date: date
+    ) -> list[ActivityInterval]:
+        """The caller's validated intervals of one learning date, across sessions and devices,
+        oldest start first."""
+
+    def intervals_for_session(
+        self, ctx: SessionContext, session_id: UUID
+    ) -> list[ActivityInterval]:
+        """The validated intervals recorded for one of the caller's sessions, oldest start first."""
+
+    def apply_events(
+        self,
+        ctx: SessionContext,
+        session_id: UUID,
+        events: Sequence[EventWrite],
+        daily: DailyWrite | None,
+        *,
+        open_session: bool,
+    ) -> ApplyResult:
+        """Persist the elements in one transaction (``app_apply_events``). An element whose
+        ``client_event_id`` is already recorded is a ``duplicate`` and writes nothing. Raises
+        ``not_found`` for an unknown or foreign session."""
+
+    def complete_session(self, ctx: SessionContext, session_id: UUID, elapsed_ms: int) -> bool:
+        """Set ``completed`` and ``elapsed_ms`` (``app_complete_session``). ``True`` when this call
+        completed the session, ``False`` when it already was (nothing changes). Raises
+        ``not_found`` for an unknown or foreign session."""
+
+
+# --- memory mode ---------------------------------------------------------------------------------
+
+
+def _by_start(row: ActivityInterval) -> tuple[datetime, str]:
+    """The order of the PostgREST read: ``started_at.asc,id.asc``."""
+    return row.started_at, str(row.id)
 
 
 class InMemoryLearningStore:
     """Thread-safe memory-mode store. Data lives for the process only. Public attributes hold the
     raw rows for tests and for B6's ``apply_events``; the ``put_*`` helpers seed them."""
 
-    def __init__(self) -> None:
+    def __init__(self, *, clock: Callable[[], datetime] | None = None) -> None:
         self._lock = threading.RLock()
+        self._clock = clock or (lambda: datetime.now(UTC))  # stamps ``created_at`` of new rows
         self.sessions: dict[UUID, StoredSession] = {}
         self.attempts: list[AttemptRecord] = []
         self.intervals: list[ActivityInterval] = []
         self.mastery: dict[tuple[UUID, UUID, UUID], PassageMastery] = {}  # user, plan, passage
         self.evidence: dict[tuple[UUID, UUID, UUID], PartEvidence] = {}  # user, plan, part
         self.daily_progress: dict[tuple[UUID, date], DailyProgressRow] = {}
+        self.completions: dict[tuple[UUID, date], UUID] = {}  # user, date -> reached in plan
 
     @property
     def lock(self) -> threading.RLock:
@@ -176,6 +358,14 @@ class InMemoryLearningStore:
     def put_daily_progress(self, row: DailyProgressRow) -> None:
         with self._lock:
             self.daily_progress[(row.user_id, row.learning_date)] = row
+
+    def put_interval(self, row: ActivityInterval) -> None:
+        with self._lock:
+            self.intervals.append(row)
+
+    def put_completion(self, user_id: UUID, learning_date: date, plan_id: UUID) -> None:
+        with self._lock:
+            self.completions.setdefault((user_id, learning_date), plan_id)
 
     def known_passage_ids(
         self, ctx: SessionContext, placement_session_id: UUID, edition_id: UUID
@@ -298,8 +488,195 @@ class InMemoryLearningStore:
                 default=None,
             )
 
+    # -- package B6 -----------------------------------------------------------------------------
 
-# --- PostgREST ------------------------------------------------------------------------------------
+    def daily_progress_between(
+        self, ctx: SessionContext, start: date, end: date
+    ) -> list[DailyProgressRow]:
+        with self._lock:
+            rows = [
+                row
+                for (user, day), row in self.daily_progress.items()
+                if user == ctx.user_id and start <= day <= end
+            ]
+        return sorted(rows, key=lambda row: row.learning_date)
+
+    def completion_dates(self, ctx: SessionContext, start: date, end: date) -> frozenset[date]:
+        with self._lock:
+            return frozenset(
+                day
+                for (user, day) in self.completions
+                if user == ctx.user_id and start <= day <= end
+            )
+
+    def attempts_for_session(self, ctx: SessionContext, session_id: UUID) -> list[AttemptRecord]:
+        with self._lock:
+            mine = [
+                a for a in self.attempts if a.user_id == ctx.user_id and a.session_id == session_id
+            ]
+        return sorted(mine, key=lambda a: a.created_at)  # stable: insertion order inside a tie
+
+    def acknowledged_event_ids(
+        self, ctx: SessionContext, event_ids: Sequence[UUID]
+    ) -> frozenset[UUID]:
+        wanted = set(event_ids)
+        with self._lock:
+            known = {a.client_event_id for a in self.attempts if a.user_id == ctx.user_id}
+            known |= {i.client_event_id for i in self.intervals if i.user_id == ctx.user_id}
+        return frozenset(wanted & known)
+
+    def intervals_for_date(
+        self, ctx: SessionContext, learning_date: date
+    ) -> list[ActivityInterval]:
+        with self._lock:
+            found = [
+                i
+                for i in self.intervals
+                if i.user_id == ctx.user_id and i.learning_date == learning_date
+            ]
+        return sorted(found, key=_by_start)
+
+    def intervals_for_session(
+        self, ctx: SessionContext, session_id: UUID
+    ) -> list[ActivityInterval]:
+        with self._lock:
+            found = [
+                i for i in self.intervals if i.user_id == ctx.user_id and i.session_id == session_id
+            ]
+        return sorted(found, key=_by_start)
+
+    def apply_events(
+        self,
+        ctx: SessionContext,
+        session_id: UUID,
+        events: Sequence[EventWrite],
+        daily: DailyWrite | None,
+        *,
+        open_session: bool,
+    ) -> ApplyResult:
+        """The semantics of ``app_apply_events``. Everything is computed on copies and committed at
+        the end, so a refused element leaves nothing behind, as a rolled back transaction would."""
+        user = ctx.user_id
+        with self._lock:
+            session = self.sessions.get(session_id)
+            if session is None or session.user_id != user:
+                raise AppError(ErrorCode.not_found)
+            attempts, intervals = list(self.attempts), list(self.intervals)
+            mastery, evidence = dict(self.mastery), dict(self.evidence)
+            recorded = {a.client_event_id for a in attempts if a.user_id == user}
+            recorded_intervals = {i.client_event_id for i in intervals if i.user_id == user}
+            outcomes: list[str] = []
+            now = self._clock()
+            for event in events:
+                if isinstance(event, AttemptWrite):
+                    if event.client_event_id in recorded:
+                        outcomes.append("duplicate")
+                        continue
+                    attempt_id = uuid.uuid4()
+                    attempts.append(
+                        AttemptRecord(
+                            id=attempt_id,
+                            user_id=user,
+                            session_id=session_id,
+                            edition_id=session.edition_id,
+                            client_event_id=event.client_event_id,
+                            question_id=event.question_id,
+                            passage_id=event.passage_id,
+                            correct=event.correct,
+                            assisted=event.assisted,
+                            duration_ms=event.duration_ms,
+                            occurred_at=event.occurred_at,
+                            created_at=now,
+                            error_kind=event.error_kind,
+                            wrong_token_ref=event.wrong_token_ref,
+                            review_round_id=event.review_round_id,
+                        )
+                    )
+                    recorded.add(event.client_event_id)
+                    if event.mastery is not None:
+                        if event.mastery.violations():  # the database would refuse this row
+                            raise AppError(ErrorCode.unavailable)
+                        key = (user, event.mastery.plan_id, event.mastery.passage_id)
+                        mastery[key] = event.mastery
+                        for item in event.evidence:
+                            evidence.setdefault(
+                                (user, item.plan_id, item.part_id),
+                                PartEvidence(
+                                    item.plan_id,
+                                    item.passage_id,
+                                    item.part_id,
+                                    attempt_id,
+                                    item.learning_date,
+                                ),
+                            )
+                    outcomes.append("acknowledged")
+                else:
+                    if event.client_event_id in recorded_intervals:
+                        outcomes.append("duplicate")
+                        continue
+                    span = event.ended_at - event.started_at
+                    within = event.active_ms <= span // timedelta(milliseconds=1) + 1000
+                    if not (timedelta(0) <= span and 0 <= event.active_ms <= 1_800_000 and within):
+                        raise AppError(ErrorCode.unavailable)  # the CHECKs of the interval table
+                    intervals.append(
+                        ActivityInterval(
+                            id=uuid.uuid4(),
+                            user_id=user,
+                            session_id=session_id,
+                            client_event_id=event.client_event_id,
+                            started_at=event.started_at,
+                            ended_at=event.ended_at,
+                            active_ms=event.active_ms,
+                            learning_date=event.learning_date,
+                            created_at=now,
+                        )
+                    )
+                    recorded_intervals.add(event.client_event_id)
+                    outcomes.append("acknowledged")
+            inserted = False
+            progress = dict(self.daily_progress)
+            completions = dict(self.completions)
+            if daily is not None:
+                if daily.goal_ms <= 0 or daily.active_ms < 0:
+                    raise AppError(ErrorCode.unavailable)
+                day_key = (user, daily.learning_date)
+                before = progress.get(day_key)
+                kept = daily.active_ms if before is None else max(before.active_ms, daily.active_ms)
+                progress[day_key] = DailyProgressRow(user, daily.learning_date, kept, daily.goal_ms)
+                if daily.completed:
+                    if daily.reached_in_plan_id is None:
+                        raise AppError(ErrorCode.unavailable)
+                    if day_key not in completions:
+                        completions[day_key] = daily.reached_in_plan_id
+                        inserted = True
+            self.attempts[:] = attempts
+            self.intervals[:] = intervals
+            self.mastery.clear()
+            self.mastery.update(mastery)
+            self.evidence.clear()
+            self.evidence.update(evidence)
+            self.daily_progress.clear()
+            self.daily_progress.update(progress)
+            self.completions.clear()
+            self.completions.update(completions)
+            if open_session and session.status == "prepared":
+                self.sessions[session_id] = replace(session, status="open")
+            return ApplyResult(tuple(outcomes), inserted)
+
+    def complete_session(self, ctx: SessionContext, session_id: UUID, elapsed_ms: int) -> bool:
+        with self._lock:
+            session = self.sessions.get(session_id)
+            if session is None or session.user_id != ctx.user_id:
+                raise AppError(ErrorCode.not_found)
+            if session.status == "completed":
+                return False
+            if elapsed_ms < 0:  # CHECK (elapsed_ms >= 0)
+                raise AppError(ErrorCode.unavailable)
+            self.sessions[session_id] = replace(session, status="completed", elapsed_ms=elapsed_ms)
+            return True
+
+
+# --- PostgREST -----------------------------------------------------------------------------------
 
 _SESSION_COLUMNS = (
     "id,user_id,plan_id,plan_version_id,edition_id,kind,learning_date,lesson_refs,question_refs,"
@@ -313,6 +690,9 @@ _MASTERY_COLUMNS = (
 _ATTEMPT_COLUMNS = (
     "id,session_id,edition_id,client_event_id,question_id,passage_id,correct,assisted,error_kind,"
     "wrong_token_ref,review_round_id,duration_ms,occurred_at,created_at"
+)
+_INTERVAL_COLUMNS = (
+    "id,session_id,client_event_id,started_at,ended_at,active_ms,learning_date,created_at"
 )
 
 
@@ -492,3 +872,162 @@ class PostgrestLearningRepository:
         if not rows:
             return None
         return parse_or_internal(lambda: date.fromisoformat(str(rows[0]["learning_date"])[:10]))
+
+    # -- package B6 -----------------------------------------------------------------------------
+
+    @staticmethod
+    def _window(start: date, end: date) -> dict[str, str]:
+        """Both ends of a date range on one column need PostgREST's ``and``."""
+        return {
+            "and": f"(learning_date.gte.{start.isoformat()},learning_date.lte.{end.isoformat()})"
+        }
+
+    def daily_progress_between(
+        self, ctx: SessionContext, start: date, end: date
+    ) -> list[DailyProgressRow]:
+        if start > end:
+            return []
+        rows = self._rest.select_all(
+            ctx,
+            "daily_progress",
+            columns="learning_date,active_ms,goal_ms",
+            filters={**self._window(start, end), "user_id": f"eq.{ctx.user_id}"},
+            order="learning_date.asc",
+        )
+        return [
+            parse_or_internal(
+                lambda row=row: DailyProgressRow(
+                    user_id=ctx.user_id,
+                    learning_date=require_date(row["learning_date"]),
+                    active_ms=int(row["active_ms"]),
+                    goal_ms=int(row["goal_ms"]),
+                )
+            )
+            for row in rows
+        ]
+
+    def completion_dates(self, ctx: SessionContext, start: date, end: date) -> frozenset[date]:
+        if start > end:
+            return frozenset()
+        rows = self._rest.select_all(
+            ctx,
+            "daily_completions",
+            columns="learning_date",
+            filters={**self._window(start, end), "user_id": f"eq.{ctx.user_id}"},
+            order="learning_date.asc",
+        )
+        return frozenset(
+            parse_or_internal(lambda row=row: require_date(row["learning_date"])) for row in rows
+        )
+
+    def attempts_for_session(self, ctx: SessionContext, session_id: UUID) -> list[AttemptRecord]:
+        rows = self._rest.select_all(
+            ctx,
+            "attempts",
+            columns=_ATTEMPT_COLUMNS,
+            filters={"session_id": f"eq.{session_id}", "user_id": f"eq.{ctx.user_id}"},
+            order="created_at.asc,id.asc",
+        )
+        return [
+            parse_or_internal(lambda row=row: AttemptRecord.from_row(row, user_id=ctx.user_id))
+            for row in rows
+        ]
+
+    def acknowledged_event_ids(
+        self, ctx: SessionContext, event_ids: Sequence[UUID]
+    ) -> frozenset[UUID]:
+        found: set[UUID] = set()
+        ids = list(dict.fromkeys(event_ids))
+        for table in ("attempts", "session_activity_intervals"):
+            for chunk in chunks(ids, self._chunk):
+                rows = self._rest.select(
+                    ctx,
+                    table,
+                    columns="client_event_id",
+                    filters={
+                        "client_event_id": in_filter(chunk),
+                        "user_id": f"eq.{ctx.user_id}",
+                    },
+                )
+                found.update(
+                    parse_or_internal(lambda row=row: UUID(str(row["client_event_id"])))
+                    for row in rows
+                )
+        return frozenset(found)
+
+    def _intervals(self, ctx: SessionContext, filters: dict[str, str]) -> list[ActivityInterval]:
+        rows = self._rest.select_all(
+            ctx,
+            "session_activity_intervals",
+            columns=_INTERVAL_COLUMNS,
+            filters={**filters, "user_id": f"eq.{ctx.user_id}"},
+            order="started_at.asc,id.asc",
+        )
+        return [
+            parse_or_internal(
+                lambda row=row: ActivityInterval(
+                    id=UUID(str(row["id"])),
+                    user_id=ctx.user_id,
+                    session_id=UUID(str(row["session_id"])),
+                    client_event_id=UUID(str(row["client_event_id"])),
+                    started_at=require_datetime(row["started_at"]),
+                    ended_at=require_datetime(row["ended_at"]),
+                    active_ms=int(row["active_ms"]),
+                    learning_date=require_date(row["learning_date"]),
+                    created_at=require_datetime(row["created_at"]),
+                )
+            )
+            for row in rows
+        ]
+
+    def intervals_for_date(
+        self, ctx: SessionContext, learning_date: date
+    ) -> list[ActivityInterval]:
+        return self._intervals(ctx, {"learning_date": f"eq.{learning_date.isoformat()}"})
+
+    def intervals_for_session(
+        self, ctx: SessionContext, session_id: UUID
+    ) -> list[ActivityInterval]:
+        return self._intervals(ctx, {"session_id": f"eq.{session_id}"})
+
+    def apply_events(
+        self,
+        ctx: SessionContext,
+        session_id: UUID,
+        events: Sequence[EventWrite],
+        daily: DailyWrite | None,
+        *,
+        open_session: bool,
+    ) -> ApplyResult:
+        result = self._rest.rpc(
+            ctx,
+            "app_apply_events",
+            {
+                "p_session_id": str(session_id),
+                "p_events": [event.to_payload() for event in events],
+                "p_daily": None if daily is None else daily.to_payload(),
+                "p_open_session": open_session,
+            },
+        )
+
+        def parse() -> ApplyResult:
+            outcomes = tuple(str(item) for item in result["outcomes"])
+            if len(outcomes) != len(events) or not set(outcomes) <= {"acknowledged", "duplicate"}:
+                raise ValueError("outcomes")
+            return ApplyResult(outcomes, bool(result.get("daily_completion_inserted", False)))
+
+        return parse_or_internal(parse)
+
+    def complete_session(self, ctx: SessionContext, session_id: UUID, elapsed_ms: int) -> bool:
+        result = self._rest.rpc(
+            ctx,
+            "app_complete_session",
+            {"p_session_id": str(session_id), "p_elapsed_ms": elapsed_ms},
+        )
+
+        def parse() -> bool:
+            if not isinstance(result, bool):
+                raise ValueError("completed")
+            return result
+
+        return parse_or_internal(parse)
