@@ -23,6 +23,15 @@ async function failureOf(promise: Promise<unknown>): Promise<ApiError> {
   throw new Error("The call was expected to fail.");
 }
 
+describe("registration", () => {
+  it("mockHandlers serves E19 and E20 without any extra wiring", async () => {
+    expect(mockHandlers["GET /progress"]).toBe(todayMockHandlers["GET /progress"]);
+    expect(mockHandlers["POST /sessions"]).toBe(todayMockHandlers["POST /sessions"]);
+    const client = createApiClient({ fetch: createMockFetch({ latencyMs: 0 }) });
+    expect((await getProgress(client)).plans).toHaveLength(1);
+  });
+});
+
 describe("E19 GET /api/progress (todayMockHandlers)", () => {
   it("returns the synthetic ProgressResponse of the active plan, whose sections carry E18's current stage", async () => {
     const progress = await getProgress(setup().client);

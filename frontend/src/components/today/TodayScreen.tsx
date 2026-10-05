@@ -1,15 +1,18 @@
-"use client";
+﻿"use client";
 
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
 import { RecoveryCodeUnavailableBanner } from "@/components/auth/RecoveryCodeUnavailableBanner";
+import { takePlanConfirmed } from "@/components/plan-chat/confirmed-flash";
 import { Banner } from "@/components/ui/Banner";
 import { Button } from "@/components/ui/Button";
 import { Countdown } from "@/components/ui/Countdown";
 import { BannerSlot } from "@/components/ui/FormBanners";
 import { PageTitle } from "@/components/ui/PageTitle";
 import { TextLink } from "@/components/ui/TextLink";
+import { ToastProvider, useToast } from "@/components/ui/Toast";
 import { useLocale } from "@/i18n/LocaleProvider";
+import { planChatMessages } from "@/i18n/plan-chat-messages";
 import { todayMessages } from "@/i18n/today-messages";
 import { useApiRuntime, useWakeUpState } from "@/lib/api/react";
 import { startDailySession } from "@/lib/api/today-endpoints";
@@ -29,8 +32,18 @@ interface Throttle {
 
 // S-11 Plan & today (UI-screens Batch 2, package F7): the learner's day at a glance and one button for the session.
 // E18 and E19 load in parallel; the button calls E20 `daily` once per press (P-14) and opens the session screen (S-19) with the id it answers.
+// The toast needs a provider that the app shell does not have, so the screen carries its own.
 export function TodayScreen() {
+  return (
+    <ToastProvider>
+      <TodayContent />
+    </ToastProvider>
+  );
+}
+
+function TodayContent() {
   const { locale, messages } = useLocale();
+  const toast = useToast();
   const t = todayMessages(locale);
   const router = useRouter();
   const { client } = useApiRuntime();
@@ -50,6 +63,14 @@ export function TodayScreen() {
     return () => {
       mounted.current = false;
     };
+  }, []);
+
+  // Arrival from S-34: the one-time toast «تم اعتماد خطتك.» or «تم اعتماد التعديل.», read once from memory (never the URL).
+  useEffect(() => {
+    const kind = takePlanConfirmed();
+    if (kind !== null) toast.show(planChatMessages(locale).toast[kind]);
+    // Once per arrival: the locale at that moment is the one that counts.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const failure: TodayFailure | null = startFailure ?? (state.status === "error" ? state.failure : null);

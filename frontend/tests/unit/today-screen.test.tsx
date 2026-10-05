@@ -18,6 +18,7 @@ import { createMockFetch } from "@/lib/api/mock/mock-fetch";
 import { MOCK_SESSION_ID, mockProgress, todayMockHandlers } from "@/lib/api/mock/today-handlers";
 import { createApiRuntime } from "@/lib/api/runtime";
 import type { Plan, ProgressResponse, Today } from "@/lib/api/types";
+import { peekPlanConfirmed, raisePlanConfirmed, takePlanConfirmed } from "@/components/plan-chat/confirmed-flash";
 import { clearLoginArrival, peekLoginArrival } from "@/lib/auth/flash";
 
 // Index reads of a record may be undefined, so the base handlers are fetched through one function that says so.
@@ -67,6 +68,7 @@ beforeEach(() => {
   navigation.router.replace.mockReset();
   browser.reloadPage.mockReset();
   clearLoginArrival();
+  takePlanConfirmed();
 });
 
 afterEach(() => {
@@ -517,5 +519,38 @@ describe("S-11 E18 failure", () => {
     renderToday({ handlers: { "GET /today": () => errorResponse(401, "unauthenticated", "Out.") } });
     await waitFor(() => expect(navigation.router.replace).toHaveBeenCalledWith("/login?next=%2Ftoday"));
     expect(peekLoginArrival()).toBe("session_ended");
+  });
+});
+
+describe("S-11 arrival from S-34 (the confirmed toast)", () => {
+  it("shows «تم اعتماد خطتك.» once for a new plan, and consumes the note", async () => {
+    raisePlanConfirmed("created");
+    renderToday();
+    expect(await screen.findByText("تم اعتماد خطتك.")).toBeInTheDocument();
+    expect(peekPlanConfirmed()).toBeNull();
+    // The phrase is in the toast's polite status region, so it is announced.
+    expect(screen.getByText("تم اعتماد خطتك.").closest("[role=status]")).toHaveAttribute("aria-live", "polite");
+  });
+
+  it("shows «تم اعتماد التعديل.» after a revision", async () => {
+    raisePlanConfirmed("revised");
+    renderToday();
+    expect(await screen.findByText("تم اعتماد التعديل.")).toBeInTheDocument();
+  });
+
+  it("uses the English strings for the English interface", async () => {
+    raisePlanConfirmed("created");
+    renderToday({ language: "en" });
+    expect(await screen.findByText("Your plan is confirmed.")).toBeInTheDocument();
+  });
+
+  it("shows no toast on an ordinary visit, and does not show it again on the next one", async () => {
+    raisePlanConfirmed("created");
+    const first = renderToday();
+    await screen.findByText("تم اعتماد خطتك.");
+    first.unmount();
+    renderToday();
+    await screen.findByText("الزمن اليومي");
+    expect(screen.queryByText("تم اعتماد خطتك.")).toBeNull();
   });
 });
