@@ -52,3 +52,23 @@ No database or provider storage was changed. No source text was printed into thi
 Status: `Partial draft prepared`. Hadith numbers 3–5 have passed source-pass comparison and produced a validated draft bank; number 2 is a recorded gap. Surahs 113–114 are acquired but await the contract's independent oracle comparison. Hadith 5 narration's boundary doubt remains `Needs Review`; grade paths for hadiths 3–5 were omitted.
 
 Next: obtain the documented Hafs v18 oracle through an approved route before verifying the Quran draft. Keep hadith 5 narration's boundary doubt visible for human review; do not claim grade coverage for hadiths 3–5. D83's source-only verifier must not be applied to this batch. `approve` and `publish` remain unrun; public release of this expanded batch requires the applicable owner review and publication G6. Nothing here claims a complete collection or replaces already published content.
+
+
+## CONTENT-EXPANSION-02 — full-range acquisition and hadith draft
+
+Status: Quran acquired; hadith standard verification and bank construction completed, but validation failed. All artifacts remain drafts; no approval or publication was recorded. The owner requested: “use Islamic content MCP and expand the content more” (2026-10-05). This records preparation authorization only. D68 governs the source route; D83's source-only method was not used for these expanded ranges.
+
+Source objects are retained under the ignored private directory `backend/.content-build/expansion-batch-02/`. The metadata-only [batch 02 evidence index](../references/source-acquisition/expansion-batch-02-evidence.json) records each object's canonical URL, IDs, timestamp, raw payload hash and file hash without source text.
+
+| Collection | Acquisition and pipeline result |
+|---|---|
+| Quran, `quran-hafs-quranenc`, bank 3 | Surahs 78–114 acquired from Islamic Content MCP: 37/37 surahs and 564 ayahs, no missing surahs; 37 raw objects. Standard verification, segmentation, bank build and validation were not run because the required independent Hafs v18 oracle is not documented here. Status remains `acquired`. |
+| Forty Nawawi, `nawawi40-hadeethenc`, bank 3 | Forty 1–42 requested; 35 explicitly mapped records acquired in each of two HTTP passes (70 raw objects). Standard `verify` passed 140/140 units using `two_pass_nfc_equality`; 7 gaps remain: 2, 14, 24, 25, 35, 40 and 42 (`no_record`). `segment` succeeded (35 sections, 105 units, 2,537 words, 108 passages including 35 grade passages, 440 parts). `build-bank` succeeded (108 lessons, 1,942 questions, 3 skipped). `validate` failed (exit 1): 439/440 parts covered; `part_uncovered` at `matn:25:1`. The uncovered one-word part is passage ordinal 25, `matn`, reference `nawawi40:22`, range `58:56`–`58:56`; see evidence index. Stop downstream work pending review. |
+
+Hadith review flags: five narration boundary doubts (Forty 5, 7, 16, 19 and 27) and one hard-split flag (Forty 29); 3 bank items were skipped for `segment_ambiguous` refs `19:16`, `85:16` and `100:16`. The validation report shows no grade-passage omissions (35 grade passages). The uncovered-part finding remains unresolved; no source rewrite, validation weakening or code change was made.
+
+Source-match limitation: the existing ID-map evidence classifies 26 records from HadeethEnc’s dedicated Forty run and 9 standalone search records as matched; seven other standalone numbers remain uncertain and were not fetched. The 9 standalone matches depend in part on the prior reviewer’s recollection of the printed Forty and lack independent oracle evidence. Two-pass NFC equality shows consistent MCP retrieval; it does not establish exact matching to the approved printed Nawawi wording. Keep those 9 standalone matches pending human review and do not label them fully approved text. The seven unmapped numbers were not fetched or guessed; candidate 4563 was excluded.
+
+Rate limiting: Quran acquisition first stopped with HTTP 429 after 23 objects, then the same command resumed after a 60-second backoff and completed (14 new objects). Hadith pass 1 stopped after 23 records and resumed after a 60-second backoff (12 new records); pass 2 stopped after 24 records and resumed after a 60-second backoff (11 new records). No alternate identity or source was used.
+
+No source text was added to this tracker or metadata index. `approve` and `publish` were not run. This batch does not claim publication G6, full collection verification, or public readiness.
