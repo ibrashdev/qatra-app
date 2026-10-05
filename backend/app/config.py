@@ -141,7 +141,8 @@ class Settings(BaseSettings):
     QATRA_CHAT_MAX_TOKENS: int = Field(default=400, ge=1)
     QATRA_CHAT_GUARD_VERSION: str = "guard-v1"
     # When false, every conversation of a non-demo account is rules-only (no provider call).
-    QATRA_CHAT_MODEL_FOR_LEARNERS: bool = True
+    # The default is false (D76, Q2): a forgotten variable cannot send learner text to a model.
+    QATRA_CHAT_MODEL_FOR_LEARNERS: bool = False
 
     def is_missing(self, name: str) -> bool:
         value = getattr(self, name)

@@ -3,10 +3,14 @@
 It holds the tables the two repositories read, built from the synthetic bundles, and speaks enough
 PostgREST for them: ``eq``/``in``/``is``/``gt``/``gte``/``lt``/``lte`` filters, ``select`` (checked:
 ``book_editions`` and ``sources`` must name their columns and never ask for the unreadable ones),
-``order``, ``limit`` and ``offset``, ``Prefer: return=representation`` on PATCH, and the RPC
-``app_open_session`` with the semantics of the migration (an atomic daily get-or-create, and
-``QT002`` when the plan version is not the one in force). Row-level security is imitated where it
-matters: a learner sees only ``published`` and ``superseded`` editions and only his own rows.
+``order``, ``limit`` and ``offset``, PostgREST's ``and=(a.gte.x,a.lte.y)`` group, ``Prefer:
+return=representation`` on PATCH, and the RPCs ``app_open_session``, ``app_apply_events`` and
+``app_complete_session`` with the semantics of the migration (an atomic daily get-or-create and
+``QT002`` when the plan version is not the one in force; every event element once per
+``client_event_id`` with the mastery upsert, evidence once per part, ``greatest`` on the daily time
+and one completion per date, all in one transaction that is rolled back on a refused element).
+Row-level security is imitated where it matters: a learner sees only ``published`` and
+``superseded`` editions and only his own rows.
 
 Every request must carry ``apikey`` and ``Authorization: Bearer <learner token>``; anything else is
 answered ``401 PGRST301`` like an expired JWT.
@@ -14,14 +18,19 @@ answered ``401 PGRST301`` like an expired JWT.
 
 from __future__ import annotations
 
+import copy
 import json
+import re
+import uuid
 from collections.abc import Callable, Mapping, Sequence
+from datetime import datetime, timedelta
 from typing import Any
 from urllib.parse import unquote
 from uuid import UUID
 
 import httpx
 
+from app.domain.learning_state import PassageMastery
 from app.providers.postgrest import PostgrestClient
 from tests.sessions.ss_support import HADITH, NOW, PLAN_ID, PLAN_VERSION_ID, QURAN, USER
 
@@ -30,6 +39,26 @@ ANON = "anon-publishable-key-0001"
 BASE = "https://project.example"
 UNREADABLE = ("raw_storage_path", "review_record")
 RESERVED = {"select", "order", "limit", "offset"}
+LEARNER_TABLES = (
+    "learning_sessions",
+    "target_mastery",
+    "target_part_evidence",
+    "attempts",
+    "daily_progress",
+    "session_activity_intervals",
+    "daily_completions",
+)
+ERROR_KINDS = {
+    None,
+    "none",
+    "wrong_choice",
+    "wrong_order",
+    "wrong_recall",
+    "similar_confusion",
+    "timeout",
+    "skipped",
+}
+_TOKEN_REF = re.compile(r"^\d+:\d+$")
 
 
 def _text(value: Any) -> str:
@@ -186,6 +215,14 @@ def tables_of(bundle: Mapping[str, Any]) -> dict[str, list[dict[str, Any]]]:
     }
 
 
+class _Refused(Exception):
+    """A constraint of the database refuses an element: the SQLSTATE of the violation."""
+
+    def __init__(self, code: str) -> None:
+        self.code = code
+        super().__init__(code)
+
+
 class FakePostgrest:
     """The server side of the adapter tests. ``client()`` is a ``PostgrestClient`` wired to it."""
 
@@ -198,16 +235,7 @@ class FakePostgrest:
         anon: str = ANON,
     ) -> None:
         self.user_id, self.token, self.anon = str(user_id), token, anon
-        self.tables: dict[str, list[dict[str, Any]]] = {
-            name: []
-            for name in (
-                "learning_sessions",
-                "target_mastery",
-                "target_part_evidence",
-                "attempts",
-                "daily_progress",
-            )
-        }
+        self.tables: dict[str, list[dict[str, Any]]] = {name: [] for name in LEARNER_TABLES}
         for bundle in bundles:
             for name, rows in tables_of(bundle).items():
                 self.tables.setdefault(name, []).extend(rows)
@@ -217,6 +245,8 @@ class FakePostgrest:
         self.plan_version_in_force: str | None = str(PLAN_VERSION_ID)
         self.requests: list[httpx.Request] = []
         self.rpc_bodies: list[dict[str, Any]] = []
+        self.apply_bodies: list[dict[str, Any]] = []
+        self.complete_bodies: list[dict[str, Any]] = []
         self.patch_bodies: list[dict[str, Any]] = []
         self.failures: list[tuple[str, Callable[[httpx.Request], httpx.Response]]] = []
 
@@ -309,6 +339,17 @@ class FakePostgrest:
             }[operator]
         raise AssertionError(f"fake PostgREST does not support the operator {operator!r}")
 
+    def _condition(self, row: Mapping[str, Any], column: str, expression: str) -> bool:
+        """One query parameter: a column filter, or PostgREST's ``and=(a.gte.1,a.lte.9)`` group."""
+        if column != "and":
+            return self._matches(row, column, expression)
+        inner = expression.removeprefix("(").removesuffix(")")
+        for part in inner.split(","):
+            name, _, rest = part.partition(".")
+            if not self._matches(row, name, rest):
+                return False
+        return True
+
     def _select(self, table: str, request: httpx.Request) -> list[dict[str, Any]]:
         params = request.url.params
         select = params.get("select")
@@ -320,18 +361,12 @@ class FakePostgrest:
             r
             for r in self._visible(table)
             if all(
-                self._matches(r, column, unquote(value))
+                self._condition(r, column, unquote(value))
                 for column, value in params.multi_items()
                 if column not in RESERVED
             )
         ]
-        if table in (
-            "learning_sessions",
-            "target_mastery",
-            "target_part_evidence",
-            "attempts",
-            "daily_progress",
-        ):
+        if table in LEARNER_TABLES:
             rows = [r for r in rows if r.get("user_id", self.user_id) == self.user_id]
         if order := params.get("order"):
             for spec in reversed(order.split(",")):
@@ -347,6 +382,10 @@ class FakePostgrest:
     # -- writes --------------------------------------------------------------------------------
 
     def _rpc(self, name: str, args: dict[str, Any]) -> httpx.Response:
+        if name == "app_apply_events":
+            return self._apply_events(args)
+        if name == "app_complete_session":
+            return self._complete_session(args)
         assert name == "app_open_session", f"unexpected function {name}"
         self.rpc_bodies.append(args)
         if (
@@ -395,6 +434,213 @@ class FakePostgrest:
             }
         )
         return httpx.Response(200, json=[{"session_id": session_id, "created": True}])
+
+    # -- app_apply_events and app_complete_session ----------------------------------------------
+
+    @staticmethod
+    def _error(status: int, code: str, message: str = "refused") -> httpx.Response:
+        return httpx.Response(
+            status, json={"code": code, "message": message, "details": None, "hint": None}
+        )
+
+    def _owned_session(self, session_id: Any) -> dict[str, Any] | None:
+        return next(
+            (
+                row
+                for row in self.tables["learning_sessions"]
+                if row["id"] == str(session_id) and row["user_id"] == self.user_id
+            ),
+            None,
+        )
+
+    def _apply_events(self, args: dict[str, Any]) -> httpx.Response:
+        """``app_apply_events`` of migration 0005 section 7.4, in one transaction: a refused
+        element rolls every table back."""
+        self.apply_bodies.append(args)
+        if set(args) != {"p_session_id", "p_events", "p_daily", "p_open_session"}:
+            return self._error(404, "PGRST202")  # a misspelt argument, like the real PostgREST
+        session = self._owned_session(args["p_session_id"])
+        if session is None:
+            return self._error(500, "P0002", "session_not_found")
+        if not isinstance(args["p_events"], list):
+            return self._error(400, "22023", "p_events must be a JSON array")
+        names = ("learning_sessions", *LEARNER_TABLES[1:])
+        backup = {name: copy.deepcopy(self.tables[name]) for name in names}
+        try:
+            body = self._apply(session, args)
+        except _Refused as refused:
+            for name, rows in backup.items():
+                self.tables[name][:] = rows
+            return self._error(400, refused.code)
+        return httpx.Response(200, json=body)
+
+    def _apply(self, session: dict[str, Any], args: dict[str, Any]) -> dict[str, Any]:
+        uid = self.user_id
+        if args["p_open_session"] and session["status"] == "prepared":
+            session["status"] = "open"
+        outcomes: list[str] = []
+        for element in args["p_events"]:
+            if ("attempt" in element) == ("interval" in element):
+                raise _Refused("22023")
+            if "attempt" in element:
+                outcomes.append(self._apply_attempt(session, element))
+            else:
+                outcomes.append(self._apply_interval(session, element["interval"]))
+        inserted = False
+        daily = args["p_daily"]
+        if daily is not None:
+            if daily["goal_ms"] <= 0 or daily["active_ms"] < 0:
+                raise _Refused("23514")
+            rows = self.tables["daily_progress"]
+            row = next(
+                (
+                    r
+                    for r in rows
+                    if r["user_id"] == uid and r["learning_date"] == daily["learning_date"]
+                ),
+                None,
+            )
+            if row is None:
+                rows.append(
+                    {
+                        "user_id": uid,
+                        "learning_date": daily["learning_date"],
+                        "active_ms": daily["active_ms"],
+                        "goal_ms": daily["goal_ms"],
+                    }
+                )
+            else:
+                row["active_ms"] = max(row["active_ms"], daily["active_ms"])
+                row["goal_ms"] = daily["goal_ms"]
+            if daily.get("completed"):
+                if daily.get("reached_in_plan_id") is None:
+                    raise _Refused("23514")
+                done = self.tables["daily_completions"]
+                if not any(
+                    r["user_id"] == uid and r["learning_date"] == daily["learning_date"]
+                    for r in done
+                ):
+                    done.append(
+                        {
+                            "user_id": uid,
+                            "learning_date": daily["learning_date"],
+                            "reached_in_plan_id": daily["reached_in_plan_id"],
+                            "completed_at": NOW.isoformat(),
+                        }
+                    )
+                    inserted = True
+        return {"outcomes": outcomes, "daily_completion_inserted": inserted}
+
+    def _apply_attempt(self, session: dict[str, Any], element: dict[str, Any]) -> str:
+        uid = self.user_id
+        a = element["attempt"]
+        attempts = self.tables["attempts"]
+        if any(
+            r["user_id"] == uid and r["client_event_id"] == a["client_event_id"] for r in attempts
+        ):
+            return "duplicate"
+        wrong_ref = a.get("wrong_token_ref")
+        if (
+            a.get("error_kind") not in ERROR_KINDS
+            or (wrong_ref is not None and not _TOKEN_REF.match(wrong_ref))
+            or a["duration_ms"] < 0
+        ):
+            raise _Refused("23514")
+        attempt_id = str(uuid.uuid4())
+        attempts.append(
+            {
+                "id": attempt_id,
+                "user_id": uid,
+                "session_id": session["id"],
+                "edition_id": session["edition_id"],
+                "client_event_id": a["client_event_id"],
+                "question_id": a["question_id"],
+                "passage_id": a["passage_id"],
+                "correct": a["correct"],
+                "assisted": bool(a.get("assisted")),
+                "error_kind": a.get("error_kind"),
+                "wrong_token_ref": wrong_ref,
+                "review_round_id": a.get("review_round_id"),
+                "duration_ms": a["duration_ms"],
+                "occurred_at": a["occurred_at"],
+                "created_at": NOW.isoformat(),
+            }
+        )
+        mastery = element.get("mastery")
+        if isinstance(mastery, dict):
+            if PassageMastery.from_row(mastery).violations():
+                raise _Refused("23514")
+            rows = self.tables["target_mastery"]
+            row = next(
+                (
+                    r
+                    for r in rows
+                    if r["user_id"] == uid
+                    and r["plan_id"] == mastery["plan_id"]
+                    and r["passage_id"] == mastery["passage_id"]
+                ),
+                None,
+            )
+            values = {"user_id": uid, "edition_id": session["edition_id"], **mastery}
+            if row is None:
+                rows.append(values)
+            else:
+                row.update(values)
+        for item in element.get("evidence") or []:
+            rows = self.tables["target_part_evidence"]
+            if not any(
+                r["user_id"] == uid
+                and r["plan_id"] == item["plan_id"]
+                and r["part_id"] == item["part_id"]
+                for r in rows
+            ):
+                rows.append({"user_id": uid, "attempt_id": attempt_id, **item})
+        return "acknowledged"
+
+    def _apply_interval(self, session: dict[str, Any], i: dict[str, Any]) -> str:
+        uid = self.user_id
+        rows = self.tables["session_activity_intervals"]
+        if any(r["user_id"] == uid and r["client_event_id"] == i["client_event_id"] for r in rows):
+            return "duplicate"
+        started = datetime.fromisoformat(i["started_at"])
+        ended = datetime.fromisoformat(i["ended_at"])
+        span_ms = (ended - started) // timedelta(milliseconds=1)
+        if not (
+            ended >= started
+            and 0 <= i["active_ms"] <= 1_800_000
+            and i["active_ms"] <= span_ms + 1000
+        ):
+            raise _Refused("23514")
+        rows.append(
+            {
+                "id": str(uuid.uuid4()),
+                "user_id": uid,
+                "session_id": session["id"],
+                "client_event_id": i["client_event_id"],
+                "started_at": i["started_at"],
+                "ended_at": i["ended_at"],
+                "active_ms": i["active_ms"],
+                "learning_date": i["learning_date"],
+                "created_at": NOW.isoformat(),
+            }
+        )
+        return "acknowledged"
+
+    def _complete_session(self, args: dict[str, Any]) -> httpx.Response:
+        """``app_complete_session``: true when this call completed the session."""
+        self.complete_bodies.append(args)
+        if set(args) != {"p_session_id", "p_elapsed_ms"}:
+            return self._error(404, "PGRST202")
+        session = self._owned_session(args["p_session_id"])
+        if session is None:
+            return self._error(500, "P0002", "session_not_found")
+        if session["status"] == "completed":
+            return httpx.Response(200, json=False)
+        if args["p_elapsed_ms"] < 0:
+            return self._error(400, "23514")
+        session["status"] = "completed"
+        session["elapsed_ms"] = args["p_elapsed_ms"]
+        return httpx.Response(200, json=True)
 
     def _patch(self, table: str, request: httpx.Request) -> httpx.Response:
         assert table == "learning_sessions", "only the session status is written by PATCH"

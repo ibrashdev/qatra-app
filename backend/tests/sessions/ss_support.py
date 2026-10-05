@@ -107,6 +107,10 @@ class FakePlanAccess:
         self._plans[plan_id] = (owner, updated)
         return updated
 
+    def owned_by(self, owner: UUID) -> list[PlanSnapshot]:
+        """The owner's plans, newest first (the order the plan repository lists them in)."""
+        return [plan for who, plan in reversed(list(self._plans.values())) if who == owner]
+
     def load_for_session(self, ctx: SessionContext, plan_id: UUID) -> PlanSnapshot:
         self.calls += 1
         owner, plan = self._plans.get(plan_id, (None, None))  # type: ignore[assignment]

@@ -150,7 +150,7 @@ export interface PassageView {
   path: Path;
   reference: string;
   sectionTitleAr: string;
-  units: { unitRef: number; kind: "ayah" | "hadith_narration"; reference: string; text: string }[]; // verbatim
+  units: { unitRef: number; kind: "ayah" | "hadith_narration" | "hadith_grade"; reference: string; text: string }[]; // verbatim; a grade passage lies inside the hadith_grade unit
   highlight: { startRef: TokenRef; endRef: TokenRef }; // the passage range inside the units
   takhrij: string | null;
   grade: string | null;
@@ -411,6 +411,32 @@ export interface HealthResponse {
 
 export interface ReadyResponse {
   status: "ok";
+}
+
+// E04 (API-spec 4.2). The registration rules are not applied at login, so both fields are plain strings.
+export interface LoginRequest {
+  username: string;
+  password: string;
+}
+
+export interface LoginResponse {
+  profile: Profile;
+  reconsentRequired: boolean;
+}
+
+// E03 (API-spec 4.2). `termsAccepted` is exactly true; `recoveryCode` is shown once and never retrievable again.
+export interface RegisterRequest {
+  username: string;
+  password: string;
+  timeZone: string; // IANA name from the browser
+  language: "ar" | "en";
+  termsAccepted: true;
+  termsVersion: string;
+}
+
+export interface RegisterResponse {
+  profile: Profile;
+  recoveryCode: string; // 32 lowercase hex characters in eight groups of four joined by "-"
 }
 
 export interface CatalogResponse {

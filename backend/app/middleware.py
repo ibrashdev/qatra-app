@@ -115,12 +115,37 @@ def _replay(messages: list[Message]) -> Receive:
     return receive
 
 
-class AccessLogMiddleware:
-    """One structured log line per request: method, route template, status, latency, error code.
+def _proxy_chain_counts(scope: Scope) -> tuple[int, bool]:
+    """``(xff_entries, via_vercel)`` from the raw request headers: a count and a flag only.
 
-    Never logged: bodies, cookies, tokens, usernames, raw paths with ids, query strings or IP
-    addresses. Unhandled exceptions are converted to ``500 internal`` here (only the exception
-    type is logged), so no traceback, which can contain submitted values, reaches the logs.
+    ``xff_entries`` is the number of non-empty, comma-separated entries over all
+    ``X-Forwarded-For`` lines (joined with a comma, as ``client_key`` reads them); 0 when the
+    header is absent. ``via_vercel`` is whether an ``x-vercel-id`` header is present. Header
+    names are matched without regard to case. No value is kept or returned.
+    """
+    forwarded: list[bytes] = []
+    via_vercel = False
+    for name, value in scope.get("headers", ()):
+        lowered = name.lower()
+        if lowered == b"x-forwarded-for":
+            forwarded.append(value)
+        elif lowered == b"x-vercel-id":
+            via_vercel = True
+    joined = b",".join(forwarded).decode("latin-1")  # the text ``client_key`` sees
+    return sum(1 for entry in joined.split(",") if entry.strip()), via_vercel
+
+
+class AccessLogMiddleware:
+    """One structured log line per request: method, route template, status, latency, error code,
+    and two proxy-chain measures, ``xff_entries`` (how many ``X-Forwarded-For`` entries arrived,
+    0 when absent) and ``via_vercel`` (whether ``x-vercel-id`` was present). They size
+    ``QATRA_TRUSTED_XFF_DEPTH``.
+
+    Never logged: bodies, cookies, tokens, usernames, raw paths with ids, query strings, IP
+    addresses or any header value (the two measures are a number and a flag, never the addresses
+    or ids behind them). Unhandled exceptions are converted to ``500 internal`` here (only the
+    exception type is logged), so no traceback, which can contain submitted values, reaches the
+    logs.
     """
 
     def __init__(self, app: ASGIApp) -> None:
@@ -156,6 +181,7 @@ class AccessLogMiddleware:
     def _log(scope: Scope, status_code: int | None, started: float) -> None:
         route = scope.get("route")
         template = getattr(route, "path", None) or _UNMATCHED_ROUTE
+        xff_entries, via_vercel = _proxy_chain_counts(scope)
         log_event(
             access_logger,
             "request",
@@ -164,6 +190,8 @@ class AccessLogMiddleware:
             status=status_code,
             latency_ms=round((time.perf_counter() - started) * 1000, 2),
             error_code=scope.get("state", {}).get("error_code"),
+            xff_entries=xff_entries,
+            via_vercel=via_vercel,
         )
 
 

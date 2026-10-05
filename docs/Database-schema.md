@@ -1,6 +1,8 @@
 # Qatra — Database Schema (physical design)
 
-Version 1.3 · 2026-10-04 · Status: Approved — D74, 4 October 2026 (owner: «approve best practice», «q7 approved») for the v1.1 content; Approved — D75, A1 (owner, 4 October 2026: «A1 approved , best practice») for the D75 additions of version 1.2 (`plan_chats`, `plan_chat_messages`, migration `0006_plan_chats`, feedback renumbered `0007_feedback`); the version 1.3 additions are implementation decisions recorded below and are not owner approvals
+Version 1.4 · 2026-10-04 · Status: Approved: D74, 4 October 2026 (owner: «approve best practice», «q7 approved») for the v1.1 content; Approved: D75, A1 (owner, 4 October 2026: «A1 approved , best practice») for the D75 additions of version 1.2 (`plan_chats`, `plan_chat_messages`, migration `0006_plan_chats`, feedback renumbered `0007_feedback`); the version 1.3 additions are implementation decisions recorded below and are not owner approvals; version 1.4 is an implementation record, no new owner approval
+
+**Version 1.4 (4 October 2026).** Implementation record, no new owner approval. §6.3 (`ai_usage`) notes a known limitation of B13: `qatra_server` has no function that reads `ai_usage` (only `srv_record_ai_usage` inserts), so the cap counters of the plan conversation live in process memory and a restart resets them. This is accepted for this build, and a read function needs a reviewed migration. No table, column, function or migration changes; local tests only, nothing is deployed.
 
 **Version 1.3 (4 October 2026).** Records what the backend implementation decided where this schema left a point open, and one behaviour of the database functions. Status of these additions: decided at implementation by the backend design under the coordinator's review, implemented in local code and in the local database harness only (backend tests 2756 passed; harness 122 passed, 0 failed). They are not owner approvals, and nothing is verified on a live project. (1) `plan_versions.policy_json` stores the placement-known passages under `knownPassages` (the open sub-point of API-spec [O-17]). (2) The shapes of `plan_phases.section_refs` and `unit_range` and the meaning of `goal_size` (OPEN-04). (3) The completed-plan guard of `app_revise_plan`, `app_plan_chat_open` and `app_plan_chat_confirm` (commit 0f56343; §8.3). The SQL files `0001` to `0006` now exist in `supabase/migrations/`. On the Supabase project «qatra», `0001` to `0004` and the first two parts of `0005` are applied with stored text identical to the files, and the rest of `0005` and `0006` await the owner's run (D79). The checks of §14 have not been run on the live project. The paragraphs below describe the state at their own versions.
 
@@ -1557,6 +1559,7 @@ One record per model call (D39, D60, R09, NFR-05); **no learner, account, plan o
 - **PK:** `id`. **FKs:** none. **Unique:** none. **Indexes:** `(created_at)` — usage reports by period.
 - **RLS:** enabled · anon: none · authenticated: none · qatra_server: none (`srv_record_ai_usage` inserts) · service_role: none (revoked). The owner reads it through the Supabase dashboard.
 - **Triggers:** none.
+- **Implementation note (v1.4, B13; known limitation, no new owner approval):** `qatra_server` has no read function for `ai_usage` (§8.2 item 18 only inserts), so the B13 cap counters live in process memory and a restart resets them; this is accepted for this build, and the judging deployment makes no model call. A read function needs a reviewed migration.
 
 #### `plan_chats`
 

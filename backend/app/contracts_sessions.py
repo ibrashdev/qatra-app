@@ -16,6 +16,11 @@ Deviations from the TypeScript of contract §7, all additive and listed here onc
   makes grading unavailable (``pending``), neither of which may fail the whole request with 422.
 - Option ids of the choice questions encode their token references (``"2:0,2:1"``), see
   ``option_id_for_refs``; the contract only says ``optionId: string``.
+- ``AnswerEvent.durationMs`` is bounded by 30 minutes (API-spec E21 field table, A-12 [O-22]); the
+  contract's ``number`` does not say so. A larger value fails the whole request with 422
+  (``less_than_equal``): the spec has no per-event code for it. The bounds of an activity event
+  are per-event decisions (``activity_out_of_bounds``), so ``ActivityEvent.activeMs`` has no
+  schema bound.
 """
 
 from __future__ import annotations
@@ -38,6 +43,7 @@ from pydantic_core import PydanticCustomError
 
 from app.contracts_plan_chat import CamelModel, Path, Plan, RequestModel
 from app.domain.answer_policy import GAME_TYPES
+from app.domain.time_policy import MAX_EVENT_MS
 
 # --- vocabularies ---------------------------------------------------------------------------------
 
@@ -349,7 +355,7 @@ def violations_of(
         if loc and loc[0] == "targetScope" and rule not in ("forbidden_field", "required"):
             rule = "scope_invalid"
         found.append((_field_path(loc, tags, members), rule))
-    return found
+    return list(dict.fromkeys(found))  # an answer that fits no shape repeats a rule per member
 
 
 def parse_create_session_request(raw: Any) -> SessionRequest:
@@ -459,7 +465,7 @@ class AnswerEvent(_Event):
     answer: AnswerPayload
     hint_used: Annotated[bool, Field(strict=True)]
     occurred_at: AwareDatetime
-    duration_ms: Annotated[int, Field(strict=True, ge=0)]
+    duration_ms: Annotated[int, Field(strict=True, ge=0, le=MAX_EVENT_MS)]
 
 
 class ActivityEvent(_Event):

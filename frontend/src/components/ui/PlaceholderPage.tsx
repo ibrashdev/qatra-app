@@ -4,12 +4,12 @@ import { useLocale } from "@/i18n/LocaleProvider";
 import type { TabId } from "@/i18n/messages";
 import { PageTitle } from "./PageTitle";
 
-export type PlaceholderScreen = TabId | "login";
+export type PlaceholderScreen = TabId | "recovery" | "terms";
 
-// Stands in for a screen that arrives in a later batch (F0 builds no real screen). It says so plainly and holds no other control.
+// Stands in for a screen that arrives in a later step. It says so plainly and holds no other control.
 export function PlaceholderPage({ screen }: { screen: PlaceholderScreen }) {
   const { messages } = useLocale();
-  const name = screen === "login" ? messages.screens.login : messages.tabs[screen];
+  const name = screen === "recovery" || screen === "terms" ? messages.screens[screen] : messages.tabs[screen];
   return (
     <>
       <PageTitle screenName={name} />

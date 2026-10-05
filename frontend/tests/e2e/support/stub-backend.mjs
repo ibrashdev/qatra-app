@@ -1,5 +1,5 @@
 // A stand-in for the backend, used only by the e2e run: it lets the real /api/* rewrite be exercised.
-// It answers E01 and nothing else; every other path gets the error envelope. No data, no cookies.
+// It answers E01, and E11 as a visitor would be answered (no session, 401); every other path gets the error envelope. No data, no cookies.
 import { createServer } from "node:http";
 
 const port = Number(process.env.STUB_BACKEND_PORT ?? 3101);
@@ -13,6 +13,11 @@ const server = createServer((request, response) => {
       "X-Stub-Backend": "1",
     });
     response.end(JSON.stringify({ status: "ok", version: "e2e-stub", time: new Date().toISOString() }));
+    return;
+  }
+  if (request.method === "GET" && url.pathname === "/api/me") {
+    response.writeHead(401, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store", "X-Stub-Backend": "1" });
+    response.end(JSON.stringify({ error: { code: "unauthenticated", message: "Authentication is required.", details: {} } }));
     return;
   }
   response.writeHead(404, { "Content-Type": "application/json; charset=utf-8", "X-Stub-Backend": "1" });

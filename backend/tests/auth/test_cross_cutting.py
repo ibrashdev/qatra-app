@@ -193,7 +193,16 @@ def test_no_secret_or_personal_value_reaches_any_log(
     for line in output.splitlines():
         if line.startswith("{"):
             event = json.loads(line)
-            assert set(event) <= {"event", "method", "route", "status", "latency_ms", "error_code"}
+            assert set(event) <= {
+                "event",
+                "method",
+                "route",
+                "status",
+                "latency_ms",
+                "error_code",
+                "xff_entries",
+                "via_vercel",
+            }
 
 
 def test_password_hashes_and_tokens_are_never_part_of_a_repr(signed_in: Harness) -> None:

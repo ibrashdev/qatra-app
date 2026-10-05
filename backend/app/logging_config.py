@@ -1,8 +1,10 @@
 """Structured, privacy-preserving logging (API-spec §1.12, NFR-13).
 
 Log lines are single JSON objects. Callers pass only non-personal fields (method, route
-template, status, latency, error code). Request or response bodies, cookies, tokens,
-usernames and raw IP addresses must never be passed to ``log_event``.
+template, status, latency, error code and, in the access log, ``xff_entries`` and
+``via_vercel``: a count of ``X-Forwarded-For`` entries and a flag for ``x-vercel-id``).
+Request or response bodies, cookies, tokens, usernames, raw IP addresses and header values must
+never be passed to ``log_event``.
 """
 
 from __future__ import annotations

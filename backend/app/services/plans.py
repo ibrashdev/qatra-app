@@ -78,6 +78,7 @@ from app.repositories.catalog import (
     PostgrestPassageReader,
 )
 from app.repositories.plans import (
+    LearningZone,
     MemoryPlacementReader,
     MemoryPlanRepository,
     MemoryProfileReader,
@@ -221,6 +222,11 @@ class PlanService:
 
     # ------------------------------------------------------------------ shared pieces
 
+    def learning_zone(self, ctx: SessionContext) -> LearningZone:
+        """The account time zone and a pending change (D57). E21 reads it to date an activity event
+        by its ``startedAt``."""
+        return self._profiles.learning_zone(ctx)
+
     def learning_date(self, ctx: SessionContext) -> date:
         """Today's learning date in the account time zone (API-spec §1.10)."""
         zone = self._profiles.learning_zone(ctx)
@@ -239,6 +245,10 @@ class PlanService:
     def read_plan(self, ctx: SessionContext, plan_id: UUID) -> StoredPlan | None:
         """The caller's own plan, or ``None`` (unknown and foreign plans look the same)."""
         return self._plans.read_plan(ctx, plan_id)
+
+    def list_plans(self, ctx: SessionContext) -> list[StoredPlan]:
+        """Every plan of the caller, newest first (E18 and E19)."""
+        return self._plans.list_plans(ctx)
 
     def plan_in_force(self, ctx: SessionContext, plan_id: UUID) -> PlanInForce | None:
         """The caller's plan with the values in force on today's learning date (D57), for E20."""

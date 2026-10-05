@@ -1,14 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useLocale } from "@/i18n/LocaleProvider";
+import { BrandMark } from "./BrandMark";
 
-// The product name as text. No logo exists yet, and none is drawn for it (antislop R-23).
+// The product lockup as a link: the header of the public shell and the app shell, and the top of the side rail.
 export function Brand({ href }: { href: string }) {
-  const { messages } = useLocale();
   return (
-    <Link href={href} className="inline-flex min-h-target items-center rounded-sm text-section text-primary-deep">
-      {messages.appName}
+    <Link href={href} className="inline-flex min-h-target items-center rounded-sm">
+      <BrandMark />
     </Link>
   );
 }

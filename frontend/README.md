@@ -1,8 +1,8 @@
 # Qatra frontend
 
-Next.js (App Router) with strict TypeScript and Tailwind. This is package F0, the foundation: shell, direction and language, design tokens, self-hosted fonts, the API client with the free-server wake-up state, API types and a mock layer. It contains no real screen; every route is a placeholder that says so.
+Next.js (App Router) with strict TypeScript and Tailwind. Package F0 is the foundation: shell, direction and language, design tokens, self-hosted fonts, the API client with the free-server wake-up state, API types and a mock layer. The screens of Batch 1 (account) are built on it one at a time, each approved by the owner before the next: S-01 login and S-02 register are built. The recovery, consent, start, terms and recovery-code routes are placeholders that say so until their screens arrive.
 
-Authority: `docs/UI-tokens.md`, `docs/UI-design.md`, `docs/API-spec.md` and `docs/Implementation-contract.md` section 7. Read `AGENTS.md` first: it points to the Next.js documentation installed in `node_modules/next/dist/docs`.
+Authority: `docs/UI-tokens.md`, `docs/UI-design.md`, `docs/UI-screens.md`, `docs/API-spec.md` and `docs/Implementation-contract.md` section 7. Read `AGENTS.md` first: it points to the Next.js documentation installed in `node_modules/next/dist/docs`.
 
 ## Commands
 
@@ -25,11 +25,39 @@ See `.env.example`. `BACKEND_ORIGIN` (server side) is where `/api/*` is forwarde
 
 | Path | Holds |
 |---|---|
-| `src/app` | routes: `(public)/login`, `(app)/today`, `games`, `progress`, `settings`; `/` redirects to `/login` until the catalog ships |
-| `src/components/ui` | shells (public, app, focus flow), navigation, language switch, wake-up status |
+| `src/app` | routes: `(public)/login`, `register`, `recovery`, `terms`; `(flow)/consent`, `start`, `recovery-code`; `(app)/today`, `games`, `progress`, `settings`; `/` redirects to `/login` until the catalog ships |
+| `src/components/auth` | the account screens (`LoginForm`, `RegisterForm` and `RegisterScreen`, its shell and back control) |
+| `src/components/ui` | shells (public, app, focus flow), navigation, language switch, wake-up status, and the form parts: `Icon` (the only import of the icon set), `BackControl`, `Banner`, `Button`, `Checkbox`, `Notice`, `TextField`, `PasswordField`, `ErrorSummary`, `FormBanners` |
 | `src/lib/api` | client, error types, wake-up controller, endpoints, `types.ts` (contract DTOs), `mock/` |
-| `src/i18n` | message catalog (shell strings only), locale storage and direction |
+| `src/lib/auth` | the safe return path, the login arrival banner and the return path kept for the consent gate (both in memory), the signed-in guard, the E04 and E03 error mappings, the username and password rules (`account-rules.ts`, the client side of the backend policy), the registration draft kept while S-03 is read and the recovery code on its way to S-04 (both in memory) |
+| `src/lib/net`, `src/lib/dom` | connectivity, and the press-safe layout change |
+| `src/i18n` | message catalogs (`messages.ts` with `auth-messages.ts` and `form-messages.ts`), number formatting, locale storage and direction |
 | `src/styles` | `tokens.css` (the `--q-*` tokens), `theme.css` (Tailwind mapping), `fonts.css` |
+
+## Mock accounts (development, `NEXT_PUBLIC_API_MODE=mock`)
+
+The mock starts as a visitor and answers E04 and E03 for these synthetic names. No real account exists behind any of them. The first three need the password `synthetic passphrase for docs only` (the example of API-spec 4.2); the failure names answer the same whatever the password is; any other name is a wrong username or password.
+
+| Username | E04 answer |
+|---|---|
+| `sample_user_01` | signed in, an active plan: the page goes to `/today` |
+| `new_user_01` | signed in, no plan: the page goes to `/start` |
+| `reconsent_user_01` | signed in, `reconsentRequired`: the page goes to `/consent` |
+| `throttled_user_01` | 429, wait 20 s |
+| `locked_user_01` | 429, wait 900 s (the 15-minute lock) |
+| `unavailable_user_01` | 503 |
+| `internal_user_01` | 500 |
+| `origin_user_01` | 403 `forbidden_origin` |
+
+E03 (register) judges the username and password with the same rules as the screen, then answers by name. The first four are accounts that exist already, so registering them gives `username_taken`; any other well-formed name registers (201, the example recovery code `0123-4567-89ab-cdef-0123-4567-89ab-cdef`, signed in without a plan). The build needs `NEXT_PUBLIC_TERMS_VERSION=2026-10-04` (see `.env.example`), or the mock asks for a reload.
+
+| Username | E03 answer |
+|---|---|
+| `sample_user_01`, `new_user_01`, `reconsent_user_01`, `taken_user_01` | 409 `username_taken` |
+| `terms_user_01` | 400 `terms_required` for a version the build has not shown: the reload banner |
+| `silent_user_01` | no answer at all (the connection fails): the uncertain outcome of P-10 |
+| `throttled_user_01`, `locked_user_01` | 429, wait 20 s, wait 900 s |
+| `unavailable_user_01`, `internal_user_01`, `origin_user_01` | 503, 500, 403 `forbidden_origin` |
 
 ## Rules this package keeps
 
@@ -37,4 +65,8 @@ See `.env.example`. `BACKEND_ORIGIN` (server side) is where `/api/*` is forwarde
 - A request that fails outside the error envelope (gateway, timeout, network) is connectivity, never a logout. Only `401` with the code `unauthenticated` ends a session.
 - Non-idempotent requests are never retried automatically.
 - Light theme only, logical CSS properties only, no service worker, no PWA (deferred).
+- Icons come from one set (Lucide, ISC licence, pinned to an exact version), imported by name in `src/components/ui/Icon.tsx` only. Each glyph is decorative; the accessible name lives on the control or in the phrase beside it.
+- A form keeps what the visitor typed, shows no value back, and keeps nothing in the browser: the screens store nothing but the language choice. What S-02 keeps while S-03 is read, and the recovery code on its way to S-04, live in module memory only: a reload, a successful registration or a login wipes them.
+- The back arrow is the only glyph that mirrors in right-to-left. The password toggle names its action and has no pressed state (O-07).
+- `THIRD_PARTY_NOTICES.md` reproduces the licence text of the icon set; update it with the version when `lucide-react` changes.
 - Mock data is synthetic: placeholders and fake ids, no religious text.
