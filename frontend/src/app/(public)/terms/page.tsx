@@ -1,6 +1,6 @@
-import { PlaceholderRoute } from "@/components/ui/PlaceholderRoute";
+import { TermsScreen } from "@/components/terms/TermsScreen";
 
-// Placeholder only: the terms and privacy text (S-03) comes later in Batch 1. The register screen links here, so its opener's state can be tested.
+// S-03. Static text in the interface language, always open (guard 13); the screen builds its own header, with a back control to its opener.
 export default function TermsPage() {
-  return <PlaceholderRoute screen="terms" />;
+  return <TermsScreen />;
 }

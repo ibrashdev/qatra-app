@@ -4,6 +4,10 @@ Files written under ``<build>/<editionKey>/`` (gitignored; they contain source t
 ``report.md``): ``bundle.json`` (the structure after ``segment``, the full bundle after
 ``build-bank``), ``publish.sql`` and ``report.md`` (counts, ids, codes only).
 
+Scope: the three steps follow the scope recorded by ``acquire`` (a sample build covers only what
+was acquired and never expects the whole of Juz' Amma or all 42 hadiths); a full-scope build is
+checked exactly as before.
+
 Consistency between steps: ``segment`` records the SHA-256 of the bundle structure,
 ``build-bank`` refuses a ``bundle.json`` that no longer has it and records the SHA-256 of the
 full bundle, and ``validate`` refuses a ``bundle.json`` that no longer has that. A repeated
@@ -31,7 +35,7 @@ from app.workflow.content_management import (
     hadith_pass_records,
     quran_object_name,
 )
-from app.workflow.editions import EditionScope, edition_spec
+from app.workflow.editions import EditionScope, edition_spec, is_full_scope
 from app.workflow.errors import (
     InputError,
     ObjectNotFoundError,
@@ -176,6 +180,7 @@ def make_segment_handler(
                 numbers=numbers,
                 labels=labels,
                 boundaries=load_boundaries(boundaries_path),
+                sample=not is_full_scope(edition_key, scope),
             )
         bundle = assemble_bundle(
             spec=spec,
@@ -198,6 +203,7 @@ def make_segment_handler(
         cursor = {"scope": scope.to_dict(), "structureSha256": digest}
         summary = {
             "scope": scope.to_dict(),
+            "sampleBuild": not is_full_scope(edition_key, scope),
             "structureSha256": digest,
             "contentHash": bundle["edition"]["contentHash"],
             "counts": counts,

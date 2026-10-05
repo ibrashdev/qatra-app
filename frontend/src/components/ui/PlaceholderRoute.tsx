@@ -5,10 +5,10 @@ import { FocusShell } from "./FocusShell";
 import { PlaceholderPage } from "./PlaceholderPage";
 import { PublicShell } from "./PublicShell";
 
-export type PlaceholderRouteScreen = "terms" | "recovery" | "consent" | "start" | "recoveryCode";
+export type PlaceholderRouteScreen = "recovery" | "consent" | "start" | "recoveryCode";
 
-// A route the account screens already link or navigate to, whose own screen comes later: the terms and recovery screens sit in the
-// public shell; the re-consent gate, the recovery-code save and the start of the plan flow in the focus shell (UI-design 2.1).
+// A route the account screens already link or navigate to, whose own screen comes later: the recovery screen sits in the public shell;
+// the re-consent gate, the recovery-code save and the start of the plan flow in the focus shell (UI-design 2.1).
 export function PlaceholderRoute({ screen }: { screen: PlaceholderRouteScreen }) {
   const { messages } = useLocale();
   if (screen === "consent" || screen === "start" || screen === "recoveryCode") {

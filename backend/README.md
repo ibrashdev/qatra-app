@@ -158,7 +158,105 @@ submitted values).
 ## Content workflow CLI
 
 The operator CLI (`backend/scripts/content_tools.py`, package B7) and its exit codes are documented in
-[`scripts/README.md`](scripts/README.md). It never runs inside the API process.
+[`scripts/README.md`](scripts/README.md); the notes below summarize the D83 source-only mode, scoped
+builds, `approve` and `publish`. The CLI never runs inside the API process, prints counts and ids
+only, and writes everything that can hold source text below the gitignored
+`backend/.content-build/`. Run it from `backend/` as
+`uv run python -m scripts.content_tools <command> --edition <key> --bank-version <N> ...`.
+
+### Source-only verification (D83)
+
+`verify --source-only-decision D83` accepts, for exactly surah 112 of `quran-hafs-quranenc` and
+Forty hadith 1 (HadeethEnc record 66511) of `nawawi40-hadeethenc`, both at bank version 1, two
+independent acquisitions from the Islamic Content service in place of the KFGQPC oracle and the
+OpenITI skeleton. No other source is fetched, not even as a check.
+
+```bash
+acquire --edition quran-hafs-quranenc --bank-version 1 --http --surahs 112
+verify  --edition quran-hafs-quranenc --bank-version 1 --source-only-decision D83 --http-recheck
+acquire --edition nawawi40-hadeethenc --bank-version 1 --http --forty 1 --pass 1 \
+        --id-map ../references/source-acquisition/nawawi40-id-map.json     # and again with --pass 2
+verify  --edition nawawi40-hadeethenc --bank-version 1 --source-only-decision D83
+```
+
+- **Quran**: every ayah passes when the stored HTTP acquisition and a re-acquisition made by
+  `verify` are byte-identical (and equal after NFC); `--http-recheck` is therefore required.
+- **Hadith**: the unit passes when pass 1 and pass 2, both HTTP acquisitions, are identical after
+  NFC. Whether they are also byte-identical is recorded as information. `--http-recheck` is
+  optional and adds a third acquisition.
+- **Refused**: any other scope or bank version (exit 3), a stored object that came from a records
+  file (exit 3, an assistant transcribed it), `--oracle` or `--skeleton` together with the option
+  (exit 2), and a decision other than `D83` (exit 2). Nothing is fetched before the scope check.
+- **Recorded** (counts, ids and hashes only): the method `source_only(D83):...`, the decision id,
+  the objects with their `rawSha256` and times, and the re-acquisition hash, in
+  `verification.json`, `verification_report.md` and the job summary (`sourceOnly`), and in the
+  `verification` entry of the review record. For the Quran the summary also cites the sample check
+  recorded in D68 as prior evidence (not re-fetched).
+- Without the option nothing changes: a missing oracle still fails closed.
+
+### Scoped builds
+
+`segment`, `build-bank` and `validate` follow the scope recorded by `acquire` (`--surahs`,
+`--forty`) and never expect the whole of Juz' Amma or all 42 hadiths; the full scope is checked
+exactly as before. The grade question is a choice among the distinct grade phrases of the edition,
+so a sample build with fewer than two of them (for example one hadith) makes no grade passage: the
+grade unit is kept, `segment` prints `grade_passages_omitted=[...]` and the review record lists a
+`grade_path_unavailable` flag. A full build still makes every grade passage, so a grade that cannot
+be tested remains a `validate` failure (`part_uncovered`). No other validation rule changed.
+
+### approve
+
+`approve` records the owner's approval only from explicit inputs; the owner types approvals in the
+Claude Code chat and those words, recorded verbatim, are the confirmation. It refuses (exit 2) when
+any input is missing or empty and never infers approval from silence, a timeout or a default.
+
+```bash
+approve --edition <key> --bank-version <N> --reviewer "<who>" \
+        --review-scope "<what was actually reviewed>" --note "<note>" \
+        (--owner-words "<words>" | --owner-words-file <utf8 file>) \
+        --source https://claude.ai/code/session_<id> --at 2026-10-05T07:30:00+04:00
+```
+
+- Words that start with a hyphen and hold no space must be given as `--owner-words=<words>` (or in
+  a file); otherwise the argument parser reads them as an option and refuses (exit 2).
+- Preconditions (`content_policy.assert_approvable`, exit 3): the edition is `validated` and every
+  verification result passed. The time must carry a zone, must not be in the future and must not
+  precede the validation it covers; the source must be an `https` URL without credentials.
+- Writes the `approved` step and the approval entry `{who, at, note, scope, words, source}` of the
+  review record. The job summary binds it to the validated bundle (`bundleSha256`,
+  `contentHash`); a changed bundle or an earlier step that changes its result removes the approval.
+- The CLI never prints the words.
+
+### publish
+
+```bash
+publish --edition <key> --bank-version <N> --sql-out backend/.content-build/<key>/publish-final.sql
+```
+
+`publish` writes ONE transactional SQL file and applies nothing to any database. `--sql-out` must
+lie below the build directory and an existing file is replaced only if an earlier `publish` wrote
+it (so the draft `publish.sql` is never overwritten). The local job rows are not changed: the
+`published` row exists in the file, and in the database once the file is applied once with
+`service_role`. A second application raises at the guard (the edition is then published).
+
+- Refuses (exit 3) unless `content_policy.assert_publishable` passes and the approval entry holds
+  all six inputs; the bundle on disk must be the one that `validate` accepted and the approval
+  covers.
+- The file holds the draft upserts, `sources.license_record`, the review record with the
+  acquisition, verification and approval entries, the publishing statements (lessons and question
+  items of the bank version `published`, earlier published editions of the same book
+  `superseded`, the edition `published`) and the `content_jobs` rows with `approved` and
+  `published` (`published_at = now()`).
+- `license_record`: the terms URL, title, "Last updated" line and retrieval date of the Islamic
+  Content MCP terms, two verbatim sentences of them, a note that the publishers' own pages were
+  not reachable from the build environment on 5 October 2026, the register
+  (`references/source-acquisition/publisher-terms-register.md`, v0.1 Draft) and `owner_acceptance`,
+  copied only from the recorded approval. The terms grant no reuse right; `rights_status` stays
+  `owner_accepted_pending_verification`.
+- Raw objects stay in the local build area with their hashes in the summaries; the published
+  summary records "bucket upload deferred: no service_role key in the build environment".
+- The SQL has been checked as text only (statement structure and literals); it has not been run
+  against a database.
 
 ## Never commit
 

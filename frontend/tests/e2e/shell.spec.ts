@@ -28,11 +28,8 @@ test.describe("direction, language and the four tabs (Arabic default)", () => {
     await expect(page).toHaveTitle("إنشاء الحساب · قطرة غيث");
   });
 
-  test("the recovery and terms routes are placeholders in the public shell until their screens arrive", async ({ page }) => {
-    for (const [path, name] of [
-      ["/recovery", "استرجاع الحساب"],
-      ["/terms", "شروط الاستخدام وبيان الخصوصية"],
-    ] as const) {
+  test("the recovery route is a placeholder in the public shell until its screen arrives", async ({ page }) => {
+    for (const [path, name] of [["/recovery", "استرجاع الحساب"]] as const) {
       await page.goto(path);
       await expect(page.getByRole("heading", { level: 1 })).toHaveText(name);
       await expect(page.getByText("هذه الشاشة لم تُبنَ بعد، وستصل في دفعة لاحقة.")).toBeVisible();
@@ -41,11 +38,10 @@ test.describe("direction, language and the four tabs (Arabic default)", () => {
     }
   });
 
-  test("the consent, start and recovery-code routes are placeholders in the focus shell: no switch, no tab bar", async ({ page }) => {
+  test("the consent and start routes are placeholders in the focus shell: no switch, no tab bar", async ({ page }) => {
     for (const [path, name] of [
       ["/consent", "موافقة جديدة على الشروط"],
       ["/start", "ما هي خطتك؟"],
-      ["/recovery-code", "حفظ رمز الاسترجاع"],
     ] as const) {
       await page.goto(path);
       await expect(page.getByRole("heading", { level: 1 })).toHaveText(name);

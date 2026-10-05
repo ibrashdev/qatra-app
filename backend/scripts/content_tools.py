@@ -7,12 +7,18 @@ Run from ``backend/``::
 
 Commands: ``acquire``, ``verify``, ``segment``, ``build-bank``, ``validate``, ``approve``,
 ``publish``, ``withdraw``, ``archive``, ``delete-unused-draft``. B7 implemented ``acquire`` and
-``verify``; B8 adds ``segment``, ``build-bank`` and ``validate``. The other four
-(``approve``, ``publish``, ``withdraw``, ``archive``) and ``delete-unused-draft`` are
-registered, check their preconditions through ``app.domain.content_policy`` and then exit with
-code 6 and the message "not implemented in B7 (B8/C6)" (C6 implements them). ``approve``
-additionally refuses every non-interactive run (silence, a timeout or a non-interactive run is
-never an approval) and never records approval before C6.
+``verify``; B8 added ``segment``, ``build-bank`` and ``validate``; ``approve`` and ``publish``
+are implemented below. ``withdraw``, ``archive`` and ``delete-unused-draft`` are registered,
+check their preconditions through ``app.domain.content_policy`` and then exit with code 6 and
+the message "not implemented in B7 (B8/C6)" (C6 implements them).
+
+``verify --source-only-decision D83`` accepts, for exactly surah 112 and Forty hadith 1 at bank
+version 1, two independent HTTP acquisitions from the service in place of the oracle and the
+skeleton (no other source is fetched). ``segment``, ``build-bank`` and ``validate`` follow the
+scope recorded by ``acquire``. ``approve`` records the owner's approval only from explicit
+inputs (the owner's verbatim words, their source and time, the reviewer, the scope of the review
+and a note) and refuses when any is missing or empty. ``publish --sql-out PATH`` writes ONE
+transactional SQL file below the build directory and applies nothing.
 
 Common options: ``--edition {quran-hafs-quranenc,nawawi40-hadeethenc}``, ``--bank-version N``,
 ``--build-dir DIR`` (default ``backend/.content-build``, gitignored) and
@@ -46,6 +52,7 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 import httpx
 
@@ -54,10 +61,18 @@ if __package__ in (None, ""):  # started as ``python scripts/content_tools.py``
 
 from app.domain.content_policy import (  # noqa: E402
     ContentPolicyError,
+    PublishRefusedError,
     assert_approvable,
     assert_delete_unused_draft_allowed,
     assert_publishable,
     assert_step_allowed,
+)
+from app.workflow import source_only  # noqa: E402
+from app.workflow.approval import (  # noqa: E402
+    is_complete_approval,
+    make_approve_handler,
+    parse_approval_input,
+    read_owner_words_file,
 )
 from app.workflow.content_management import (  # noqa: E402
     FileSource,
@@ -85,7 +100,6 @@ from app.workflow.editions import (  # noqa: E402
 from app.workflow.errors import (  # noqa: E402
     ExitCode,
     InputError,
-    PreconditionError,
     StepNotImplementedError,
     WorkflowError,
 )
@@ -95,9 +109,15 @@ from app.workflow.jobs import (  # noqa: E402
     SupabaseJobRepository,
     completed_steps,
 )
+from app.workflow.license_record import build_license_record  # noqa: E402
 from app.workflow.mcp_client import McpJsonRpcClient  # noqa: E402
-from app.workflow.models import derive_edition_state  # noqa: E402
+from app.workflow.models import ContentJob, derive_edition_state  # noqa: E402
 from app.workflow.paths import DEFAULT_BUILD_DIR, BuildPaths  # noqa: E402
+from app.workflow.publication import (  # noqa: E402
+    build_final_publication,
+    resolve_sql_out,
+    write_sql_file,
+)
 from app.workflow.runner import JobResult, run_content_job  # noqa: E402
 from app.workflow.settings import (  # noqa: E402
     SupabaseConfig,
@@ -123,8 +143,6 @@ COMMANDS = (
     "delete-unused-draft",
 )
 STEP_OF_COMMAND = {
-    "approve": "approved",
-    "publish": "published",
     "withdraw": "withdrawn",
     "archive": "archived",
 }
@@ -134,7 +152,8 @@ NOT_IMPLEMENTED = "not implemented in B7 (B8/C6)"
 @dataclass(slots=True)
 class CliRuntime:
     """Injection points (tests); the defaults are the real process environment, terminal,
-    network and clock."""
+    network and clock. ``interactive()`` is kept for callers but no command uses it any more:
+    ``approve`` takes the owner's recorded words, not a terminal confirmation."""
 
     environ: Mapping[str, str] | None = None
     stdin_isatty: Callable[[], bool] | None = None
@@ -213,6 +232,12 @@ def build_parser() -> argparse.ArgumentParser:
     verify.add_argument(
         "--http-recheck", action="store_true", help="re-fetch over HTTP, diff bytes"
     )
+    verify.add_argument(
+        "--source-only-decision",
+        choices=(source_only.DECISION_ID,),
+        help="D83: two HTTP acquisitions from the service replace --oracle and --skeleton "
+        "(surah 112 and hadith 1, bank version 1 only; the Quran also needs --http-recheck)",
+    )
 
     segment = sub.add_parser(
         "segment", parents=[common], help="units, passages and parts (step segmented)"
@@ -224,17 +249,36 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("build-bank", parents=[common], help="lessons and questions (step bank_built)")
     sub.add_parser("validate", parents=[common], help="fail-closed validation (step validated)")
     for name, text in (
-        ("publish", "publish the approved edition (C6)"),
         ("archive", "hide a published edition from new selection (C6)"),
         ("delete-unused-draft", "delete an unused draft (C6)"),
     ):
         sub.add_parser(name, parents=[common], help=f"not implemented in B7: {text}")
     approve = sub.add_parser(
-        "approve", parents=[common], help="owner approval (interactive only; not implemented in B7)"
+        "approve",
+        parents=[common],
+        help="record the owner's approval from explicit inputs (nothing is inferred)",
     )
     approve.add_argument("--reviewer", required=True, help="reviewer identity as recorded")
     approve.add_argument("--review-scope", required=True, help="scope of the review actually done")
-    approve.add_argument("--note", default="", help="notes")
+    approve.add_argument("--note", required=True, help="notes")
+    words = approve.add_mutually_exclusive_group(required=True)
+    words.add_argument("--owner-words", help="the owner's words, verbatim")
+    words.add_argument(
+        "--owner-words-file", type=Path, help="UTF-8 file holding the owner's words, verbatim"
+    )
+    approve.add_argument("--source", required=True, help="session URL where the owner wrote them")
+    approve.add_argument(
+        "--at", required=True, help="time of the owner's words, ISO 8601 with a time zone"
+    )
+    publish = sub.add_parser(
+        "publish",
+        parents=[common],
+        help="write ONE transactional SQL file that publishes the approved edition (applies "
+        "nothing)",
+    )
+    publish.add_argument(
+        "--sql-out", required=True, type=Path, help="output file below the build directory"
+    )
     withdraw = sub.add_parser(
         "withdraw", parents=[common], help="withdraw a published edition (not implemented in B7)"
     )
@@ -371,6 +415,17 @@ def _cmd_acquire(ctx: _Context) -> int:
 def _cmd_verify(ctx: _Context) -> int:
     args = ctx.args
     spec = edition_spec(ctx.edition)
+    decision = args.source_only_decision
+    if decision is not None:
+        if args.oracle is not None or args.skeleton is not None:
+            raise InputError(
+                "--source-only-decision replaces --oracle and --skeleton; pass neither"
+            )
+        if spec.kind == "quran" and not args.http_recheck:
+            raise InputError(
+                "--source-only-decision for the Quran edition needs --http-recheck: the second "
+                "acquisition is made during verify"
+            )
     storage: RawStorage = (
         SupabaseRawStorage(ctx.config)
         if ctx.backend == "supabase"
@@ -388,6 +443,7 @@ def _cmd_verify(ctx: _Context) -> int:
             oracle_path=args.oracle,
             skeleton_path=args.skeleton,
             recheck_client=client,
+            source_only_decision=decision,
             clock=ctx.rt.now,
         )
         result = run_content_job(
@@ -402,11 +458,13 @@ def _cmd_verify(ctx: _Context) -> int:
         if client is not None:
             client.close()
     gaps = (result.job.validation_summary or {}).get("gaps", [])
-    extra = ""
+    pieces: list[str] = []
     if spec.kind == "hadith":
         numbers = ",".join(str(g["fortyNumber"]) for g in gaps)
-        extra = f"gap_forty_numbers=[{numbers}]"
-    print(_format("verify", ctx, result, extra))
+        pieces.append(f"gap_forty_numbers=[{numbers}]")
+    if decision is not None:
+        pieces.append(f"source_only={decision}")
+    print(_format("verify", ctx, result, " ".join(pieces)))
     return int(ExitCode.OK)
 
 
@@ -441,13 +499,15 @@ def _cmd_segment(ctx: _Context) -> int:
         handlers={"segmented": handler},
         clock=ctx.rt.now,
     )
-    doubts = [
-        s["unit"]
-        for s in (result.job.validation_summary or {}).get("suspectedErrors", [])
-        if s["kind"] == "matn_boundary_doubt"
-    ]
-    extra = f"boundary_doubts=[{','.join(doubts)}]" if doubts else ""
-    print(_format("segment", ctx, result, extra))
+    flagged = (result.job.validation_summary or {}).get("suspectedErrors", [])
+    doubts = [s["unit"] for s in flagged if s["kind"] == "matn_boundary_doubt"]
+    omitted = [s["unit"] for s in flagged if s["kind"] == "grade_path_unavailable"]
+    pieces = []
+    if doubts:
+        pieces.append(f"boundary_doubts=[{','.join(doubts)}]")
+    if omitted:
+        pieces.append(f"grade_passages_omitted=[{','.join(omitted)}]")
+    print(_format("segment", ctx, result, " ".join(pieces)))
     return int(ExitCode.OK)
 
 
@@ -495,20 +555,9 @@ def _cmd_validate(ctx: _Context) -> int:
     return int(ExitCode.OK)
 
 
-def _cmd_not_implemented(ctx: _Context) -> int:
-    """Registered commands: validate the preconditions through ``content_policy`` first, then
-    refuse with exit code 6. Nothing is written."""
-    command = ctx.args.command
-    if command == "approve" and not ctx.rt.interactive():
-        raise PreconditionError(
-            "approve needs an interactive terminal; silence, a timeout or a non-interactive "
-            "run is never an approval"
-        )
-    jobs = ctx.jobs()
-    rows = jobs.list_jobs(ctx.edition, ctx.bank_version)
-    done = completed_steps(rows)
-    state = derive_edition_state(ctx.edition, ctx.bank_version, rows)
-    verification = [
+def _verification_results(rows: Sequence[ContentJob]) -> list[Mapping[str, Any]]:
+    """The verification records of the succeeded ``verified`` step (the policy input)."""
+    return [
         row.validation_summary["verification"]
         for row in rows
         if row.step == "verified"
@@ -516,18 +565,98 @@ def _cmd_not_implemented(ctx: _Context) -> int:
         and row.validation_summary
         and "verification" in row.validation_summary
     ]
+
+
+def _cmd_approve(ctx: _Context) -> int:
+    """Record the owner's approval from explicit inputs (``approval.py``). Inputs are checked
+    first (exit 2), then the policy preconditions (exit 3); nothing is written on a refusal."""
+    args = ctx.args
+    words = args.owner_words
+    if args.owner_words_file is not None:
+        words = read_owner_words_file(args.owner_words_file)
+    approval = parse_approval_input(
+        reviewer=args.reviewer,
+        review_scope=args.review_scope,
+        note=args.note,
+        owner_words=words,
+        source=args.source,
+        at=args.at,
+        now=ctx.rt.now(),
+    )
+    jobs = ctx.jobs()
+    rows = jobs.list_jobs(ctx.edition, ctx.bank_version)
+    state = derive_edition_state(ctx.edition, ctx.bank_version, rows)
+    assert_step_allowed(completed_steps(rows), "approved")
+    assert_approvable(state.status, _verification_results(rows))
+    handler = make_approve_handler(
+        edition_key=ctx.edition,
+        bank_version=ctx.bank_version,
+        jobs=jobs,
+        paths=ctx.paths,
+        approval=approval,
+    )
+    result = run_content_job(
+        ctx.edition,
+        ctx.bank_version,
+        "approved",
+        jobs=jobs,
+        handlers={"approved": handler},
+        clock=ctx.rt.now,
+    )
+    print(_format("approve", ctx, result))
+    return int(ExitCode.OK)
+
+
+def _cmd_publish(ctx: _Context) -> int:
+    """Write the final publishing SQL file (``publication.py``). Applies nothing and leaves the
+    local job rows as they are; refuses unless ``assert_publishable`` passes."""
+    target = resolve_sql_out(ctx.args.sql_out, ctx.paths.root)
+    jobs = ctx.jobs()
+    rows = jobs.list_jobs(ctx.edition, ctx.bank_version)
+    state = derive_edition_state(ctx.edition, ctx.bank_version, rows)
+    assert_step_allowed(completed_steps(rows), "published")
+    approved = next((r for r in rows if r.step == "approved" and r.status == "succeeded"), None)
+    approval = (approved.validation_summary or {}).get("approval") if approved else None
+    if approval and not is_complete_approval(approval):
+        raise PublishRefusedError(
+            "approval_incomplete",
+            "the recorded approval must hold who, at, note, scope, words and source",
+        )
+    license_record = build_license_record(approval) if approval else None
+    assert_publishable(state.status, _verification_results(rows), approval, license_record)
+    assert approval is not None and license_record is not None  # assert_publishable passed
+    publication = build_final_publication(
+        edition_key=ctx.edition,
+        bank_version=ctx.bank_version,
+        jobs=jobs,
+        paths=ctx.paths,
+        approval=approval,
+        license_record=license_record,
+    )
+    written = write_sql_file(target, publication.sql)
+    counts = " ".join(f"{key}={value}" for key, value in publication.counts.items())
+    print(
+        f"publish {ctx.edition} bank_version={ctx.bank_version} status=sql_written "
+        f"changed={'yes' if written else 'no'} {counts} sql_bytes={len(publication.sql.encode())} "
+        f"sql_sha256={publication.sql_sha256} applied=no"
+    )
+    return int(ExitCode.OK)
+
+
+def _cmd_not_implemented(ctx: _Context) -> int:
+    """Registered commands: validate the preconditions through ``content_policy`` first, then
+    refuse with exit code 6. Nothing is written."""
+    command = ctx.args.command
+    jobs = ctx.jobs()
+    rows = jobs.list_jobs(ctx.edition, ctx.bank_version)
+    done = completed_steps(rows)
+    state = derive_edition_state(ctx.edition, ctx.bank_version, rows)
     if command == "delete-unused-draft":
         # Learner references are unknowable from the local build area (the CLI never reads
         # learner tables); the Supabase implementation (C6) supplies the real answer.
         assert_delete_unused_draft_allowed(state.status, False, [r.step for r in rows])
     else:
         assert_step_allowed(done, STEP_OF_COMMAND[command])
-        if command == "approve":
-            assert_approvable(state.status, verification)
-        elif command == "publish":
-            approved = next((r for r in rows if r.step == "approved"), None)
-            approval = (approved.validation_summary or {}).get("approval") if approved else None
-            assert_publishable(state.status, verification, approval, None)
     raise StepNotImplementedError(f"{NOT_IMPLEMENTED}: {command}")
 
 
@@ -547,6 +676,10 @@ def _dispatch(args: argparse.Namespace, rt: CliRuntime) -> int:
         return _cmd_build_bank(ctx)
     if args.command == "validate":
         return _cmd_validate(ctx)
+    if args.command == "approve":
+        return _cmd_approve(ctx)
+    if args.command == "publish":
+        return _cmd_publish(ctx)
     return _cmd_not_implemented(ctx)
 
 

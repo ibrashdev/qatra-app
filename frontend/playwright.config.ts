@@ -1,7 +1,8 @@
 import { defineConfig, devices } from "@playwright/test";
 
-const APP_PORT = 3100;
-const BACKEND_PORT = 3101;
+// Two checkouts can run browsers at once: each takes its own pair of ports from the environment.
+const APP_PORT = Number(process.env.E2E_APP_PORT ?? 3100);
+const BACKEND_PORT = Number(process.env.E2E_BACKEND_PORT ?? 3101);
 
 // Chromium comes from PLAYWRIGHT_BROWSERS_PATH (pre-installed); this project never runs `playwright install`.
 export default defineConfig({

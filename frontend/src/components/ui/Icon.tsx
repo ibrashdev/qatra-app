@@ -1,4 +1,4 @@
-import { ArrowLeft, Check, CircleAlert, CircleCheck, Droplet, Eye, EyeOff, Info, TriangleAlert, X, type LucideIcon } from "lucide-react";
+import { ArrowLeft, Check, CircleAlert, CircleCheck, Copy, Download, Droplet, Eye, EyeOff, Info, TriangleAlert, X, type LucideIcon } from "lucide-react";
 import { cx } from "@/lib/cx";
 
 // The only place that imports the icon set (Lucide, owner decision of 4 October 2026). Screens ask for a meaning, never a glyph.
@@ -6,6 +6,8 @@ const GLYPHS = {
   back: ArrowLeft,
   check: Check,
   close: X,
+  copy: Copy,
+  download: Download,
   droplet: Droplet,
   error: CircleAlert,
   eye: Eye,
@@ -17,7 +19,7 @@ const GLYPHS = {
 
 export type IconName = keyof typeof GLYPHS;
 
-// UI-tokens 5: direction arrows mirror in right-to-left; check, close, info, warning, error, eye and the droplet do not.
+// UI-tokens 5: direction arrows mirror in right-to-left; check, close, copy, download, info, warning, error, eye and the droplet do not.
 const MIRRORED: ReadonlySet<IconName> = new Set<IconName>(["back"]);
 
 // UI-tokens 4: 16, 20, 24 and 32 px. The classes follow the --q-icon-* tokens, so the glyphs scale with the browser font size.

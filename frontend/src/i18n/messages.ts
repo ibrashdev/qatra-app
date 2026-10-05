@@ -2,6 +2,8 @@
 // Arabic is verbatim where docs/UX.md, UI-tokens or UI-screens fix it; the rest is proposed copy (UI-tokens A7), so English wording is not sourced.
 import { authAr, authEn, type AuthMessages } from "./auth-messages";
 import { formAr, formEn, type FormMessages } from "./form-messages";
+import { recoveryCodeAr, recoveryCodeEn, type RecoveryCodeMessages } from "./recovery-code-messages";
+import { termsAr, termsEn, type TermsMessages } from "./terms-messages";
 
 export type Locale = "ar" | "en";
 export type Direction = "rtl" | "ltr";
@@ -33,13 +35,15 @@ export interface UiMessages {
   };
   backTo: (destination: string) => string;
   placeholder: { notBuilt: string };
-  // Screen names: the H1 and the document title. Recovery, consent, start, terms and the recovery code are still placeholders.
+  // Screen names: the H1 and the document title. Recovery, consent, start and the recovery code are still placeholders.
   screens: { login: string; register: string; recovery: string; consent: string; start: string; terms: string; recoveryCode: string };
   notFound: { title: string; body: string; action: string };
   error: { title: string; retry: string };
   server: { waking: string; retry: string; ready: string; busy: string };
   form: FormMessages;
   auth: AuthMessages;
+  terms: TermsMessages;
+  recoveryCode: RecoveryCodeMessages;
 }
 
 const ar: UiMessages = {
@@ -80,6 +84,8 @@ const ar: UiMessages = {
   },
   form: formAr,
   auth: authAr,
+  terms: termsAr,
+  recoveryCode: recoveryCodeAr,
 };
 
 const en: UiMessages = {
@@ -120,6 +126,8 @@ const en: UiMessages = {
   },
   form: formEn,
   auth: authEn,
+  terms: termsEn,
+  recoveryCode: recoveryCodeEn,
 };
 
 const CATALOGS: Record<Locale, UiMessages> = { ar, en };

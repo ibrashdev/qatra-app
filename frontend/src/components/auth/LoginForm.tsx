@@ -30,11 +30,13 @@ import { useConnectivity } from "@/lib/net/use-connectivity";
 // P-06: a request that waits longer than this (the server holds the answer after the fifth failure) says it is still working.
 const SLOW_REQUEST_MS = 5_000;
 
+// A null message is the note of S-04 about a code that was left unconfirmed or is gone: its words are in the S-04 catalog.
 const ARRIVALS = {
   session_ended: { variant: "warning", message: "sessionEnded" },
   reset_done: { variant: "success", message: "resetDone" },
   account_deleted: { variant: "info", message: "accountDeleted" },
-} as const satisfies Record<LoginArrival, { variant: BannerVariant; message: keyof LoginMessages["arrival"] }>;
+  code_unavailable: { variant: "info", message: null },
+} as const satisfies Record<LoginArrival, { variant: BannerVariant; message: keyof LoginMessages["arrival"] | null }>;
 
 // What the last press left behind, shown above the submit button. Connectivity is not here: the wake-up and offline banners speak for it.
 type Result =
@@ -211,7 +213,7 @@ export function LoginForm() {
         <div className="mt-q24 flex flex-col gap-q16">
           {arrival !== null ? (
             <Banner variant={ARRIVALS[arrival].variant} dismiss={{ label: messages.form.dismiss, onDismiss: dismissArrival }}>
-              {text.arrival[ARRIVALS[arrival].message]}
+              {ARRIVALS[arrival].message === null ? messages.recoveryCode.unavailableRecovery : text.arrival[ARRIVALS[arrival].message]}
             </Banner>
           ) : null}
           {summary.length >= 2 ? <ErrorSummary title={messages.form.errorSummary(summary.length, formatInteger(locale, summary.length))} items={summary} /> : null}

@@ -17,11 +17,14 @@ The parsers are tolerant of extra lines outside the blocks and strict about the 
 loosely (text after the last colon of the first line that mentions "language") and is not
 needed for any later step.
 
-**The client has never been run against the live host**: ``mcp.islamiccontent.org`` is not
-reachable from the build container. It follows the MCP Streamable HTTP transport (``initialize``,
-``notifications/initialized``, ``tools/call``; JSON or SSE answers) and is covered by
-``httpx.MockTransport`` unit tests only. It accepts only the approved host, never follows
-redirects and uses a request timeout.
+**Live use.** The unit tests use ``httpx.MockTransport`` only. The first run against the live host
+was the operator run of 5 October 2026 (Quran surah 112, a re-acquisition, and HadeethEnc record
+66511 in two passes): the parsers read the live layout without change and the answers matched the
+layout above. That is one observation, not a guarantee for other surahs or records. The client
+follows the MCP Streamable HTTP transport (``initialize``, ``notifications/initialized``,
+``tools/call``; JSON or SSE answers), sends an honest descriptive ``User-Agent``, accepts only the
+approved host, never follows redirects and uses a request timeout. A parse error names counts of
+the layout (``layout_summary``), never any of the text.
 """
 
 from __future__ import annotations
@@ -54,6 +57,10 @@ from app.workflow.models import HadithRecord, QuranRecord
 PROTOCOL_VERSION: Final = "2025-06-18"
 CLIENT_NAME: Final = "qatra-content-workflow"
 CLIENT_VERSION: Final = "0.1"
+# An honest, descriptive client identity. A probe that carried a default client signature was
+# refused by the provider's edge (mcp-evidence.json); the identity says what this is and nothing
+# else, it never imitates a browser.
+USER_AGENT: Final = f"{CLIENT_NAME}/{CLIENT_VERSION} (operator CLI; read-only acquisition)"
 DEFAULT_TIMEOUT_SECONDS: Final = 30.0  # an operational default, not a contract value
 
 _LAYOUT_WS = " \t\r\n"  # layout whitespace stripped around a line; NBSP and ZWNJ stay untouched
@@ -191,6 +198,22 @@ def _labelled_value(block: str, label: str) -> str:
     return match.group(1) if match else ""
 
 
+def layout_summary(text: str) -> str:
+    """Counts that describe the layout of a tool answer, for a parse error: sizes, how many of
+    each block tag and ayah marker and how many ``Source:`` lines. Never any of the text."""
+    lines = text.splitlines()
+    tags = []
+    for tag in _BLOCK_TAGS:
+        opened = len(re.findall(re.escape(f"[{tag}]"), text))
+        closed = len(re.findall(re.escape(f"[/{tag}]"), text))
+        tags.append(f"{tag} {opened}/{closed}")
+    markers = sum(1 for line in lines if _MARKER_RE.match(line.strip(_LAYOUT_WS)))
+    return (
+        f"layout: {len(text)} characters, {len(lines)} lines; block tags open/close "
+        f"{', '.join(tags)}; ayah markers {markers}; Source lines {len(_SOURCE_RE.findall(text))}"
+    )
+
+
 # --- JSON-RPC client -----------------------------------------------------------------------
 
 
@@ -219,7 +242,7 @@ class McpJsonRpcClient:
     """Minimal MCP client over HTTP (JSON-RPC 2.0): ``initialize``, then ``tools/call``.
 
     Only the approved host is accepted and redirects are refused (API-spec: URL acquisition
-    validates the approved host and each redirect). Not live-tested; see the module docstring.
+    validates the approved host and each redirect). See the module docstring for live use.
     """
 
     def __init__(
@@ -257,6 +280,7 @@ class McpJsonRpcClient:
         headers = {
             "Content-Type": "application/json",
             "Accept": "application/json, text/event-stream",
+            "User-Agent": USER_AGENT,
         }
         if self._session_id:
             headers["Mcp-Session-Id"] = self._session_id
@@ -343,9 +367,15 @@ class McpJsonRpcClient:
         return self.call_tool(TOOL_HADITH, hadith_arguments(hadeethenc_id))
 
     def fetch_quran_surah(self, surah: int) -> list[QuranRecord]:
-        return parse_quran_response(self.get_quran_verses_text(surah))
+        text = self.get_quran_verses_text(surah)
+        try:
+            return parse_quran_response(text)
+        except McpParseError as exc:
+            raise McpParseError(f"{exc} ({layout_summary(text)})") from None
 
     def fetch_hadith(self, hadeethenc_id: int, forty_number: int) -> HadithRecord:
-        return parse_hadith_response(
-            self.get_hadith_text(hadeethenc_id), hadeethenc_id, forty_number
-        )
+        text = self.get_hadith_text(hadeethenc_id)
+        try:
+            return parse_hadith_response(text, hadeethenc_id, forty_number)
+        except McpParseError as exc:
+            raise McpParseError(f"{exc} ({layout_summary(text)})") from None
