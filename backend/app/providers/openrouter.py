@@ -6,10 +6,11 @@ Policy (D54/D60, AI-agent.md, Plan-conversation §2.4):
   fails means "cannot verify", which means ineligible: no completion request is made.
 - Structured output (JSON schema) is requested only when the model documents support for it;
   otherwise the reply must still validate as JSON, and a parse failure is a fallback.
-- One request per turn, a shared deadline of ``timeout_sec`` over the network calls, then
-  ``ProviderUnavailable``. Payloads, replies and provider error text are never logged or kept:
-  every failure is reduced to a reason code. The API key is read from settings and used only
-  in the ``Authorization`` header; without it the provider is disabled.
+- One request per turn under a total wall-clock deadline of ``timeout_sec`` (catalog lookup plus
+  the completion, whose body is read incrementally), then ``ProviderUnavailable``. Payloads,
+  replies and provider error text are never logged or kept: every failure is reduced to a reason
+  code. The API key is read from settings and used only in the ``Authorization`` header; without
+  it the provider is disabled.
 """
 
 from __future__ import annotations
@@ -165,21 +166,35 @@ class OpenRouterProvider:
             }
             body["provider"] = {"require_parameters": True}
         headers = {"Authorization": f"Bearer {self._api_key}", "Content-Type": "application/json"}
+        # httpx timeouts are per phase (a read timeout is the longest gap between chunks), and
+        # OpenRouter keeps slow non-streaming requests alive with whitespace bytes, so the body is
+        # read incrementally against a total wall-clock deadline instead of relying on them.
+        url = f"{self._base_url}/chat/completions"
         try:
-            with self._client(remaining()) as client:
-                response = client.post(
-                    f"{self._base_url}/chat/completions", json=body, headers=headers
-                )
+            with (
+                self._client(remaining()) as client,
+                client.stream("POST", url, json=body, headers=headers) as response,
+            ):
+                if response.status_code != 200:
+                    raise ProviderUnavailable("error", model=model)
+                if remaining() <= 0:
+                    raise ProviderUnavailable("timeout", model=model)
+                chunks: list[bytes] = []
+                for chunk in response.iter_bytes():
+                    if remaining() <= 0:
+                        raise ProviderUnavailable("timeout", model=model)
+                    chunks.append(chunk)
+                raw = b"".join(chunks)
+        except ProviderUnavailable:
+            raise
         except httpx.TimeoutException:
             raise ProviderUnavailable("timeout", model=model) from None
         except Exception:
             raise ProviderUnavailable("error", model=model) from None
-        if response.status_code != 200:
-            raise ProviderUnavailable("error", model=model)
 
         input_tokens = output_tokens = None
         try:
-            data = response.json()
+            data = json.loads(raw)
             usage = data.get("usage") if isinstance(data, dict) else None
             if isinstance(usage, dict):
                 input_tokens = _as_count(usage.get("prompt_tokens"))

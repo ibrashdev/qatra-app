@@ -270,3 +270,61 @@ The unit tests use `httpx.MockTransport` only and never touch the network.
   never reads learner tables or `QATRA_SERVER_DB`.
 - The MCP client accepts only `https://mcp.islamiccontent.org/...` and never follows redirects
   (see "The MCP client in live use").
+
+# Operator CLI: `model_probe` (free-model measurement, D54/D60, D89)
+
+D54/D60 require the OpenRouter free model to be chosen after measurement, and D89's open next
+action is to verify the `OPENROUTER_MODELS` value. `model_probe` measures candidate free models
+on the **real plan-chat request path**: each model is called through the production
+`OpenRouterProvider` (live zero-price check, the `plan-chat-v1` system prompt, the JSON schema,
+`require_parameters`, temperature, `QATRA_CHAT_MAX_TOKENS`), and each reply is post-processed with
+the production policy (`merge_model_parameters`, `guard_reply`). The owner runs it locally with
+their own key; no HTTP endpoint exposes it.
+
+```bash
+cd backend
+uv run python -m scripts.model_probe --list-free                      # live free catalog, no key
+# Recommended minimal run: 3 models x 3 scenarios x 1 run = 9 requests
+uv run python -m scripts.model_probe --models vendor/a:free,vendor/b:free,vendor/c:free \
+    --scenarios ar_create,en_revise,ar_invalid                  # dry run: prints the plan
+uv run python -m scripts.model_probe --models vendor/a:free,vendor/b:free,vendor/c:free \
+    --scenarios ar_create,en_revise,ar_invalid --yes --json probe-report.json
+```
+
+- **Options**: `--models a,b,c` (default `OPENROUTER_MODELS`), `--runs N` (1-5, default 1),
+  `--timeout S` (default `QATRA_CHAT_MODEL_TIMEOUT_SEC`, 8), `--lang ar|en|both` (default
+  `both`), `--scenarios ids`, `--pause S` (default 3.5, for the free 20 requests a minute),
+  `--json PATH`, `--include-replies` (keep the synthetic reply text in the JSON), `--show-payloads`,
+  `--yes`, `--allow-large`, `--list-free`.
+- **Dry run by default.** Without `--yes` nothing is sent: it prints the models, the scenarios,
+  the total request count, the pacing time and the synthetic learner text (never the key), then
+  exits with code 0, also when no key is set yet. Sending needs `--yes`, and then the key. A plan
+  above 20 requests is refused unless `--allow-large` is given, and a plan above
+  `QATRA_OPENROUTER_FREE_REQUESTS_PER_DAY` (50) is always refused.
+- **Synthetic data only.** Six hard-coded scenarios (Arabic plan creation, English plan revision,
+  and a religious-ruling question and an out-of-range 45-minute request in each language) over a
+  synthetic Juz' Amma and Forty Hadith catalog. Their payloads are built like the service builds
+  them and each is checked against the R27 allowlist before sending; a disallowed key aborts. The
+  religious-ruling scenarios are stress tests: in the app the input guard answers such a message
+  before any model call, so the plan prints what the guard would do.
+- **Quota.** The free limit (50 a day, 20 a minute) is per OpenRouter account and is shared with
+  live learners on the deployed service. A run uses `models x scenarios x runs` requests, for
+  example 3 models x 3 scenarios x 1 run = 9; both the dry run and the `--yes` run print "Uses N of
+  the account's shared free daily requests". Spend little: use `--scenarios` and `--lang`, and raise
+  `--runs` only when needed.
+- **Report.** Per model: success rate (valid output and the scenario's expectation met), valid
+  JSON rate, server validation pass rate (the invalid-value scenarios are not counted), p50/p95
+  latency, calls within the timeout, guard replacements, refusals handled, and average tokens. The
+  last line recommends models with 100 % valid output and p95 within the timeout as a ready
+  `OPENROUTER_MODELS=a,b` value, best first (higher validation pass rate, fewer guard
+  replacements, lower p95); if none qualify it says so. A model that is not free in the live
+  catalog is reported as `ineligible` and nothing is sent to it. The report is a measurement of
+  these synthetic scenarios, not a quality guarantee.
+- **Safety.** `OPENROUTER_API_KEY` is read only from the environment or the gitignored
+  `backend/.env` through `Settings`, and is never printed, logged or written (`--list-free` and a dry
+  run need no key; `--yes` without a key exits 5 and sends nothing). The only file written is the optional `--json`
+  report. The tool does not touch the database, `ai_usage` or the wiring.
+- **Exit codes**: 0 ok (a dry run included, with or without a key); 1 unexpected error (only the exception type is
+  printed); 2 usage error or unsafe input; 5 no key with `--yes`, or an unreadable configuration; 7 the
+  OpenRouter catalog could not be read. The unit tests use `httpx.MockTransport` only and never
+  touch the network.

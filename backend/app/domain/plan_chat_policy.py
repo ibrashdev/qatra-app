@@ -581,7 +581,9 @@ _LINK = re.compile(
 _HANDLE = re.compile(r"(?<![\w@])@[A-Za-z0-9_.]{2,}")
 # Digits with at most two separator characters between them (so ") " passes but " - " splits a
 # date range); a candidate is a phone number only with 9+ digits (str.isdigit: Arabic-Indic too).
-_PHONE_CANDIDATE = re.compile(r"\+?\(?\d(?:[\s().-]{0,2}\d){6,}")
+# Separators: whitespace, brackets, dots, ASCII hyphen, Unicode dashes U+2010-U+2015 (hyphen, en and
+# em dash ...) and U+2212 (minus). "/" is deliberately absent so that dates stay readable.
+_PHONE_CANDIDATE = re.compile(r"\+?\(?\d(?:[\s().\-\u2010-\u2015\u2212]{0,2}\d){6,}")
 _MIN_PHONE_DIGITS = 9
 
 
