@@ -121,6 +121,18 @@ describe("S-12 Plan overview: the six sections", () => {
     expect(screen.getByRole("region", { name: "الخطوة التالية" })).toHaveTextContent("المقطع التالي: اسم القسم (عنصر نائب) ١ (1).");
   });
 
+  it("FC-11: keeps every region 16 px apart in the natural page flow, with no clipping container", async () => {
+    renderPlan();
+    await screen.findByText("الهدف الكلي");
+    for (const name of ["الهدف الكلي", "الزمن الكلي", "الزمن اليومي", "المراحل", "المراجعات", "الخطوة التالية"]) {
+      const region = screen.getByRole("region", { name });
+      expect(region.className).toContain("mt-q16");
+      expect(region.className).not.toMatch(/overflow|h-\[|max-h/);
+    }
+    const actions = screen.getByRole("link", { name: "تعديل الوقت والهدف" }).closest("div") as HTMLElement;
+    expect(actions.className).toContain("mt-q16");
+  });
+
   it("offers «تعديل الوقت والهدف» to S-13 and «بدء خطة أخرى» to S-08", async () => {
     renderPlan();
     expect(await screen.findByRole("link", { name: "تعديل الوقت والهدف" })).toHaveAttribute("href", "/plan/revise");

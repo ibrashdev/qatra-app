@@ -66,7 +66,7 @@ export function OtherPlans(props: Props) {
   const headingId = useId();
   if (plans.length === 0) return null;
   return (
-    <section aria-labelledby={headingId} className="mt-q24">
+    <section aria-labelledby={headingId} className="mt-q16">
       <h2 id={headingId} className="text-section text-ink">
         {t.others.heading}
       </h2>

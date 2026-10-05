@@ -84,6 +84,18 @@ afterEach(() => {
 });
 
 describe("S-21 Results and progress: the populated screen", () => {
+  it("FC-14: sets both percentages in the display size, each under its own label and bar", async () => {
+    renderProgress();
+    const daily = await screen.findByRole("region", { name: "الإنجاز اليومي" });
+    const overall = card("الإنجاز الكلي للخطة");
+    const dailyValue = within(daily).getByText("٧٠٪");
+    const overallValue = within(overall).getByText("٢٤٪");
+    expect(dailyValue.className).toContain("text-display");
+    expect(overallValue.className).toContain("text-display");
+    expect(within(daily).getByRole("progressbar")).toHaveAttribute("aria-valuenow", "70");
+    expect(within(overall).getByRole("progressbar")).toHaveAttribute("aria-valuenow", "24");
+  });
+
   it("shows the H1, the daily card and the overall card with the specified copy", async () => {
     renderProgress();
     const heading = await screen.findByRole("heading", { level: 1, name: "النتائج والتقدم" });

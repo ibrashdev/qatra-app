@@ -14,10 +14,11 @@ import { cx } from "@/lib/cx";
 import { goalLines, nextStep, stageLabel, stageRows, type StageRow } from "./plan-overview-model";
 
 // UI-screens P-13: a `section` with an `h2` per pair. Label in the section size, text in the compact body size, 12 px between.
+// FC-11 (D86): regions are 16 px apart (the Figma refinement of the 24 px seam), and nothing is clipped, so a long plan scrolls with the page.
 export function PlanSection({ label, children }: { label: string; children: ReactNode }) {
   const id = useId();
   return (
-    <section aria-labelledby={id} className="mt-q24">
+    <section aria-labelledby={id} className="mt-q16">
       <h2 id={id} className="text-section text-ink">
         {label}
       </h2>

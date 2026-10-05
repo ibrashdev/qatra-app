@@ -11,7 +11,8 @@ import type { DailyProgress } from "@/lib/api/types";
 
 // UI-tokens 6.10 daily: label at the start edge, value at the end edge, the track below, then the completion and the extra-time lines.
 // `daily` is authoritative and capped at 100 %; extra time is separate and never a second completion (D40). Shared by S-20 and S-21.
-export function DailyIndicator({ locale, daily, label }: { locale: Locale; daily: DailyProgress; label: "h2" | "p" }) {
+// `emphasis` (FC-14, S-21 only) sets the percent in the display size, as the overall card does; the words and the order stay the same.
+export function DailyIndicator({ locale, daily, label, emphasis = false }: { locale: Locale; daily: DailyProgress; label: "h2" | "p"; emphasis?: boolean }) {
   const t = todayMessages(locale).daily;
   const labelId = useId();
   const Label = label;
@@ -24,7 +25,7 @@ export function DailyIndicator({ locale, daily, label }: { locale: Locale; daily
   const comma = locale === "ar" ? "،" : ",";
   return (
     <div>
-      <div className="flex items-baseline justify-between gap-q12">
+      <div className={emphasis ? "flex flex-wrap items-baseline justify-between gap-x-q12 gap-y-q4" : "flex items-baseline justify-between gap-q12"}>
         <Label id={labelId} className="text-section text-ink">
           {t.barLabel}
         </Label>
@@ -33,7 +34,8 @@ export function DailyIndicator({ locale, daily, label }: { locale: Locale; daily
             {done}/{goal}
           </bdi>{" "}
           {t.unit(goalMinutes)}
-          {comma} {t.percent(formatInteger(locale, percent))}
+          {comma}{" "}
+          {emphasis ? <span className="text-display">{t.percent(formatInteger(locale, percent))}</span> : t.percent(formatInteger(locale, percent))}
         </span>
       </div>
       <div className="mt-q8">

@@ -20,7 +20,7 @@ export function DailyCard({ locale, daily, streakDays }: { locale: Locale; daily
   const t = progressMessages(locale);
   return (
     <section aria-label={todayMessages(locale).daily.barLabel} className={CARD}>
-      <DailyIndicator locale={locale} daily={daily} label="h2" />
+      <DailyIndicator locale={locale} daily={daily} label="h2" emphasis />
       <p className="mt-q12 text-small text-ink-secondary">{t.basis}</p>
       {streakDays !== null ? <p className="mt-q8 text-body-compact text-ink">{streakDays > 0 ? t.streak.days(formatInteger(locale, streakDays)) : t.streak.none}</p> : null}
     </section>
@@ -35,7 +35,7 @@ export function OverallCard({ locale, plan }: { locale: Locale; plan: PlanProgre
   const formatted = formatInteger(locale, percent);
   return (
     <section aria-label={t.overall.label} className={CARD}>
-      <div className="flex items-baseline justify-between gap-q12">
+      <div className="flex flex-wrap items-baseline justify-between gap-x-q12 gap-y-q4">
         <h2 id={labelId} className="text-section text-ink">
           {t.overall.label}
         </h2>

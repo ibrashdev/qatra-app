@@ -129,7 +129,7 @@ function PlanOverviewContent() {
         {plan !== null ? (
           <>
             <PlanSections locale={locale} t={t} today={today} plan={plan} edition={edition} data={ready.today} progress={ready.progress} />
-            <div className="mt-q24 flex flex-wrap items-center gap-x-q16 gap-y-q8">
+            <div className="mt-q16 flex flex-wrap items-center gap-x-q16 gap-y-q8">
               <LinkButton href="/plan/revise" variant="secondary">
                 {t.buttons.revise}
               </LinkButton>
@@ -137,7 +137,7 @@ function PlanOverviewContent() {
             </div>
           </>
         ) : (
-          <section aria-label={today.empty.title} className="mt-q24 flex flex-col items-start gap-q12">
+          <section aria-label={today.empty.title} className="mt-q16 flex flex-col items-start gap-q12">
             <Icon name="droplet" size="xl" className="text-ink-secondary" />
             <h2 className="text-section text-ink">{today.empty.title}</h2>
             <LinkButton href="/start">{today.empty.action}</LinkButton>
@@ -153,7 +153,7 @@ function PlanOverviewContent() {
       <PageTitle screenName={t.screenName} />
       <PlanHeader title={t.screenName} backDestination={t.backDestination} backHref="/today" />
 
-      <div className="mt-q24 flex flex-col gap-q16 empty:hidden">
+      <div className="mt-q16 flex flex-col gap-q16 empty:hidden">
         <RecoveryCodeUnavailableBanner />
         {plan !== null && typeof plan.pendingSessionMinutes === "number" && ready !== null ? (
           <Banner variant="info">{today.banners.pending(formatLearningDate(locale, addDays(ready.today.learningDate, 1)))}</Banner>
