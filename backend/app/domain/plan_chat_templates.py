@@ -19,6 +19,7 @@ from datetime import date
 
 from app.contracts_plan_chat import (
     CatalogEdition,
+    DailyNew,
     Estimate,
     PlanParameters,
     PlanProposal,
@@ -138,6 +139,61 @@ def days_text(days: int, language: Lang) -> str:
     if days <= 0:
         return "less than a day"
     return "1 day" if days == 1 else f"{days} days"
+
+
+def _ar_every_days(days: int) -> str:
+    if days == 1:
+        return "كل يوم"
+    if days == 2:
+        return "كل يومين"
+    return f"كل {days} أيام" if days <= 10 else f"كل {days} يومًا"
+
+
+def _ar_new_units(unit: str, count: int) -> str:
+    """Arabic number agreement of «N new ayat/hadith»: 1 and 2 take the singular and the dual with
+    their adjective, 3 to 10 the plural, 11 and above the singular accusative (tamyiz)."""
+    ayah = unit == "ayah"
+    if count == 1:
+        return "آية جديدة" if ayah else "حديث جديد"
+    if count == 2:
+        return "آيتان جديدتان" if ayah else "حديثان جديدان"
+    if count <= 10:
+        return f"{count} {'آيات' if ayah else 'أحاديث'} جديدة"
+    return f"{count} {'آية جديدة' if ayah else 'حديثًا جديدًا'}"
+
+
+def _daily_new_ar(daily: DailyNew) -> str:
+    noun_one = "آية جديدة" if daily.unit == "ayah" else "حديث جديد"
+    if daily.every_days is not None:
+        return f"{noun_one} {_ar_every_days(daily.every_days)}"
+    per_day = daily.per_day or 1
+    if per_day == 1 and daily.unit == "hadith":
+        return f"{noun_one} {_ar_every_days(1)}"
+    if per_day <= 2:
+        return f"{_ar_new_units(daily.unit, per_day)} في اليوم"
+    return f"نحو {_ar_new_units(daily.unit, per_day)} في اليوم"
+
+
+def _daily_new_en(daily: DailyNew) -> str:
+    ayah = daily.unit == "ayah"
+    if daily.every_days is not None:
+        every = "every day" if daily.every_days == 1 else f"every {daily.every_days} days"
+        return f"a new {'ayah' if ayah else 'hadith'} {every}"
+    per_day = daily.per_day or 1
+    if per_day == 1:
+        return f"a new {'ayah' if ayah else 'hadith'} each day"
+    noun = "ayat" if ayah else "hadiths"
+    return f"{'about ' if per_day >= 3 else ''}{per_day} new {noun} each day"
+
+
+def daily_new_text(estimate: Estimate, language: Lang) -> str | None:
+    """The daily amount of new material in whole units (D90), as a clause that follows the daily
+    time («نحو 3 آيات جديدة في اليوم», «a new hadith every 2 days»); ``None`` when the estimate
+    carries no unit amount, and the caller then states the words figure."""
+    daily = estimate.daily_new
+    if daily is None:
+        return None
+    return _daily_new_ar(daily) if language == "ar" else _daily_new_en(daily)
 
 
 def minutes_text(minutes: int, language: Lang) -> str:
@@ -315,17 +371,25 @@ def build_sections(
                 "narrow the scope or move the date."
             )
 
-    # Daily time.
+    # Daily time: the amount in whole ayat or hadith (D90); the words figure only when the
+    # estimate has no unit amount.
+    amount = daily_new_text(estimate, language)
     if ar:
-        daily_time = (
-            f"{minutes} يوميًا، وتتعلم نحو {estimate.new_words_per_day} كلمة جديدة كل يوم "
-            "مع مراجعة المقاطع السابقة."
-        )
+        if amount is not None:
+            daily_time = f"{minutes} يوميًا، و{amount}، مع مراجعة المقاطع السابقة."
+        else:
+            daily_time = (
+                f"{minutes} يوميًا، وتتعلم نحو {estimate.new_words_per_day} كلمة جديدة كل يوم "
+                "مع مراجعة المقاطع السابقة."
+            )
     else:
-        daily_time = (
-            f"{minutes} a day, learning about {estimate.new_words_per_day} new words each day "
-            "while reviewing earlier passages."
-        )
+        if amount is not None:
+            daily_time = f"{minutes} a day, {amount}, while reviewing earlier passages."
+        else:
+            daily_time = (
+                f"{minutes} a day, learning about {estimate.new_words_per_day} new words each "
+                "day while reviewing earlier passages."
+            )
 
     # Stages.
     phrase = order_phrase(params.order, language)

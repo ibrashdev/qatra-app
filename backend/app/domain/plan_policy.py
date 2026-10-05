@@ -12,6 +12,10 @@ What lives here
   ``days = ceil((totalWords - knownWords) / capacity * 1.15)`` computed with exact integer
   arithmetic (1.15 = 23/20), ``endDate = today + days``, the two alternatives (the next larger
   minutes option and the scope halved with ``plan_chat_policy.halve_scope``) and the reason code;
+- the learner-facing daily amount in whole units (D90, ``Estimate.daily_new``): the pace itself
+  stays in words (the passage split of D66 depends on it), and the amount shown to the learner is
+  derived from the same estimate: the scope's whole ayat (Quran) or hadith (the Forty) spread over
+  the estimated days, never splitting a unit (see ``daily_new_amount``);
 - the plan commit: ``plan_phases`` rows, ``plan_versions.policy_json`` and the effective date.
 
 Design decisions for shapes the approved schema leaves open (Database-schema OPEN-04, API-spec
@@ -61,6 +65,7 @@ from app.contracts_plan_chat import (
     CatalogCategory,
     CatalogEdition,
     CatalogSection,
+    DailyNew,
     Estimate,
     EstimateResult,
     PlanParameters,
@@ -118,6 +123,9 @@ class SectionData:
     title_en: str
     path_words: Mapping[str, int]
     path_passages: Mapping[str, int]
+    # D90: the whole ayat of a surah section; ``None`` when the catalog does not say (no hadith
+    # needs it: a hadith section is one hadith).
+    unit_count: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -280,6 +288,65 @@ def known_words_in_scope(
     return sum(row.words for row in known if row.section_ordinal in scope and row.path in paths)
 
 
+def _round_half_up(numerator: int, denominator: int) -> int:
+    """``numerator / denominator`` rounded half up, in exact integer arithmetic."""
+    return (2 * numerator + denominator) // (2 * denominator)
+
+
+def scope_units(
+    edition: EditionData, ordinals: Iterable[int], paths: Sequence[str]
+) -> tuple[str, int] | None:
+    """``(unit, whole units)`` of the sections in scope that have a passage on a selected path.
+
+    A Quran edition counts ayat (the ``unit_count`` of each surah section); the Forty counts
+    hadith (one per section). ``None`` when a Quran section in scope has no ayah count (the
+    catalog does not say), so a number that cannot be right is never shown.
+    """
+    quran = edition.content_format == "quran"
+    total = 0
+    for ordinal in set(ordinals):
+        section = edition.section(ordinal)
+        if section is None or sum(section.path_passages.get(p, 0) for p in paths) == 0:
+            continue
+        if quran:
+            if section.unit_count is None:
+                return None
+            total += section.unit_count
+        else:
+            total += 1
+    return ("ayah" if quran else "hadith"), total
+
+
+def daily_new_amount(
+    edition: EditionData,
+    *,
+    ordinals: Sequence[int],
+    paths: Sequence[str],
+    days: int,
+    total_words: int,
+    known_words: int,
+) -> DailyNew | None:
+    """The daily amount in whole units (D90): the scope's units spread over the estimated days.
+
+    The remaining units are the scope's units in proportion to the words that are not known yet
+    (all of them when nothing is known). Rounded half up: ``perDay`` whole units a day when there
+    are at least as many units as days, otherwise one unit every ``everyDays`` days (a long hadith
+    that takes several consecutive days; the pacing is by words and never splits a passage part
+    mid-way). ``None`` when there is nothing to learn or no unit count.
+    """
+    remaining_words = total_words - known_words
+    counted = scope_units(edition, ordinals, paths)
+    if counted is None or days <= 0 or total_words <= 0 or remaining_words <= 0:
+        return None
+    unit, units = counted
+    if units <= 0:
+        return None
+    remaining = max(1, _round_half_up(units * remaining_words, total_words))
+    if remaining >= days:
+        return DailyNew(unit=unit, per_day=max(1, _round_half_up(remaining, days)))  # type: ignore[arg-type]
+    return DailyNew(unit=unit, every_days=max(1, _round_half_up(days, remaining)))  # type: ignore[arg-type]
+
+
 def compute_estimate(
     edition: EditionData,
     *,
@@ -306,6 +373,14 @@ def compute_estimate(
         session_minutes=session_minutes,  # type: ignore[arg-type]
         scope=TargetScope(section_ordinals=sorted(set(ordinals))),
         paths=list(selected),  # type: ignore[arg-type]
+        daily_new=daily_new_amount(
+            edition,
+            ordinals=ordinals,
+            paths=selected,
+            days=days,
+            total_words=total,
+            known_words=known_words,
+        ),
     )
 
 
@@ -367,7 +442,10 @@ def estimate_with_alternatives(
 
 
 def estimates_equal(left: Estimate, right: Estimate) -> bool:
-    """Every field equal (API-spec E16); the order of ``scope`` and ``paths`` does not matter."""
+    """Every field equal (API-spec E16); the order of ``scope`` and ``paths`` does not matter.
+
+    ``daily_new`` (D90) is not compared: it is derived from the compared fields and the catalog,
+    so a client that predates it, or echoes a stale value, still confirms the same estimate."""
     return (
         left.days == right.days
         and left.end_date == right.end_date
