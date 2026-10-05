@@ -1,5 +1,6 @@
 import { sleep } from "../sleep";
 import { errorResponse, mockHandlers, type MockHandler, type MockResponse, type MockScenario } from "./handlers";
+import { accountMockHandlers } from "./account-handlers";
 import { withPlacementMock } from "./placement-handlers";
 
 export interface MockFetchOptions {
@@ -59,8 +60,8 @@ function findHandler(
 
 // A fetch-compatible function: the real client code (envelope parsing, timeouts) runs unchanged in mock mode.
 export function createMockFetch(options: MockFetchOptions = {}): typeof fetch {
-  // The default set also serves S-09: placement sessions and E31 with placementSessionId sit over the shared handlers.
-  const { latencyMs = 120, coldStartMs = 0, handlers = withPlacementMock(mockHandlers), now = Date.now } = options;
+  // The default set also serves S-05, S-06 (account handlers) and S-09 (placement sessions, E31 with placementSessionId) over the shared handlers.
+  const { latencyMs = 120, coldStartMs = 0, handlers = withPlacementMock({ ...mockHandlers, ...accountMockHandlers }), now = Date.now } = options;
   const scenario: MockScenario = { signedIn: true, hasPlan: true, ...options.scenario };
   const createdAt = now();
 
