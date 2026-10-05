@@ -1,8 +1,10 @@
 # Qatra — API Specification (`/api`)
 
-Version 1.3 · 2026-10-04 · Status: Approved: D74, 4 October 2026 (owner: «approve best practice», «q7 approved») for the v1.1 content; Approved: D75, A1 (owner, 4 October 2026: «A1 approved , best practice») for the D75 additions of version 1.2 (E31–E34, §4.10); the version 1.3 additions are implementation clarifications (implementation record, no new owner approval)
+Version 1.4 · 2026-10-05 · Status: Approved: D74, 4 October 2026 (owner: «approve best practice», «q7 approved») for the v1.1 content; Approved: D75, A1 (owner, 4 October 2026: «A1 approved , best practice») for the D75 additions of version 1.2 (E31–E34, §4.10); the version 1.3 and 1.4 additions are implementation clarifications (implementation record, no new owner approval)
 
 Owner of this draft: Solutions Architect (Role 3), for the root coordinator. This is design documentation only: no endpoint exists, every application path is Planned (D61), and implementation is not authorized until the architecture deliverables are presented and explicitly approved (D69).
+
+**Version 1.4 (5 October 2026).** Clarifications, no new behaviour; implementation record, no new owner approval. It records what the B6 checkpoint 2 implementation (merge d145f0c) and the W-INT wiring (merge ce86d04) settled where this file was silent: the reason codes in use and the handling of a few cases of E21, the 30-minute bound of `durationMs`, the dating of `daily`, the meaning of the E22 summary counts, and the exact meaning of several fields of E18 and E19. It also adds the two proxy-chain measures of the access log to the logging rules (§1.12; commit 66f9743, W-OPS2, verified by the coordinator and merged as 76a25bd). No endpoint, DTO field, error code, limit or status is added or changed, and the existing text and examples are unchanged apart from that §1.12 line. Implemented locally (local tests only); this version records no deployment of this code.
 
 **Version 1.3 (4 October 2026).** Implementation record, no new owner approval. It records what the B13 and B6 implementations clarified: the `422 validation_error` of E34 for a proposal rule that no longer holds, the `404` of E34 for a vanished placement session, the `503` that E31 and E34 answer on a cross-process race on the open-conversation index, the meaning of `PlanChat.modelTurnsLeft` (§4.10.1), and the difference C-17 (§8.1) between S-4 and A-08/O-32, resolved as: E21 accepts events for sessions of `active` and `completed` plans. No endpoint, DTO field or limit is added. Nothing is deployed; local tests only.
 
@@ -259,7 +261,7 @@ The server clock is the only clock the server trusts. `occurredAt`, `startedAt`,
 
 ### 1.12 Logging and privacy rules for the API
 
-- Logs are structured and carry no personal data: method, route template, status, latency, error code (NFR-13).
+- Logs are structured and carry no personal data: method, route template, status, latency, error code (NFR-13). From v1.4 the access log also carries two proxy-chain measures: `xff_entries`, the number of non-empty `X-Forwarded-For` entries that arrived (0 when the header is absent), and `via_vercel`, whether an `x-vercel-id` header was present. Each is a count or a flag only: no header value, address or hash of one is ever logged. They exist to choose `QATRA_TRUSTED_XFF_DEPTH` (Implementation-contract §8) from production logs. Implemented in commit 66f9743 (W-OPS2, merged as 76a25bd; local tests only).
 - Never logged: request or response bodies, cookies, tokens, passwords, recovery codes, answer text, usernames, raw IP addresses (NFR-07; Authentication-and-privacy).
 - The bodies of E03, E04, E06, E07, E08, E09, E13 and E21 must be excluded from any body logging, including host-level logging where it is configurable; from v1.2 (D75) the bodies of E31, E32 and E34 are on the same list.
 - A recall answer (`answer.text`) is transient: graded and discarded. Only `attempts.wrong_token_ref` (a reference) may be kept (Architecture-and-data).
@@ -1142,6 +1144,14 @@ At least one optional field must be present (`422` rule `no_fields`). The scope 
 | `streakDays` | consecutive learning dates with the daily goal met, up to and including today or yesterday (A-12, decision on [O-24]) |
 | `openPlanChatId` | optional, added in v1.2 (D75; Approved — D75, A1 (owner, 4 October 2026)): the id of the account's `open` plan conversation, `null` or absent when there is none; it lets S-08 and S-11 resume the conversation (E33) |
 
+**Clarifications (v1.4, implementation record; no new behaviour).**
+
+- `plan` is the active plan only: a paused or completed plan appears in E19 and not here.
+- `dueReviews` and `nextNewPassage` are computed over the scope and paths in force on `learningDate`; `nextNewPassage` is `null` when nothing new is left in that scope.
+- `openSessionId` is today's open `daily` session when it belongs to the active plan, and `null` otherwise.
+- `openPlanChatId` is the id of the caller's `open` plan conversation. The application binds the lookup at startup to the plan-conversation service (W-INT, merge ce86d04); the value is `null` when there is no open conversation or that service is not installed.
+- `streakDays` ends today or yesterday: a streak that ended yesterday still counts while today's goal is not yet met.
+
 **Errors:** `401 unauthenticated`; `503 unavailable`; `500 internal`. **Side effects:** none; a GET never creates a session or any evidence.
 
 `200` (learning date 2026-10-05)
@@ -1181,6 +1191,12 @@ At least one optional field must be present (`422` rule `no_fields`). The scope 
   - `counts` gives passages per status (`new` includes passages that have no mastery row yet). `confirmedSections` counts a section when all its passages for the selected paths are confirmed. `nextReviewDate` is the earliest `next_review_due`, or `null`.
   - `sections[].percent` = `floor(100 × confirmed words ÷ section words)` for the selected paths (A-12, decision on [O-24]); the `.status` rollup is not defined by the contract and stays for implementation design.
 - Daily progress (time) and overall progress (confirmed material) are independent (D40).
+
+**Clarifications (v1.4, implementation record; no new behaviour).**
+
+- `history` lists only the dates that have a `daily_progress` row, within the last 30 learning days before today, oldest first; a day without activity has no row and is not listed.
+- `plans` lists the active plan first, then the other plans, newest first.
+- The `sections[].status` rollup, which the text above leaves to implementation design, is `confirmed` when every passage of the section is confirmed; otherwise `needs_refresh` when any passage is; otherwise `reviewing` when any passage is `reviewing` or `confirmed`; otherwise `learning` when any passage is `learning`; otherwise `new`.
 
 **Errors:** `401 unauthenticated`; `503 unavailable`; `500 internal`. **Side effects:** none.
 
@@ -1365,6 +1381,15 @@ At least one optional field must be present (`422` rule `no_fields`). The scope 
 7. `results` holds one `AnswerResult` per acknowledged answer event, in request order: `correct`, `assisted`, `expected` (`order` refs, `optionId` or the target `word`, so the UI can show the original with its reference), and the passage state after the event. `daily` is the authoritative `DailyProgress` after processing; local figures are provisional.
 8. **Time and order (A-12, decision on [O-23]).** `learningDate` is fixed at session creation in the account time zone and governs the ladder and the evidence for late replays. Replay order is `occurredAt`, then `clientEventId`. The 30-minute bound applies to `endedAt − startedAt` of an activity event.
 
+**Clarifications (v1.4, implementation record; no new behaviour).**
+
+- Events are processed in array order and the server never reorders them. The client sends them in replay order (`occurredAt`, then `clientEventId`; step 8).
+- An online event (no envelope) for a `prepared` session is `rejected` with `envelope_mismatch`: step 4 requires an open session, and a prepared session opens on its first accepted replayed event. `session_closed` is only for a `completed` session.
+- Reason codes in use: `pending[].reasonCode` is one of `plan_changed_unverifiable`, `content_unverifiable` and `policy_unsupported`. `clock_unverifiable` and `bank_version_mismatch` stay defined in the O-21 sets below but are not produced: an envelope `bankVersion` that differs from the session's pinned value is `rejected` with `envelope_mismatch`, and a pinned bank that cannot be read is `pending` with `content_unverifiable`.
+- A `durationMs` above 30 minutes is a schema failure: the whole request fails with `422 validation_error` (rule `less_than_equal`), because this file has no per-event code for it. The bounds of an activity event stay per-event decisions (`activity_out_of_bounds`).
+- `daily` is the progress of today's learning date, whatever the learning dates of the events in the request.
+- An activity event of a placement session is acknowledged and nothing is stored for it, so a resend in a later request is acknowledged again, not reported as `duplicate`.
+
 **O-21 code sets (A-12).** `rejected[].code`: `question_not_in_session`, `out_of_scope`, `edition_mismatch`, `bank_version_mismatch`, `invalid_answer_shape`, `activity_out_of_bounds`, `plan_not_active`, `session_closed`, `envelope_mismatch`. `pending[].reasonCode`: `plan_changed_unverifiable`, `content_unverifiable`, `policy_unsupported`, `clock_unverifiable`. For E25: `current`, `plan_version_changed`, `bank_version_changed`, `content_revoked`, `validity_ended`. In E21, content of a revoked edition is never graded.
 
 **Client rules for the outbox** (PWA-design §5, §6): remove `acknowledged` and `duplicate` ids; keep `pending`; mark `rejected` as blocked; a `401` stops replay and asks for an online login; a timeout or un-enveloped `5xx` is connectivity (resend the same ids, §1.11).
@@ -1460,6 +1485,12 @@ A mixed outcome on a later replay (the `reasonCode` and `code` values come from 
 - `summary` is derived only from acknowledged events: `answered` (acknowledged answer attempts), `correct`, `newPassages` (passages first attempted in the session, A-12), `reviewsPassed` and `reviewsFailed` (review rounds evaluated in the session), `activeMs` (verified active time attributed to the session).
 - It never adds time and never creates the daily completion; that is written from events when `activeMs ≥ goalMs` (D40). `daily` is the current verified figure.
 - Repeating the call returns the stored result with no second effect. The client sends it after the events of its runs are acknowledged (PWA-design §5); the server does not enforce that order; unfinished review rounds are not evaluated (A-12).
+
+**Clarifications (v1.4, implementation record; no new behaviour).**
+
+- `reviewsPassed` and `reviewsFailed` count the review rounds of the session whose every question has its first attempt; a round passes only when every first attempt is correct and unassisted (S-6). An unfinished round counts in neither.
+- `newPassages` keeps the rule of [O-24]: a passage counts when the first attempt of the account on it was made in this session. The first attempt is the earliest by `occurredAt`, then `clientEventId` (the replay order), attempts of placement sessions included; a passage that the placement test asked about is therefore not new in the first daily session.
+- `activeMs` is the union of the session's own validated intervals, not the figure of the day. Once the session is completed, a repeat of the call returns the stored figure.
 
 **Errors:** `401 unauthenticated`; `403 forbidden_origin`; `404 not_found`; `422 validation_error` (malformed `Idempotency-Key`); `429 throttled` [O-03]; `503 unavailable`; `500 internal`.
 
