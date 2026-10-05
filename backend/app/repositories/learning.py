@@ -420,6 +420,32 @@ class InMemoryLearningStore:
             )
             return OpenedSession(new.session_id, True)
 
+    def put_prepared_session(self, user_id: UUID, new: NewSession, snapshot_id: UUID) -> None:
+        """Insert a ``prepared`` session of an offline snapshot (package B9, the rows of
+        ``app_create_offline_snapshot``). It never takes part in the daily get-or-create; the first
+        replayed event opens it (E21)."""
+        with self._lock:
+            if new.session_id in self.sessions:
+                raise AppError(ErrorCode.unavailable)  # a repeated id is a caller bug
+            self.sessions[new.session_id] = StoredSession(
+                id=new.session_id,
+                user_id=user_id,
+                plan_id=new.plan_id,
+                plan_version_id=new.plan_version_id,
+                plan_version=new.plan_version,
+                edition_id=new.edition_id,
+                kind=new.kind,
+                learning_date=new.learning_date,
+                lesson_refs=new.lesson_refs,
+                question_refs=new.question_refs,
+                steps=copy.deepcopy(new.steps),
+                bank_version=new.bank_version,
+                status="prepared",
+                created_at=new.created_at,
+                self_rating=None,
+                offline_snapshot_id=snapshot_id,
+            )
+
     def _open_daily(self, user_id: UUID, learning_date: date) -> StoredSession | None:
         found = [
             s

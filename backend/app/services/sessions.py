@@ -865,6 +865,19 @@ class SessionService:
             pages=[],
         )
 
+    def passage_views(
+        self, ctx: SessionContext, edition: EditionInfo, passages: Sequence[BankPassage]
+    ) -> list[PassageView]:
+        """The verbatim lesson view of passages, rendered without composing or storing a session
+        (package B9 puts them in an offline snapshot). A bank that lacks a unit the passage spans
+        is an integrity problem (``internal``)."""
+        units = _Units(self._bank, ctx, edition)
+        try:
+            units.load_section_units(p.section_ordinal for p in passages)
+            return [self._passage_view(edition, passage, units) for passage in passages]
+        except (KeyError, IndexError, ValueError):
+            raise _integrity() from None
+
     def _passage_view(
         self, edition: EditionInfo, passage: BankPassage, units: _Units
     ) -> PassageView:
