@@ -157,6 +157,20 @@ describe("S-01 structure (UI-screens S-01 sections 2, 3 and 5)", () => {
     expect(glyph).toHaveClass("size-icon-xl", "text-primary");
   });
 
+  it("spaces the content regions 16 px apart, keeps the 16 px field stack and puts the help links directly after the submit region (FC-06)", () => {
+    renderLogin();
+    const heading = screen.getByRole("heading", { level: 1 });
+    const form = submitButton().closest("form") as HTMLElement;
+    const links = screen.getByRole("link", { name: "نسيت كلمة المرور" }).parentElement as HTMLElement;
+    expect(heading).toHaveClass("mt-q16");
+    expect(form).toHaveClass("mt-q16");
+    expect(submitButton().parentElement).toHaveClass("mt-q16");
+    expect(usernameInput().closest("div.flex-col")).toHaveClass("gap-q16");
+    expect(links).toHaveClass("mt-q16");
+    expect(form.nextElementSibling).toBe(links);
+    expect(document.querySelector(".mt-q24")).toBeNull();
+  });
+
   it("gives the username field the attributes of the spec", () => {
     renderLogin();
     const input = usernameInput();

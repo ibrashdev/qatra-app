@@ -205,12 +205,12 @@ export function LoginForm() {
     <div className="mx-auto w-full max-w-form">
       <PageTitle screenName={messages.screens.login} />
       <BrandMark />
-      <h1 ref={headingRef} data-page-heading tabIndex={-1} className="mt-q24 text-title text-ink">
+      <h1 ref={headingRef} data-page-heading tabIndex={-1} className="mt-q16 text-title text-ink">
         {messages.screens.login}
       </h1>
 
       {arrival !== null || summary.length >= 2 ? (
-        <div className="mt-q24 flex flex-col gap-q16">
+        <div className="mt-q16 flex flex-col gap-q16">
           {arrival !== null ? (
             <Banner variant={ARRIVALS[arrival].variant} dismiss={{ label: messages.form.dismiss, onDismiss: dismissArrival }}>
               {ARRIVALS[arrival].message === null ? messages.recoveryCode.unavailableRecovery : text.arrival[ARRIVALS[arrival].message]}
@@ -220,7 +220,7 @@ export function LoginForm() {
         </div>
       ) : null}
 
-      <form noValidate method="post" onSubmit={submit} className="mt-q24">
+      <form noValidate method="post" onSubmit={submit} className="mt-q16">
         <div className="flex flex-col gap-q16">
           <TextField
             id={usernameId}
@@ -270,7 +270,7 @@ export function LoginForm() {
           }
         />
 
-        <div className="mt-q24">
+        <div className="mt-q16">
           <Button type="submit" fullWidth loading={submitting} aria-disabled={throttled || undefined} aria-describedby={throttled ? bannerId : undefined}>
             {submitting ? text.submitting : text.submit}
           </Button>
@@ -289,7 +289,7 @@ export function LoginForm() {
         </div>
       </form>
 
-      <div className="mt-q24 flex flex-col gap-q8">
+      <div className="mt-q16 flex flex-col gap-q8">
         <TextLink href="/recovery">{text.forgotPassword}</TextLink>
         <p className="flex min-h-target flex-wrap items-center gap-x-q8 text-body text-ink">
           {text.noAccount}

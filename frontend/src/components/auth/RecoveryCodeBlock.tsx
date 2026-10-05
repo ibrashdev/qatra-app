@@ -35,7 +35,7 @@ export function RecoveryCodeBlock({ groups, name, description, blockRef }: { gro
         dir="ltr"
         translate="no"
         onCopy={copyAsCode}
-        className="select-all rounded-md border border-edge bg-surface p-q16 font-mono text-[1.25rem] leading-[1.8] text-ink"
+        className="select-all rounded-md border border-edge bg-surface px-q16 py-q24 font-mono text-[1.25rem] leading-[1.8] text-ink"
       >
         {LINES.map(([from, to], line) => (
           // A line breaks only where a dash allows it, and only when the text is enlarged far past normal: no group is cut or scrolled away.

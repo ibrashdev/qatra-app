@@ -214,7 +214,7 @@ describe("S-04 structure (UI-screens S-04 sections 2, 3 and 6)", () => {
     const element = block();
     expect(element).toHaveAttribute("dir", "ltr");
     expect(element).toHaveAttribute("translate", "no");
-    expect(element).toHaveClass("select-all", "font-mono", "border", "border-edge", "bg-surface", "rounded-md", "p-q16", "text-ink");
+    expect(element).toHaveClass("select-all", "font-mono", "border", "border-edge", "bg-surface", "rounded-md", "px-q16", "py-q24", "text-ink");
     expect(element.className).toContain("text-[1.25rem]");
     expect(element.className).toContain("leading-[1.8]");
     const groups = Array.from(element.querySelectorAll("span")).filter((span) => /^[0-9a-f]{4}$/.test(span.textContent ?? ""));
