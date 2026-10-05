@@ -19,10 +19,11 @@ interface Common {
 }
 
 // UI-screens P-13: a `section` with an `h2` per pair. Label in the section size, text in the compact body size, 12 px between.
+// FC-10 (D86): the regions sit 16 px apart.
 function Section({ label, children }: { label: string; children: ReactNode }) {
   const id = useId();
   return (
-    <section aria-labelledby={id} className="mt-q24">
+    <section aria-labelledby={id} className="mt-q16">
       <h2 id={id} className="text-section text-ink">
         {label}
       </h2>
@@ -61,18 +62,17 @@ export function DailySection({ locale, t, today, plan, goalReached }: Common & {
     <Section label={t.daily.label}>
       <p>{t.daily.text(formatInteger(locale, plan.sessionMinutes), plan.sessionMinutes, formatInteger(locale, words), words)}</p>
       <div className="mt-q12">
-        <div className="flex items-baseline justify-between gap-q12">
-          <span id={barLabelId} className="text-small text-ink-secondary">
-            {t.daily.barLabel}
-          </span>
-          <span>
-            <bdi dir="ltr">
-              {done}/{goal}
-            </bdi>{" "}
-            {t.daily.unit(goalMinutes)}
-            {comma} {percentText}
-          </span>
-        </div>
+        {/* FC-10: the label above, the day's value on its own line in the section weight, so it reads before the plan's goal and stages; no whole-plan figure here (S-11 never shows it) */}
+        <p id={barLabelId} className="text-small text-ink-secondary">
+          {t.daily.barLabel}
+        </p>
+        <p data-testid="daily-value" className="mt-q4 text-section text-ink">
+          <bdi dir="ltr">
+            {done}/{goal}
+          </bdi>{" "}
+          {t.daily.unit(goalMinutes)}
+          {comma} {percentText}
+        </p>
         <div className="mt-q8">
           <ProgressBar percent={percent} labelledBy={barLabelId} valueText={t.daily.valueText(done, goal, goalMinutes, formatInteger(locale, percent))} />
         </div>
@@ -129,8 +129,8 @@ export function ReviewsSection({ locale, t, dueReviews, nextReviewDate }: Common
 export function NextStepSection({ t, line, children }: { t: TodayMessages; line: ReactNode; children: ReactNode }) {
   const id = useId();
   return (
-    <section aria-labelledby={id} className="contents rail:mt-q24 rail:block">
-      <h2 id={id} className="mt-q24 text-section text-ink rail:mt-0">
+    <section aria-labelledby={id} className="contents rail:mt-q16 rail:block">
+      <h2 id={id} className="mt-q16 text-section text-ink rail:mt-0">
         {t.next.label}
       </h2>
       <p className="mt-q12 text-body-compact text-ink">{line}</p>

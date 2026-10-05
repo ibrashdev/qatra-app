@@ -292,6 +292,17 @@ describe("S-09 question steps", () => {
     expect(button("تجاوز السؤال")).toBeInTheDocument();
   });
 
+  it("groups the count and the prompt as one header, apart from the question piece, without a fixed height (FC-09)", async () => {
+    renderTest();
+    await startTest(userEvent.setup());
+    const prompt = screen.getByRole("heading", { level: 2, name: "اختر الكلمة التي تكمل العبارة." });
+    const header = prompt.parentElement as HTMLElement;
+    expect(header).toContainElement(progress());
+    expect(header).not.toContainElement(screen.getAllByRole("radio")[0] ?? null);
+    expect(header.parentElement?.className).toContain("min-w-0");
+    expect(header.parentElement?.innerHTML).not.toMatch(/\b(?:h|min-h)-\[\d+px\]/);
+  });
+
   it("announces the position politely at each step", async () => {
     renderTest();
     const user = userEvent.setup();

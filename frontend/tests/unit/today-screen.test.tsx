@@ -130,6 +130,18 @@ describe("S-11 Plan and today: the five sections", () => {
     expect(stage).toHaveAttribute("aria-valuetext", "٤٠ بالمئة");
   });
 
+  it("sets the day's value on its own line in the section weight, apart from the label, and shows no whole-plan figure (FC-10)", async () => {
+    renderToday();
+    await screen.findByText("الزمن اليومي");
+    const value = screen.getByTestId("daily-value");
+    expect(value).toHaveTextContent("٧/١٠ دقائق، ٧٠٪");
+    expect(value.className).toContain("text-section");
+    const label = screen.getByText("الإنجاز اليومي");
+    expect(label.className).toContain("text-small");
+    expect(label).not.toBe(value);
+    expect(value.textContent).not.toContain("٢٤٪");
+  });
+
   it("never shows the overall percentage, a streak or a calendar", async () => {
     renderToday();
     await screen.findByText("الزمن اليومي");

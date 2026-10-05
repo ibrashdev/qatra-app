@@ -241,7 +241,7 @@ function TodayContent() {
         {t.screenName}
       </h1>
 
-      <div className="mt-q24 flex flex-col gap-q16 empty:hidden">
+      <div className="mt-q16 flex flex-col gap-q16 empty:hidden">
         <RecoveryCodeUnavailableBanner />
         {infoBanners}
       </div>

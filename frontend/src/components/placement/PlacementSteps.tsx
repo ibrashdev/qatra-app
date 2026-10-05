@@ -77,11 +77,15 @@ export function PlacementQuestionStep({ question, k, n, textKind, answer, onAnsw
   const t = placementMessages(locale);
   const prompt = questionPrompt(question, questionMessages(locale), { placement: true });
   return (
-    <div className="flex flex-col gap-q24">
-      <StepsProgress passed={k - 1} total={n} text={t.progress(k, n, locale)} />
-      <h2 data-step-heading tabIndex={-1} className="text-section text-ink">
-        {prompt}
-      </h2>
+    // FC-09: the count and the prompt are one header group, then a 24 px break before the source block and the options. Nothing here has a
+    // fixed height, so the source and every option scroll with the page at large text; the action bar stays below in the shell.
+    <div className="flex min-w-0 flex-col gap-q24">
+      <div className="flex flex-col gap-q12">
+        <StepsProgress passed={k - 1} total={n} text={t.progress(k, n, locale)} />
+        <h2 data-step-heading tabIndex={-1} className="text-section text-ink">
+          {prompt}
+        </h2>
+      </div>
       <QuestionView
         key={question.questionId}
         ref={questionRef}
