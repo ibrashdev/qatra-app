@@ -15,7 +15,8 @@ function sourceFiles(directory: string): string[] {
 
 const sources = sourceFiles(path.join(root, "src"));
 const tests = sourceFiles(path.join(root, "tests"));
-const relative = (file: string) => path.relative(root, file);
+// Separators are normalised to "/", so the rules read the same on Windows and Linux.
+const relative = (file: string) => path.relative(root, file).split(path.sep).join("/");
 
 describe("the rules the screens keep, checked over the source (antislop D80, UI-tokens 1)", () => {
   it("has no em dash and no en dash in any new text: strings, comments, test names (R-02)", () => {

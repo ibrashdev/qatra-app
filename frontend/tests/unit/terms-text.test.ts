@@ -101,7 +101,7 @@ describe("the text of S-03 in both languages (UI-screens S-03 sections 2 and 3)"
     }
     const importers = files(path.join(root, "src"))
       .filter((file) => /from\s+"[^"]*terms-text"/.test(readFileSync(file, "utf8")))
-      .map((file) => path.relative(root, file))
+      .map((file) => path.relative(root, file).split(path.sep).join("/"))
       .sort();
     expect(importers).toEqual(["src/components/terms/TermsBody.tsx", "src/components/terms/TermsScreen.tsx"]);
   });
