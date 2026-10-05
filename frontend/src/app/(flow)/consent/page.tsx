@@ -1,6 +1,7 @@
-import { PlaceholderRoute } from "@/components/ui/PlaceholderRoute";
+import { ConsentScreen } from "@/components/consent/ConsentScreen";
 
-// Placeholder only: the re-consent gate (S-06) comes later in Batch 1. The login screen sends a visitor here when E04 asks for consent.
+// S-06. A focus screen with its own header (the droplet and the product name only), reached by replace navigation after a login that asks for
+// consent, or after any call answered with `terms_required`. It leaves by consent or by logout.
 export default function ConsentPage() {
-  return <PlaceholderRoute screen="consent" />;
+  return <ConsentScreen />;
 }

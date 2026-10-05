@@ -1,6 +1,6 @@
-import { PlaceholderRoute } from "@/components/ui/PlaceholderRoute";
+import { RecoveryScreen } from "@/components/recovery/RecoveryScreen";
 
-// Placeholder only: the account recovery screen (S-05) comes later in Batch 1. The login screen links here.
+// S-05. The screen builds its own header (a back control, no logo) and shows the wake-up line above its button.
 export default function RecoveryPage() {
-  return <PlaceholderRoute screen="recovery" />;
+  return <RecoveryScreen />;
 }
