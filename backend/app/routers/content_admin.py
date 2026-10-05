@@ -1,12 +1,18 @@
 """Content manager web admin routes (D91, docs/Content-admin.md section 4), prefix ``/api/admin``.
 
-Every route is for a content manager only. Guards, in this order: ``require_valid_origin`` (every
-POST and PATCH), the session (``require_session_details``: ``401 unauthenticated``, ``400
-terms_required``), ``require_content_manager`` (``403 forbidden`` for a signed-in account that is
-not named in ``QATRA_CONTENT_MANAGER_USERNAMES``, for a demo session and when the setting is empty)
-and the per-client-IP admin limiter ``QATRA_RATE_ADMIN_PER_MIN``. A missing service answers
-``503 unavailable``. Deletes are POSTs (the ``POST /api/account/delete`` convention, A-10) and
-answer ``204``. Every response is ``Cache-Control: no-store``; bodies forbid unknown fields.
+Every route except ``GET /access`` is for a content manager only. Guards, in this order:
+``require_valid_origin`` (every POST and PATCH), the session (``require_session_details``:
+``401 unauthenticated``, ``400 terms_required``), ``require_content_manager`` (``403 forbidden``
+for a signed-in account that is not named in ``QATRA_CONTENT_MANAGER_USERNAMES``, for a demo
+session and when the setting is empty) and the per-client-IP admin limiter
+``QATRA_RATE_ADMIN_PER_MIN``. A missing service answers ``503 unavailable``. Deletes are POSTs
+(the ``POST /api/account/delete`` convention, A-10) and answer ``204``. Every response is
+``Cache-Control: no-store``; bodies forbid unknown fields.
+
+``GET /access`` is the probe of the settings screen and answers ``200`` for EVERY signed-in account
+(``contentManager`` true or false): a ``403`` there would write a browser console error for every
+learner. It uses the session guard (``401`` when signed out), the admin limiter and no-store, but
+not ``require_content_manager``.
 
 Handlers are synchronous (the database calls block), so they run in the framework's thread pool.
 The one log event of a state-changing request is written by the service.
@@ -71,18 +77,23 @@ _ERRORS = {
 enforce_admin_limit = ip_rate_limit("admin_limiter", "QATRA_RATE_ADMIN_PER_MIN")
 
 
-def require_content_manager(
-    resolved: Annotated[ResolvedSession, Depends(require_session_details)],
-    settings: Annotated[Settings, Depends(get_settings)],
-) -> None:
-    """Only an account named in ``QATRA_CONTENT_MANAGER_USERNAMES`` (normalized like a username
-    lookup key) may use the admin; a demo session never may; an empty setting means nobody."""
-    allowed = is_content_manager(
+Session = Annotated[ResolvedSession, Depends(require_session_details)]
+SettingsDep = Annotated[Settings, Depends(get_settings)]
+
+
+def _is_manager(resolved: ResolvedSession, settings: Settings) -> bool:
+    """An account named in ``QATRA_CONTENT_MANAGER_USERNAMES`` (normalized like a username lookup
+    key); a demo session never; an empty setting means nobody."""
+    return is_content_manager(
         settings.QATRA_CONTENT_MANAGER_USERNAMES,
         resolved.username,
         is_demo=resolved.context.is_demo,
     )
-    if not allowed:
+
+
+def require_content_manager(resolved: Session, settings: SettingsDep) -> None:
+    """``403 forbidden`` unless the signed-in account is a content manager."""
+    if not _is_manager(resolved, settings):
         raise AppError(ErrorCode.forbidden)
 
 
@@ -105,6 +116,11 @@ _READ_GUARDS = [
     Depends(_no_store),
 ]
 _WRITE_GUARDS = [Depends(require_valid_origin), *_READ_GUARDS]
+_ACCESS_GUARDS = [
+    Depends(require_session_details),
+    Depends(enforce_admin_limit),
+    Depends(_no_store),
+]
 
 
 def _no_content() -> Response:
@@ -118,12 +134,12 @@ def _no_content() -> Response:
     "/access",
     response_model=AccessResponse,
     response_model_by_alias=True,
-    summary="Is the signed-in account a content manager",
+    summary="Is the signed-in account a content manager (true or false, never 403)",
     responses=_ERRORS,
-    dependencies=_READ_GUARDS,
+    dependencies=_ACCESS_GUARDS,
 )
-def read_access() -> AccessResponse:
-    return AccessResponse(content_manager=True)
+def read_access(resolved: Session, settings: SettingsDep) -> AccessResponse:
+    return AccessResponse(content_manager=_is_manager(resolved, settings))
 
 
 @router.get(

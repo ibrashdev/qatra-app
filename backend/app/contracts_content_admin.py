@@ -186,7 +186,10 @@ class PatchSourceRequest(_PatchRequest):
 
 
 class AccessResponse(CamelModel):
-    content_manager: Literal[True]
+    """``true`` when the signed-in account is a content manager, ``false`` for every other
+    signed-in account (a non-manager, a demo session, an empty setting)."""
+
+    content_manager: bool
 
 
 class BookRef(CamelModel):
@@ -242,7 +245,7 @@ class Overview(CamelModel):
     ai: AiStatus
 
 
-class SourceRef(CamelModel):
+class EditionSourceRef(CamelModel):
     id: UUID
     title: str
     provider: str
@@ -296,7 +299,7 @@ class EditionActionsView(CamelModel):
 
 
 class EditionDetail(EditionSummary):
-    source: SourceRef
+    source: EditionSourceRef
     content_hash: str | None
     approval: ApprovalView | None
     withdrawal: WithdrawalView | None

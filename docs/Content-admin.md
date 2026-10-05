@@ -1,6 +1,6 @@
 # Qatra: content manager web admin (D91)
 
-Version 1 · 2026-10-05 · Status: **Approved direction (owner, D91, 5 October 2026)**. The screens are built directly in code without a separate design file, on the owner's instruction. The detailed rules below are the coordinator's specification under D91 (Needs Review by the owner after the build). Implementation and verification status lives in [Readiness.tracker.md](Readiness.tracker.md), not here.
+Version 1.1 · 2026-10-05 · Version 1.1 is an implementation record, no new owner approval: it records the coordinator's review decisions after the build (`GET /access` answers a boolean, a section's English title stays required, the withdraw retry, the counts' bank version and the 503 for a refused service key). Status: **Approved direction (owner, D91, 5 October 2026)**. The screens are built directly in code without a separate design file, on the owner's instruction. The detailed rules below are the coordinator's specification under D91 (Needs Review by the owner after the build). Implementation and verification status lives in [Readiness.tracker.md](Readiness.tracker.md), not here.
 
 Owner's words (5 October 2026, Claude Code session), verbatim: «لا تستخدم figma قم ببناء الواجهات بشكل مباشر اعتمد خطة لبناء الواجهات والخدمة frontend & backend & DB & AI لا يوجد تعديل على قاعدة البيانات وانما واجهة CRUD للتحكم بمحتوياتها (ادارة فقط المحتوى لمدير المحتوى وليس ادارة الحسابات) قم ببناء واجهات التحكم دون عملية الاضافة كونها معقدة مبدأيا اشرح بشكل مبسط ثم باشر العمل عليها use subagents»
 
@@ -28,7 +28,7 @@ D91 amends, for this web admin only: D43 and D70 (the manager UI is no longer co
 
 - **Who:** the server setting `QATRA_CONTENT_MANAGER_USERNAMES` (comma separated). Each entry is normalized with `normalize_username` and compared with the signed-in account's username. Empty or unset means nobody (fail closed). A demo session is never a manager. Trade-off accepted for the MVP: if the owner deletes their account, someone could later register the same username; the owner removes the name from the setting before deleting an account.
 - **Guards, in this order:** `require_valid_origin` (every POST/PATCH), the session (`require_session_details`), `require_content_manager`, then the admin rate limiter `QATRA_RATE_ADMIN_PER_MIN` (default 60 per minute per IP).
-- **Answers:** no session gives 401 `unauthenticated`; a signed-in non-manager gives 403 `forbidden`; a missing service gives 503 `unavailable`.
+- **Answers:** no session gives 401 `unauthenticated`; a signed-in non-manager gives 403 `forbidden`; a missing service gives 503 `unavailable`. The one exception is `GET /access`, which answers 200 with `contentManager: false` to a signed-in non-manager (and to a demo session), so the settings screen can ask without producing an error for every learner. A service key that the database refuses answers 503, never 401, so a deployment fault does not sign the manager out.
 - **Database access:** server side only, through PostgREST with `SUPABASE_SERVICE_ROLE_KEY`, which Render already holds for the Auth Admin API. The browser never receives a key. Reads use the base content tables (the catalog views are not granted to `service_role`). The admin never queries a learner table; a learner reference is detected only by the database refusing a delete (foreign key `23503`).
 - **No schema change:** `service_role` already has SELECT, INSERT, UPDATE and DELETE on the content tables (migration 0005) and EXECUTE on `srv_redact_revoked_content`.
 - **Logs:** one event `content_admin_action` with `action`, `entity` and `outcome` only. No ids, usernames, text or bodies (API-spec §1.12).
@@ -54,7 +54,7 @@ JSON in camelCase, `Cache-Control: no-store`, error envelope and codes of API-sp
 
 | Method and path | Body | Answer |
 |---|---|---|
-| `GET /access` | none | `{ "contentManager": true }` |
+| `GET /access` | none | `{ "contentManager": boolean }` (session only, no manager check) |
 | `GET /overview` | none | `Overview` |
 | `GET /editions/{id}` | none | `EditionDetail` |
 | `PATCH /editions/{id}` | `{ expectedUpdatedAt, editionLabel }` | `EditionDetail` |
@@ -74,7 +74,7 @@ JSON in camelCase, `Cache-Control: no-store`, error envelope and codes of API-sp
 | `PATCH /sources/{id}` | `{ expectedUpdatedAt, title?, provider?, licenseUrl?, rightsStatus? }` | `Source` |
 | `POST /sources/{id}/delete` | `{ expectedUpdatedAt }` | 204 |
 
-Deletes use POST, following the `POST /api/account/delete` convention (A-10). A PATCH must change at least one field (422 otherwise). `titleEn`, `labelEn` and `licenseUrl` accept `null` to clear.
+Deletes use POST, following the `POST /api/account/delete` convention (A-10). A PATCH must change at least one field (422 otherwise). A book's `titleEn`, a category's `labelEn` and a source's `licenseUrl` accept `null` to clear; a section's `titleEn` is NOT NULL in the database, so `null` there answers 422. A book `categoryId` that does not exist answers 422 (rule `category_not_found`). Passage, lesson and question counts are those of the edition's current `bank_version`.
 
 **Shapes**
 
@@ -88,8 +88,8 @@ Overview       = { counts: { categories, books, sources, editions: { <EditionSta
 AiStatus       = { chatModelForLearners, providerConfigured, models: string[], dailyCap,
                    usedToday|null, usedLastMinute|null }   // counters are in process memory
 EditionDetail  = EditionSummary + { source: { id, title, provider, rightsStatus }, contentHash|null,
-                   approval: { who, at, scope, words, source }|null,     // from review_record.approval
-                   withdrawal: { reason, note, at }|null,                // from review_record.withdrawal
+                   approval: { who, at, scope, words, source }|null,     // review_record.approval; each field text|null
+                   withdrawal: { reason, note, at }|null,                // review_record.withdrawal; each field text|null
                    counts: { sections, units, passages, lessons, questions },
                    sections: { id, ordinal, kind, reference, titleAr, titleEn }[],   // by ordinal
                    jobs: { step, status, updatedAt, publishedAt|null }[],            // by created_at
@@ -128,7 +128,7 @@ Source         = { id, title, provider, sourceUrl, licenseUrl|null, rightsStatus
 3. Call `srv_redact_revoked_content(p_edition_id)` (redacts offline snapshots and prepared sessions; idempotent).
 4. Upsert the `content_jobs` row (`edition_id`, `bank_version`, step `withdrawn`, status `succeeded`); `pipeline_version` is copied from the edition's `published` job, or `admin-web` when none exists.
 
-If step 3 or 4 fails, the answer is 503 `unavailable`; the status is already `revoked`, so learners no longer receive the edition, and repeating the request completes the remaining steps. Lessons and question items keep their own status; row-level security already hides them through the edition status.
+If step 3 or 4 fails, the answer is 503 `unavailable`; the status is already `revoked`, so learners no longer receive the edition, and repeating the request completes the remaining steps. For that reason `actions.withdraw` is also true for a revoked edition that has a `withdrawal` entry but no succeeded `withdrawn` job; the retry ignores the token, reason and note it receives and keeps the recorded ones. Lessons and question items keep their own status; row-level security already hides them through the edition status. If the `archived` job upsert fails after an edition was hidden, the answer is 503 and the edition stays hidden.
 
 ## 6. Screens
 
@@ -136,7 +136,7 @@ All screens are inside the signed-in app shell (`/admin` routes), Arabic first, 
 
 | Id | Route | Content |
 |---|---|---|
-| AD-00 | `/settings` (one row) | Link «إدارة المحتوى» shown only after `GET /api/admin/access` answers 200; any other answer shows nothing |
+| AD-00 | `/settings` (one row) | Link «إدارة المحتوى» shown only when `GET /api/admin/access` answers `contentManager: true`; any other answer shows nothing |
 | AD-01 | `/admin` | Note that only display data is edited here; counts; links to books, categories and sources; AI status card; editions list (book, label, status, hidden mark, version) linking to AD-02 |
 | AD-02 | `/admin/editions/[id]` | Details, approval and withdrawal records, counts, actions (rename, hide or show, withdraw with reason and note, delete draft), sections with rename and a link to AD-03, job history |
 | AD-03 | `/admin/sections/[id]` | Titles with rename, question counts by game type, the units' original text read only (Quran text in the Quran face) |
@@ -156,4 +156,5 @@ AI takes no part in content administration. The card on AD-01 only reports confi
 - Deleting a draft does not remove raw objects from the private `sources` bucket; the raw upload is deferred, so none exist today.
 - The CLI's `withdraw`, `archive` and `delete-unused-draft` remain stubs; the web admin is the working path for these actions.
 - Section titles have no concurrency token.
+- In memory mode (local development and tests) the admin store starts empty; real data appears only with the Supabase backend.
 - To become a manager, the owner adds their username to `QATRA_CONTENT_MANAGER_USERNAMES` on Render and redeploys.

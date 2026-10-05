@@ -125,6 +125,9 @@ ROUTES: list[tuple[str, str, dict[str, Any] | None]] = [
     ("POST", f"/api/admin/sources/{IDS.empty_source}/delete", {"expectedUpdatedAt": STAMP}),
 ]
 ROUTE_IDS = [f"{method} {path.removeprefix('/api/admin')}" for method, path, _ in ROUTES]
+# every route but the access probe: a non-manager gets 403 there (the probe answers 200 false)
+GUARDED = [route for route in ROUTES if route[1] != "/api/admin/access"]
+GUARDED_IDS = [f"{method} {path.removeprefix('/api/admin')}" for method, path, _ in GUARDED]
 
 
 def call(client: TestClient, route: tuple[str, str, dict[str, Any] | None]) -> httpx.Response:
@@ -174,16 +177,15 @@ def test_a_visitor_is_unauthenticated(harness: Harness, route) -> None:
     assert (response.status_code, code_of(response)) == (401, "unauthenticated")
 
 
-@pytest.mark.parametrize("route", ROUTES, ids=ROUTE_IDS)
+@pytest.mark.parametrize("route", GUARDED, ids=GUARDED_IDS)
 def test_a_signed_in_account_that_is_not_listed_is_forbidden(harness: Harness, route) -> None:
     other = second_learner(harness)
     response = call(other, route)
     assert (response.status_code, code_of(response)) == (403, "forbidden")
 
 
-@pytest.mark.parametrize("route", ROUTES, ids=ROUTE_IDS)
-def test_a_demo_session_is_never_a_manager(route) -> None:
-    harness = build(QATRA_CONTENT_MANAGER_USERNAMES="demo_learner")
+def demo_client(harness: Harness) -> TestClient:
+    """A client with a live demo session (``demo_learner``, ``is_demo``)."""
     demo = harness.auth.register_account(
         username="demo_learner",
         password=PASSWORD,
@@ -193,8 +195,15 @@ def test_a_demo_session_is_never_a_manager(route) -> None:
         terms_version=TERMS,
         is_demo=True,
     )
-    with harness.new_client() as client:
-        client.cookies.set("qatra_session", demo.cookie_value)
+    client = harness.new_client()
+    client.cookies.set("qatra_session", demo.cookie_value)
+    return client
+
+
+@pytest.mark.parametrize("route", GUARDED, ids=GUARDED_IDS)
+def test_a_demo_session_is_never_a_manager(route) -> None:
+    harness = build(QATRA_CONTENT_MANAGER_USERNAMES="demo_learner")
+    with demo_client(harness) as client:
         response = call(client, route)
         assert (response.status_code, code_of(response)) == (403, "forbidden")
 
@@ -208,7 +217,7 @@ def test_an_empty_or_missing_list_means_nobody(setting: str | None) -> None:
     seed_catalog(repo_of(harness.app))
     with harness.client:
         register(harness.client)
-        for route in ROUTES[:3]:
+        for route in GUARDED[:3]:
             response = call(harness.client, route)
             assert (response.status_code, code_of(response)) == (403, "forbidden")
 
@@ -218,19 +227,70 @@ def test_the_list_is_compared_with_the_normalized_username(name: str) -> None:
     harness = build(QATRA_CONTENT_MANAGER_USERNAMES=f"nobody_here,{name}")
     with harness.client:
         register(harness.client)
-        assert harness.client.get("/api/admin/access").status_code == 200
+        response = harness.client.get("/api/admin/access")
+        assert (response.status_code, response.json()) == (200, {"contentManager": True})
+
+
+# --- the access probe: 200 for every signed-in account -------------------------------------------
 
 
 def test_access_answers_true_for_a_manager(client: TestClient) -> None:
     response = client.get("/api/admin/access")
     assert (response.status_code, response.json()) == (200, {"contentManager": True})
+    assert response.headers["cache-control"] == "no-store"
 
 
-def test_another_manager_name_in_the_list_does_not_let_a_different_account_in(
-    harness: Harness,
-) -> None:
+def test_access_answers_false_not_403_for_a_signed_in_non_manager(harness: Harness) -> None:
     other = second_learner(harness)
-    assert other.get("/api/admin/access").status_code == 403
+    response = other.get("/api/admin/access")
+    assert (response.status_code, response.json()) == (200, {"contentManager": False})
+    assert response.headers["cache-control"] == "no-store"
+    # another name in the list does not let a different account into the other routes
+    assert other.get("/api/admin/overview").status_code == 403
+
+
+def test_access_answers_false_for_a_demo_session_even_when_its_name_is_listed() -> None:
+    harness = build(QATRA_CONTENT_MANAGER_USERNAMES="demo_learner")
+    with demo_client(harness) as client:
+        response = client.get("/api/admin/access")
+        assert (response.status_code, response.json()) == (200, {"contentManager": False})
+
+
+@pytest.mark.parametrize("setting", [None, "", "   ", " , "])
+def test_access_answers_false_for_everybody_when_the_list_is_empty(setting: str | None) -> None:
+    overrides: dict[str, Any] = (
+        {} if setting is None else {"QATRA_CONTENT_MANAGER_USERNAMES": setting}
+    )
+    harness = build_harness(**overrides)
+    with harness.client:
+        register(harness.client)
+        response = harness.client.get("/api/admin/access")
+        assert (response.status_code, response.json()) == (200, {"contentManager": False})
+
+
+def test_access_for_a_signed_out_visitor_is_unauthenticated(harness: Harness) -> None:
+    visitor = harness.new_client("203.0.113.23")
+    response = visitor.get("/api/admin/access")
+    assert (response.status_code, code_of(response)) == (401, "unauthenticated")
+    assert response.headers["cache-control"] == "no-store"
+
+
+def test_access_does_not_need_the_content_service(harness: Harness) -> None:
+    harness.app.state.content_admin_service = None
+    assert harness.client.get("/api/admin/access").json() == {"contentManager": True}
+    other = second_learner(harness)
+    assert other.get("/api/admin/access").json() == {"contentManager": False}
+
+
+def test_access_uses_the_admin_limit_for_every_signed_in_account() -> None:
+    harness = build(QATRA_RATE_ADMIN_PER_MIN=2)
+    with harness.client:
+        register(harness.client)
+        other = second_learner(harness)
+        assert [other.get("/api/admin/access").status_code for _ in range(3)] == [200, 200, 429]
+        throttled = other.get("/api/admin/access")
+        assert (throttled.status_code, code_of(throttled)) == (429, "throttled")
+        assert int(throttled.headers["retry-after"]) >= 1
 
 
 # --- guard order ----------------------------------------------------------------------------------
@@ -280,8 +340,8 @@ def test_requests_the_manager_check_refuses_do_not_use_up_the_admin_limit() -> N
     with harness.client:
         register(harness.client)
         other = second_learner(harness)
-        assert [other.get("/api/admin/access").status_code for _ in range(5)] == [403] * 5
-        assert harness.client.get("/api/admin/access").status_code == 200
+        assert [other.get("/api/admin/overview").status_code for _ in range(5)] == [403] * 5
+        assert harness.client.get("/api/admin/overview").status_code == 200
 
 
 def test_a_missing_service_answers_unavailable_after_the_guards(harness: Harness) -> None:
@@ -928,7 +988,7 @@ def test_error_answers_are_no_store_too(harness: Harness) -> None:
     other = second_learner(harness)
     for response in (
         visitor.get("/api/admin/access"),
-        other.get("/api/admin/access"),
+        other.get("/api/admin/overview"),
         harness.client.get(f"/api/admin/editions/{uid(999)}"),
         TestClient(harness.app).post(f"/api/admin/editions/{IDS.draft}/delete", json={}),
     ):

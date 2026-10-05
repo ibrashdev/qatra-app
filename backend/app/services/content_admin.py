@@ -41,6 +41,7 @@ from app.contracts_content_admin import (
     EditionActionsView,
     EditionContentCounts,
     EditionDetail,
+    EditionSourceRef,
     EditionStatusCounts,
     EditionSummary,
     ExpectedVersionRequest,
@@ -57,7 +58,6 @@ from app.contracts_content_admin import (
     SectionEdition,
     SectionItem,
     Source,
-    SourceRef,
     SourcesResponse,
     UnitItem,
     WithdrawalView,
@@ -263,7 +263,7 @@ class ContentAdminService:
         summary = self._summary(edition, {str(book["id"]): book})
         return EditionDetail(
             **summary.model_dump(),
-            source=SourceRef(
+            source=EditionSourceRef(
                 id=source["id"],
                 title=source["title"],
                 provider=source["provider"],
