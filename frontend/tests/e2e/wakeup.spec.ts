@@ -8,7 +8,7 @@ test.describe("free-server wake-up state (G-01)", () => {
     const health = await controlHealth(page, "hang");
     await page.goto("/today");
     const line = page.getByText(WAKE_LINE.ar);
-    const busy = page.getByText("جارٍ التحميل");
+    const busy = page.getByRole("status").getByText("جارٍ التحميل");
 
     // The 1 s rule: a neutral indicator, no line yet.
     await expect(busy).toBeVisible({ timeout: 2_500 });
@@ -51,7 +51,7 @@ test.describe("free-server wake-up state (G-01)", () => {
     await controlHealth(page, "ok");
     await page.goto("/today");
     await page.waitForTimeout(2_500);
-    await expect(page.getByText("جارٍ التحميل")).toHaveCount(0);
+    await expect(page.getByRole("status").getByText("جارٍ التحميل")).toHaveCount(0);
     expect(await sawLine()).toBe(false);
   });
 
@@ -65,8 +65,8 @@ test.describe("free-server wake-up state (G-01)", () => {
       await route.fulfill({ status: 200, contentType: "application/json", json: { status: "ok", version: "e2e", time: new Date().toISOString() } }).catch(() => undefined);
     });
     await page.goto("/today");
-    await expect(page.getByText("جارٍ التحميل")).toBeVisible({ timeout: 2_500 });
-    await expect(page.getByText("جارٍ التحميل")).toHaveCount(0, { timeout: 4_000 });
+    await expect(page.getByRole("status").getByText("جارٍ التحميل")).toBeVisible({ timeout: 2_500 });
+    await expect(page.getByRole("status").getByText("جارٍ التحميل")).toHaveCount(0, { timeout: 4_000 });
     expect(calls).toBeGreaterThanOrEqual(2);
     expect(await sawLine()).toBe(false);
   });

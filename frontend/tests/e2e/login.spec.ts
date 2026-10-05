@@ -192,12 +192,13 @@ test.describe("layout and design (UI-screens S-01 sections 2, 5 and 6)", () => {
     expect(await smallTargets(page)).toEqual([]);
   });
 
-  test("the two links are 8 px apart, and the button is 24 px above them", async ({ page }) => {
+  test("the two links are 8 px apart, and the button is 16 px above them (FC-06, D86)", async ({ page }) => {
     await openLogin(page);
     const button = await box(submitButton(page, "ar"));
     const forgot = await box(page.getByRole("link", { name: COPY.ar.forgot }));
     const create = await box(page.getByRole("link", { name: COPY.ar.create }));
-    expect(Math.round(forgot.y - (button.y + button.height))).toBe(24);
+    // The login seams were 24 px before the approved polish FC-06 (commit d638952) made them 16 px.
+    expect(Math.round(forgot.y - (button.y + button.height))).toBe(16);
     expect(Math.round(create.y - (forgot.y + forgot.height))).toBe(8);
   });
 
@@ -469,15 +470,18 @@ test.describe("sending E04 and leaving (S-01 section 1)", () => {
     await submitButton(page, "ar").click();
     await expect(page).toHaveURL(/\/start$/);
     await expect(page.getByRole("heading", { level: 1, name: "ما هي خطتك؟" })).toBeFocused();
-    await expect(page.getByRole("radiogroup", { name: "اللغة" })).toHaveCount(0);
+    // S-08 is built: it is in the focus shell (no tab bar) and carries its own language switch.
+    await expect(page.getByRole("navigation")).toHaveCount(0);
+    await expect(page.getByRole("radiogroup", { name: "اللغة" })).toBeVisible();
   });
 
   test("?next= with a path inside the app is honoured, and E18 is not asked", async ({ page }) => {
     await openLogin(page, { query: "?next=%2Fprogress" });
     await serveLogin(page, signedIn());
+    // The login screen must not ask E18. S-21 asks it itself once the page has changed, so only a request sent while the page is still /login counts.
     let asked = 0;
     await page.route("**/api/today", (route) => {
-      asked += 1;
+      if (new URL(page.url()).pathname === "/login") asked += 1;
       return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(mockToday) });
     });
     await fill(page, "ar");
@@ -501,6 +505,8 @@ test.describe("sending E04 and leaving (S-01 section 1)", () => {
   test("reconsentRequired goes to the re-consent gate, without asking E18", async ({ page }) => {
     await openLogin(page, { query: "?next=%2Fgames" });
     await serveLogin(page, { status: 200, body: { profile: mockProfile, reconsentRequired: true } });
+    // S-06 is built: it reads E11 itself, and the session now exists with a terms version that differs from the build's.
+    await page.route("**/api/me", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ...mockProfile, termsVersion: "2025-01-01" }) }));
     let asked = 0;
     await page.route("**/api/today", (route) => {
       asked += 1;
