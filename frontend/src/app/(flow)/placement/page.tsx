@@ -1,6 +1,6 @@
-import { PlacementBridge } from "@/components/placement/PlacementBridge";
+import { PlacementScreen } from "@/components/placement/PlacementScreen";
 
-// Interim route: S-09 (the placement test) replaces this skip-only page.
+// S-09: the short placement test; it opens the plan conversation (S-34) when it ends or is skipped.
 export default function PlacementPage() {
-  return <PlacementBridge />;
+  return <PlacementScreen />;
 }

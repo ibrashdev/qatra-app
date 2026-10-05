@@ -326,7 +326,7 @@ f77a7e580117154f063f480071528d97bfa7646c864866d3cfa68d62cfcfee07  frontend/src/a
 6084c50e2c1e46d2eec3239c2426312ff5810c8f16a94e623d660b7dc0e27db0  frontend/src/app/(app)/settings/page.tsx
 ee8046c2ea28014f1ab4b7bafb68ca326aab63ba1686a5113b20a974fe066511  frontend/src/app/(app)/today/page.tsx
 6c19fd70037a855c8341cb2760c5888d92137e169dde0f5a4351642555fe4d69  frontend/src/app/(flow)/consent/page.tsx
-84ebec5e2a3ec6080089cb005c2d1e0faa60964bd6f95cf9e0c6787a552a10df  frontend/src/app/(flow)/placement/page.tsx
+519a93642b21da45d9d0c00a5a9a4f5aae41fe9bd9bd488f46ee02b82d1946c8  frontend/src/app/(flow)/placement/page.tsx
 5924471369a164947353703fc7617b3ae8450ebf252e24f93d40446593870d56  frontend/src/app/(flow)/plan/chat/[chatId]/page.tsx
 e54b166aa0024053a4fdf0e9cc1616763fe5f0a8075bb6fc46ad93d85350cddd  frontend/src/app/(flow)/recovery-code/page.tsx
 5839fce5e12dc94eaeee399ab7d4128a900e1e55d9762a74d868d4004eee6324  frontend/src/app/(flow)/session/[id]/page.tsx
@@ -352,7 +352,10 @@ c59554c2528d97af5a5ed399e7d5da3f48ea32b1ea3366eb57bf8041f17703c5  frontend/src/c
 a589baa8208cd645e197b9e25a4f6eee92bfc894e5b091560fd38575fffc3ad7  frontend/src/components/auth/RecoveryCodeUnavailableBanner.tsx
 d9e14930fb991c635bece8ac6ad2cfde4b23a01c62f20532fcaea000a7857a2b  frontend/src/components/auth/RegisterForm.tsx
 8b4e3599968d4d33c830976cae1f567f6ce67ebf76eb195684ba2e6f705624fb  frontend/src/components/auth/RegisterScreen.tsx
-c906ba2f1d8d7702a79e17ec0ffc5cbdb6b312be639a42d7111ac9564d7afd32  frontend/src/components/placement/PlacementBridge.tsx
+73ffc5ef64ca164c349bb65ae80f2b92e4a6b9f314dca9c187fca2d44fa03fd7  frontend/src/components/placement/PlacementScreen.tsx
+ee6fe0a4c12545fd68373dfe7a050a5596efb2bd8cbe1e3e8207c57c6028903b  frontend/src/components/placement/PlacementSteps.tsx
+b472b057d646b20d24c4f12e0394afadbc1880c7b94a53b1d28505dc26f63438  frontend/src/components/placement/placement-model.ts
+a3154bc2c48424afd5ca38073be852a13e42ac75d783145d1b01368cbf82b0a5  frontend/src/components/placement/use-placement-run.ts
 762ef73168373748e566d76633127d1faeeed2d905ef5c37e04bf537f3d73388  frontend/src/components/plan-chat/ChatBanners.tsx
 6dcd624fe9527bf680860f03701fb10f46e1999c6eb215d378171dfbea9d03d1  frontend/src/components/plan-chat/ChatThread.tsx
 729e133c64908187eacadc08549a510a643348e70f13545f578be071f5ea240b  frontend/src/components/plan-chat/Composer.tsx
@@ -487,7 +490,7 @@ beb19bc594367fc1593c6f847b67bd27d8ea2d2c42e8d71b297ebc9899c79f1c  frontend/src/i
 4eccc3ac9feafc10b49cdcdc2ac8d39ef35a318837bde14ebac7087677a1f3d6  frontend/src/i18n/locale-store.ts
 5a394c4eab0141232985a2d987530cf05360e2d988b23d7f172e950f1b83c83f  frontend/src/i18n/locale.ts
 aa29e0e4ca2e3cd5b3b13b235a407145404e03633c26121c04574b5a5a545b84  frontend/src/i18n/messages.ts
-dbd002ba797bc60a6aa7a74d6664ebafeaf3812f3ff1725a9d1e55399d8b32f9  frontend/src/i18n/placement-messages.ts
+4eda5e1e2e63c85cc9d91896b7289b6c3f97f3519f1897cc243e40ba5b447e34  frontend/src/i18n/placement-messages.ts
 5b2a614fec0a515067387e8f16c71a24a5fbeca1055cb93a75f72326a0ea4511  frontend/src/i18n/plan-chat-messages.ts
 0eeb5cc6af57a989591afa28e4d4a2a2d6abacc78fa18cd4ebd17dbd3ca65232  frontend/src/i18n/plan-overview-messages.ts
 41a6781829488f336c5fb9432b51d2b474507b153ccd33590e3101fb199b6e5d  frontend/src/i18n/plan-revise-messages.ts
@@ -508,6 +511,7 @@ ed0f38bec97b8542e72172c8cc2f3177759ed0885bc47c823ffe1a3086646171  frontend/src/l
 4cf42b8aea9688be62861ed43a8e422a3b9e359206bf7834316f2e53aa71d877  frontend/src/lib/api/mock/handlers.ts
 d5eceb498e1a759cc03f45ff734e8ea17bacf535d2f647050d558ff0055980ae  frontend/src/lib/api/mock/index.ts
 23a7dbffa01481786ebc03d18e9b41f22928e02aae9ef95e378a41b30d798bba  frontend/src/lib/api/mock/mock-fetch.ts
+7ea0afb4b564816f8e41e6787dc17a2408358fac23708af158af8fe77726415b  frontend/src/lib/api/mock/placement-handlers.ts
 60fe47be18b5e361f4afe009d5dcb36b93a8843825f658364e624bb90a1f505c  frontend/src/lib/api/mock/plan-chat-fixtures.ts
 0aee92ea961b01d9e593646285c4542e2db40785558ba6ea2a848c16de498df4  frontend/src/lib/api/mock/plan-chat.ts
 3b477254b67f5262a5a8cafb9696395e6f0617ebe5e9679e1b9f9c0d4c228572  frontend/src/lib/api/mock/plan-handlers.ts
@@ -576,7 +580,8 @@ b234fee8bbad2375d78eb776e8a9ee8b6785eca3ceff27f37bb196eb30c20373  frontend/tests
 cba16887465c09b923da10fe50f4f69d2b762b71f9a04c219b450fca11079796  frontend/tests/unit/main-nav.test.tsx
 379e2a3080ed0050175ed874e797682e93c47d51dda088f814b6959c69670359  frontend/tests/unit/mock.test.ts
 3f8c77659811c51b17f80ad1efb0d4c3f1efd5882c4bc3cee1f6077e3e5d963b  frontend/tests/unit/next-config.test.ts
-5f5e9ce606ffff420acb5526853f8fb3f90edfee717023ab6f7d753152002ddc  frontend/tests/unit/placement-bridge.test.tsx
+7f4347fb9c32c42a21db333bf54db9a543c03f247478f7fa9fdcbb24819d4423  frontend/tests/unit/placement-handlers.test.ts
+e8465e5ea9c5c8c1b13a41ff8321581469fbe1f7f4b9bb081a148bddeb9135fb  frontend/tests/unit/placement-screen.test.tsx
 18776386a318232460728b6d7b16010a32fac73b6f451faf10089fc13f4c81de  frontend/tests/unit/plan-chat-api.test.ts
 f9a34ebfe7970e8b4b28ef63a074d3f7aa722e5b877574812142ed17610cbb66  frontend/tests/unit/plan-chat-rules.test.ts
 8f29b23bad190c5c95edcadccd0860688655eb8f7f2ae8c734f39ca7a5a02172  frontend/tests/unit/plan-chat-screen.test.tsx
