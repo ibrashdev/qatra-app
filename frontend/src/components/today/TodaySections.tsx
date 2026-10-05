@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useId, type ReactNode } from "react";
 import { Icon } from "@/components/ui/Icon";
 import { TextLink } from "@/components/ui/TextLink";
+import { dailyAmountText } from "@/i18n/daily-amount";
 import { formatInteger } from "@/i18n/format";
 import type { Locale } from "@/i18n/messages";
 import type { TodayMessages } from "@/i18n/today-messages";
@@ -57,10 +58,9 @@ export function DailySection({ locale, t, today, plan, goalReached }: Common & {
   const goal = formatInteger(locale, goalMinutes);
   const percentText = t.daily.percent(formatInteger(locale, percent));
   const comma = locale === "ar" ? "،" : ",";
-  const words = plan.agreedEstimate.newWordsPerDay;
   return (
     <Section label={t.daily.label}>
-      <p>{t.daily.text(formatInteger(locale, plan.sessionMinutes), plan.sessionMinutes, formatInteger(locale, words), words)}</p>
+      <p>{t.daily.text(formatInteger(locale, plan.sessionMinutes), plan.sessionMinutes, dailyAmountText(locale, plan.agreedEstimate))}</p>
       <div className="mt-q12">
         {/* FC-10: the label above, the day's value on its own line in the section weight, so it reads before the plan's goal and stages; no whole-plan figure here (S-11 never shows it) */}
         <p id={barLabelId} className="text-small text-ink-secondary">

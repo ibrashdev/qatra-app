@@ -73,8 +73,8 @@ export async function axeViolationsAtRest(page: Page): Promise<string[]> {
 }
 
 export const TAB_NAMES = {
-  ar: ["اليوم", "الألعاب", "التقدم", "الإعدادات"],
-  en: ["Today", "Games", "Progress", "Settings"],
+  ar: ["اليوم", "الدروس", "الألعاب", "التقدم", "الإعدادات"],
+  en: ["Today", "Lessons", "Games", "Progress", "Settings"],
 } as const;
 
 export const NAV_NAME = { ar: "التنقل الرئيسي", en: "Main navigation" } as const;

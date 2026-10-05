@@ -51,7 +51,7 @@ afterEach(() => {
 });
 
 describe("AppShell (F0-4)", () => {
-  it("renders four tab links in the documented order, in both navigation landmarks", () => {
+  it("renders five tab links in the documented order, in both navigation landmarks", () => {
     setLanguage("ar");
     renderWithApp(<AppShell>content</AppShell>);
     const navs = screen.getAllByRole("navigation", { name: "التنقل الرئيسي" });
@@ -60,6 +60,7 @@ describe("AppShell (F0-4)", () => {
       const links = within(nav).getAllByRole("link").filter((link) => link.getAttribute("href")?.startsWith("/") && link.textContent !== "قطرة غيث");
       expect(links.map((link) => [link.textContent, link.getAttribute("href")])).toEqual([
         ["اليوم", "/today"],
+        ["الدروس", "/lessons"],
         ["الألعاب", "/games"],
         ["التقدم", "/progress"],
         ["الإعدادات", "/settings"],

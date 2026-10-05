@@ -139,6 +139,7 @@ def test_e31_creates_a_conversation_with_the_camel_case_shape(client: TestClient
         "sessionMinutes",
         "scope",
         "paths",
+        "dailyNew",
     }
     assert proposal["preferredDate"] is None and proposal["estimate"]["endDate"] == "2026-10-12"
     assert set(body["quickReplies"][0]) == {"code", "labelAr", "labelEn"}

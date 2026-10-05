@@ -1,6 +1,12 @@
 """Lessons and the deterministic question bank (API-spec §5.3 ``build-bank``, contract §2.4,
-D20, D22, D31, D64, D66). No model writes anything: every question is made of token references
-of the same edition, and the same bundle always gives the same bank.
+D20, D22, D31, D64, D66, D92). No model writes anything: every question is made of token
+references of the same edition, and the same bundle (with the same reviewed proposal store) always
+gives the same bank.
+
+D92: a free model may only PICK which words of a part are tested (the recall keyword, the
+word-choice target and its 3 distractors) by reference; ``workflow/question_proposals.py``
+validates the picks against the rules below and hands the accepted ones in as ``proposals``. A
+part with no accepted pick, or a pick that fails, keeps the rules choice (the permanent fallback).
 
 Templates per part of a passage (a part is the coverage unit; showing context is never
 coverage, so ``coveredPartIds`` lists only the parts whose own words are tested):
@@ -36,8 +42,11 @@ import hashlib
 from collections import Counter, defaultdict
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
+from functools import cache, cached_property
+from types import MappingProxyType
 from typing import Any, Final
 
+from app.domain.normalization import is_arabic_script_word
 from app.workflow.bundle_index import CONTEXT_WORDS, BundleIndex, Word, window_key
 from app.workflow.ids import stable_id
 from app.workflow.passages import Tok
@@ -98,6 +107,18 @@ class BankResult:
     lessons: list[dict[str, Any]]
     questions: list[dict[str, Any]]
     skipped: list[dict[str, str]] = field(default_factory=list)
+    # part key -> {"keyword": "ai"|"rules", "choice": "ai"|"rules"} for the parts that had a pick
+    usage: dict[str, dict[str, str]] = field(default_factory=dict)
+
+
+@dataclass(frozen=True, slots=True)
+class PartPick:
+    """A validated model pick for one part (D92): token references only, never text. A missing
+    keyword or choice keeps the rules choice for that question."""
+
+    keyword_ref: str | None = None
+    choice_ref: str | None = None
+    distractor_refs: tuple[str, ...] = ()
 
 
 def build_lessons(bundle: Mapping[str, Any]) -> list[dict[str, Any]]:
@@ -116,6 +137,13 @@ def build_lessons(bundle: Mapping[str, Any]) -> list[dict[str, Any]]:
 
 def _digest(*parts: object) -> str:
     return hashlib.sha256("|".join(str(p) for p in parts).encode("utf-8")).hexdigest()
+
+
+@cache
+def _arabic_choice(normalized: str) -> bool:
+    """A word may be offered as a choice only when every character of its normalized form is
+    Arabic script (never a Latin letter, an ASCII digit or another script)."""
+    return is_arabic_script_word(normalized)
 
 
 def _alt_differs(a: Word, b: Word) -> bool:
@@ -252,6 +280,7 @@ class _Builder:
                     if w.ref != target.ref
                     and abs(len(w.n) - len(target.n)) <= 2
                     and _alt_differs(target, w)
+                    and _arabic_choice(w.n)
                 ),
                 key=lambda w: (abs(len(w.n) - len(target.n)), _digest(target.ref, w.ref)),
             )
@@ -275,7 +304,9 @@ class _Builder:
                     continue
                 for start in range(len(words) - length + 1):
                     window = tuple(words[start : start + length])
-                    if len({w.unit for w in window}) == 1:
+                    if len({w.unit for w in window}) == 1 and all(
+                        _arabic_choice(w.n) for w in window
+                    ):
                         found.append(window)
             self._windows[key] = found
         return self._windows[key]
@@ -290,13 +321,39 @@ class _Builder:
             self._segment_targets[length] = table
         return self._segment_targets[length]
 
+    # --- proposals (D92) ----------------------------------------------------------------
+
+    # Set by ``build_question_bank``; the defaults keep a direct ``_Builder(bundle).build()`` on
+    # the rules alone.
+    picks: Mapping[str, PartPick] = MappingProxyType({})
+    usage: dict[str, dict[str, str]] | None = None
+
+    @cached_property
+    def _word_by_ref(self) -> dict[str, Word]:
+        return {word.ref: word for words in self.words for word in words}
+
+    def _picked_word(self, part: int, ref: str | None) -> Word | None:
+        """The picked word when it belongs to ``part`` and is unambiguous (else the rules)."""
+        word = self._word_by_ref.get(ref) if ref else None
+        if word is None or word.part != part or not self._unambiguous(word):
+            return None
+        return word
+
+    def _picked_choice(self, part: int, pick: PartPick) -> tuple[Word, list[Word]] | None:
+        word = self._picked_word(part, pick.choice_ref)
+        if word is None or len(pick.distractor_refs) != 3:
+            return None
+        found = [self._word_by_ref.get(ref) for ref in pick.distractor_refs]
+        distractors = [d for d in found if d is not None]
+        return (word, distractors) if len(distractors) == 3 else None
+
     # --- templates ----------------------------------------------------------------------
 
     def _recall_excluded(self, word: Word) -> bool:
         return self.is_quran and any(ch in word.surface for ch in QURAN_RECALL_EXCLUDED)
 
-    def _choice_word(self, part: int, word: Word) -> bool:
-        distractors = self._distractor_words(word)
+    def _choice_word(self, part: int, word: Word, picked: Sequence[Word] | None = None) -> bool:
+        distractors = list(picked) if picked is not None else self._distractor_words(word)
         if len(distractors) < 3:
             self.skipped.append({"kind": "choice_word_few_distractors", "ref": word.ref})
             return False
@@ -383,26 +440,44 @@ class _Builder:
         words = self.part_words[part]
         if not words:
             return
+        pick = self.picks.get(self.part_key(part))
+        ai_keyword = self._picked_word(part, pick.keyword_ref) if pick else None
+        ai_choice = self._picked_choice(part, pick) if pick else None
+        reserved = {ai_choice[0].ref} if ai_choice else set()  # the model's choice target
         ranked = sorted(
             (w for w in words if w.n not in STOPLIST and len(w.n) >= 2),
             key=lambda w: (-len(w.n), w.pos),
         ) or sorted(words, key=lambda w: (-len(w.n), w.pos))
         used: set[str] = set()
-        for word in ranked:  # recall, keyword
-            if self._unambiguous(word):
-                self._recall(part, word, "keyword")
-                used.add(word.ref)
-                break
+        by = {"keyword": "rules", "choice": "rules"}
+        if ai_keyword is not None and self._recall(part, ai_keyword, "keyword"):
+            used.add(ai_keyword.ref)  # recall, keyword (the model's)
+            by["keyword"] = "ai"
+        else:
+            for word in ranked:  # recall, keyword
+                if word.ref not in reserved and self._unambiguous(word):
+                    self._recall(part, word, "keyword")
+                    used.add(word.ref)
+                    break
         if not first_of_passage and words[0].ref not in used and self._unambiguous(words[0]):
             self._recall(part, words[0], "continuation")  # may become a choice (exclusions)
             used.add(words[0].ref)
-        for word in ranked:  # choice, next keyword
-            if word.ref not in used and self._unambiguous(word):
-                if self._choice_word(part, word):
-                    used.add(word.ref)
-                    break
+        chosen = False
+        if ai_choice is not None and ai_choice[0].ref not in used:
+            chosen = self._choice_word(part, ai_choice[0], ai_choice[1])  # choice (the model's)
+            if chosen:
+                used.add(ai_choice[0].ref)
+                by["choice"] = "ai"
+        if not chosen:
+            for word in ranked:  # choice, next keyword
+                if word.ref not in used and self._unambiguous(word):
+                    if self._choice_word(part, word):
+                        used.add(word.ref)
+                        break
         if not first_of_passage:
             self._segment(part, words)
+        if self.usage is not None and pick is not None:
+            self.usage[self.part_key(part)] = by
 
     def _order_questions(self, part_ids: Sequence[int]) -> None:
         i = 0
@@ -547,7 +622,7 @@ class _Builder:
         self._similar_questions()
         ordered = sorted(self.questions.values(), key=lambda q: q["_sort"])
         questions = [{k: v for k, v in q.items() if k != "_sort"} for q in ordered]
-        return BankResult(build_lessons(self.bundle), questions, self.skipped)
+        return BankResult(build_lessons(self.bundle), questions, self.skipped, self.usage or {})
 
 
 def _ref_sort(refs: Sequence[str]) -> tuple[int, int]:
@@ -555,6 +630,16 @@ def _ref_sort(refs: Sequence[str]) -> tuple[int, int]:
     return int(unit), int(index)
 
 
-def build_question_bank(bundle: Mapping[str, Any]) -> BankResult:
-    """Build the lessons and the question bank of a segmented bundle (deterministic)."""
-    return _Builder(bundle).build()
+def build_question_bank(
+    bundle: Mapping[str, Any], proposals: Mapping[str, PartPick] | None = None
+) -> BankResult:
+    """Build the lessons and the question bank of a segmented bundle (deterministic).
+
+    ``proposals`` maps a part key (``<path>:<passage ordinal>:<part ordinal>``) to the validated
+    pick of a model (D92); without it, or for a part with no pick, the rules choose the words.
+    """
+    builder = _Builder(bundle)
+    if proposals:
+        builder.picks = dict(proposals)
+        builder.usage = {}
+    return builder.build()

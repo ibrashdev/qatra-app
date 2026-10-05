@@ -232,7 +232,7 @@ test.describe("layout and design (UI-screens S-03 sections 2, 5 and 6)", () => {
       const families = await page.evaluate(() => [...new Set([...document.querySelectorAll("main *")].map((element) => getComputedStyle(element).fontFamily))]);
       expect(families.length).toBeGreaterThan(0);
       for (const family of families) {
-        expect(family).not.toMatch(/Amiri/i);
+        expect(family).not.toMatch(/Scheherazade/i);
         expect(family).toMatch(language === "ar" ? /^Cairo/ : /^Inter/);
       }
     });
