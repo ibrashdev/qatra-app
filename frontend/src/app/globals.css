@@ -15,6 +15,12 @@
     scroll-padding-block-end: calc(var(--q-size-tabbar) + env(safe-area-inset-bottom, 0px) + var(--q-space-8));
   }
 
+  /* A top bar that has wrapped is static (use-wrapped-bar.ts): it covers nothing, so no room is kept for it above a focused control.
+     The notch of a phone still covers the top of the screen, so its share stays. */
+  html:has(header[data-wrapped="true"]) {
+    scroll-padding-block-start: calc(env(safe-area-inset-top, 0px) + var(--q-space-8));
+  }
+
   html:lang(en) {
     font-family: var(--q-font-ui-en);
   }
