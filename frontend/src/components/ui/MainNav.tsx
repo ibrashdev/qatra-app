@@ -15,7 +15,11 @@ export const TAB_ITEMS: readonly { id: TabId; href: string }[] = [
   { id: "settings", href: "/settings" },
 ];
 
+// S-20 (the result of a session) belongs to the progress tab. S-19 (/session/<id>) is a focus flow and matches no tab.
+const SESSION_RESULT_PATH = /^\/session\/[^/]+\/result\/?$/;
+
 function isActive(pathname: string | null, href: string): boolean {
+  if (href === "/progress" && pathname !== null && SESSION_RESULT_PATH.test(pathname)) return true;
   return pathname === href || (pathname?.startsWith(`${href}/`) ?? false);
 }
 

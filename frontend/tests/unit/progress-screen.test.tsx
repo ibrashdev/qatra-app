@@ -221,6 +221,9 @@ describe("S-21 the three disclosures", () => {
     expect(rows[0]).toHaveTextContent("٤٠٪");
     expect(rows[1]).toHaveTextContent("قيد التقدم");
     expect(rows[1]).toHaveTextContent("٨٠٪");
+    // UI-tokens 6.11: learning is the half circle, reviewing the clock.
+    expect(rows[0]?.querySelector("svg")?.getAttribute("class")).toContain("lucide-contrast");
+    expect(rows[1]?.querySelector("svg")?.getAttribute("class")).toContain("lucide-clock");
     expect(screen.queryByText("اسم 6")).toBeNull();
     expect(screen.queryByText("جديد")).toBeNull();
   });

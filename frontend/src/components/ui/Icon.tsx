@@ -1,10 +1,11 @@
-import { ArrowLeft, Check, CircleAlert, CircleCheck, Copy, Download, Droplet, ExternalLink, Eye, EyeOff, Info, Lightbulb, Lock, RefreshCw, TriangleAlert, Undo2, X, type LucideIcon } from "lucide-react";
+import { ArrowLeft, Check, CircleAlert, CircleCheck, Clock, Contrast, Copy, Download, Droplet, ExternalLink, Eye, EyeOff, Info, Lightbulb, Lock, RefreshCw, TriangleAlert, Undo2, X, type LucideIcon } from "lucide-react";
 import { cx } from "@/lib/cx";
 
 // The only place that imports the icon set (Lucide, owner decision of 4 October 2026). Screens ask for a meaning, never a glyph.
 const GLYPHS = {
   back: ArrowLeft,
   check: Check,
+  clock: Clock,
   close: X,
   copy: Copy,
   download: Download,
@@ -13,6 +14,7 @@ const GLYPHS = {
   eye: Eye,
   "eye-off": EyeOff,
   external: ExternalLink,
+  half: Contrast, // a circle with one half filled: the lucide set has no circle-half, and this is its closest glyph
   hint: Lightbulb,
   info: Info,
   lock: Lock,
