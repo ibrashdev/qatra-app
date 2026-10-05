@@ -4,6 +4,7 @@ import { ApiError } from "@/lib/api/errors";
 import { MOCK_PLAN_ID, mockToday } from "@/lib/api/mock/fixtures";
 import { mockHandlers, type MockScenario } from "@/lib/api/mock/handlers";
 import { createMockFetch } from "@/lib/api/mock/mock-fetch";
+import { sessionMockHandlers } from "@/lib/api/mock/session-handlers";
 import { MOCK_SESSION_ID, mockProgress, todayMockHandlers } from "@/lib/api/mock/today-handlers";
 import { dailySessionBody, getProgress, startDailySession } from "@/lib/api/today-endpoints";
 
@@ -26,7 +27,8 @@ async function failureOf(promise: Promise<unknown>): Promise<ApiError> {
 describe("registration", () => {
   it("mockHandlers serves E19 and E20 without any extra wiring", async () => {
     expect(mockHandlers["GET /progress"]).toBe(todayMockHandlers["GET /progress"]);
-    expect(mockHandlers["POST /sessions"]).toBe(todayMockHandlers["POST /sessions"]);
+    // S-19's handler answers E20 with a full snapshot and delegates validation to the S-11 one, so it is registered last.
+    expect(mockHandlers["POST /sessions"]).toBe(sessionMockHandlers["POST /sessions"]);
     const client = createApiClient({ fetch: createMockFetch({ latencyMs: 0 }) });
     expect((await getProgress(client)).plans).toHaveLength(1);
   });

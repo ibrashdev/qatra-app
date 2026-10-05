@@ -3,6 +3,7 @@ import type { HealthResponse, LoginResponse, RegisterResponse } from "../types";
 import { MOCK_LOGINS, MOCK_PASSWORD, MOCK_RECOVERY_CODE, MOCK_REGISTRATIONS, MOCK_TERMS_VERSION, mockCatalog, mockProfile, mockToday, mockTodayWithoutPlan } from "./fixtures";
 import { planChatHandlers, type MockPlanChatStore } from "./plan-chat";
 import { planMockHandlers } from "./plan-handlers";
+import { sessionMockHandlers } from "./session-handlers";
 import { todayMockHandlers } from "./today-handlers";
 
 export interface MockRequest {
@@ -142,6 +143,7 @@ export const mockHandlers: Readonly<Record<string, MockHandler>> = {
   ...planChatHandlers,
   ...todayMockHandlers, // E19 and E20 `daily` (S-11)
   ...planMockHandlers, // E15, E17 and E30 (S-12, S-13)
+  ...sessionMockHandlers, // E20 daily snapshot, E21, E22 (S-19); after today's handlers so its POST /sessions wins
   "GET /catalog": () => ({ status: 200, body: mockCatalog }),
   "GET /today": (_request, scenario) => {
     if (!scenario.signedIn) return unauthenticated();

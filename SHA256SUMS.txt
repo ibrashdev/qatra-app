@@ -505,8 +505,8 @@ a59c26f7b942754dad0a0c590596b49e43e5ba3210ce63da9c81b8ea9dbbd1a7  frontend/src/i
 ed0f38bec97b8542e72172c8cc2f3177759ed0885bc47c823ffe1a3086646171  frontend/src/lib/api/endpoints.ts
 29bb5cddf9dbbc227443d87ea34f2c5dfe4d44e698442c66b205668a773f1c75  frontend/src/lib/api/errors.ts
 47c3d383e3431192739e37b011031bb87837cfebeef96a34d235c2dc2b8ea8db  frontend/src/lib/api/mock/fixtures.ts
-334b551cb5080bb3d6385a8b7ce4e2791fb741c0b4413fdc67e993490331d0b6  frontend/src/lib/api/mock/handlers.ts
-7ff6783ea3d3d8b8eb1eea8f2c9e3823dbda4ae23deb05f90aaf8f2c61a371f8  frontend/src/lib/api/mock/index.ts
+4cf42b8aea9688be62861ed43a8e422a3b9e359206bf7834316f2e53aa71d877  frontend/src/lib/api/mock/handlers.ts
+d5eceb498e1a759cc03f45ff734e8ea17bacf535d2f647050d558ff0055980ae  frontend/src/lib/api/mock/index.ts
 23a7dbffa01481786ebc03d18e9b41f22928e02aae9ef95e378a41b30d798bba  frontend/src/lib/api/mock/mock-fetch.ts
 60fe47be18b5e361f4afe009d5dcb36b93a8843825f658364e624bb90a1f505c  frontend/src/lib/api/mock/plan-chat-fixtures.ts
 0aee92ea961b01d9e593646285c4542e2db40785558ba6ea2a848c16de498df4  frontend/src/lib/api/mock/plan-chat.ts
@@ -612,7 +612,7 @@ c1a1c1bab88aa9ff1084da8a6b3c9c5db112e6e5cd525c6ec9d4da4fda33b642  frontend/tests
 c9ab44c00c22e7262512f5c99997476db24a9a6ae9623f9bdfaeedca4d6feb21  frontend/tests/unit/terms-text.test.ts
 03f53c54b69ea0864daf426494f497fc9761420d776d3cbdca9083ec851dcded  frontend/tests/unit/terms.test.tsx
 2be59b2d4a09f20e8748136342d8c9b292ee59cac0c7e5d68c50c9cc7a740d64  frontend/tests/unit/toast.test.tsx
-0c26dc932704b63f1d48c6048c647f0629727a041c5e6343e04e2ea5080cdc24  frontend/tests/unit/today-handlers.test.ts
+38aca4905f683132042647eba5ee2a47db6490677849d2703b5fb2786de1981c  frontend/tests/unit/today-handlers.test.ts
 f5139b3e88a8a4f9f82803f6e29fe97f8e200e0ad58dbc14fb7e006fbcff3a75  frontend/tests/unit/today-model.test.ts
 8084218a1a540218ba606fd344a6b6a0fffc9905830e41efafa61bac19328d76  frontend/tests/unit/today-screen.test.tsx
 cceb55d14181b044570ad348d6e9810f897dc60f4456c16ffbf972adeeeedcf6  frontend/tests/unit/tokens.test.ts
