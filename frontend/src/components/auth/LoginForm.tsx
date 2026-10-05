@@ -19,6 +19,7 @@ import { useApiRuntime, useWakeUpState } from "@/lib/api/react";
 import { homeDestination } from "@/lib/auth/destination";
 import { clearLoginArrival, peekLoginArrival, type LoginArrival } from "@/lib/auth/flash";
 import { classifyLoginError, type LoginFailure } from "@/lib/auth/login-failure";
+import { clearRegisterDraft } from "@/lib/auth/register-draft";
 import { setReturnPath } from "@/lib/auth/return-path";
 import { safeNextPath } from "@/lib/auth/safe-path";
 import { useSignedInRedirect } from "@/lib/auth/use-signed-in-redirect";
@@ -135,6 +136,8 @@ export function LoginForm() {
     let leaving = false;
     try {
       const { profile, reconsentRequired } = await api.login({ username, password });
+      // A session exists now, so a registration draft with a password in it must not outlive it.
+      clearRegisterDraft();
       if (!mounted.current) return;
       if (passwordRef.current) passwordRef.current.value = "";
       // After login the profile language prevails (P-02).
@@ -211,7 +214,7 @@ export function LoginForm() {
               {text.arrival[ARRIVALS[arrival].message]}
             </Banner>
           ) : null}
-          {summary.length >= 2 ? <ErrorSummary title={messages.form.errorSummary(formatInteger(locale, summary.length))} items={summary} /> : null}
+          {summary.length >= 2 ? <ErrorSummary title={messages.form.errorSummary(summary.length, formatInteger(locale, summary.length))} items={summary} /> : null}
         </div>
       ) : null}
 

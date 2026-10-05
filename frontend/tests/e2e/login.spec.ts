@@ -20,7 +20,7 @@ const COPY = {
     create: "إنشاء حساب",
     needUsername: "أدخل اسم المستخدم.",
     needPassword: "أدخل كلمة المرور.",
-    summary: "يوجد ٢ أخطاء في النموذج",
+    summary: "يوجد خطآن في النموذج",
     invalid: "اسم المستخدم أو كلمة المرور غير صحيحة.",
     internal: "حدث خطأ غير متوقع. حاول مرة أخرى.",
     unavailable: "الخدمة غير متاحة مؤقتًا. حاول بعد قليل.",
@@ -327,7 +327,7 @@ test.describe("keyboard and focus (S-01 section 5)", () => {
     await page.keyboard.press("Space");
     await expect(passwordField(page, "ar")).toHaveAttribute("type", "text");
     await expect(page.getByRole("button", { name: COPY.ar.hide })).toBeFocused();
-    await expect(page.getByRole("button", { name: COPY.ar.hide })).toHaveAttribute("aria-pressed", "true");
+    await expect(page.getByRole("button", { name: COPY.ar.hide })).not.toHaveAttribute("aria-pressed");
     await page.keyboard.press("Enter");
     await expect(passwordField(page, "ar")).toHaveAttribute("type", "password");
     expect(sent).toHaveLength(0);

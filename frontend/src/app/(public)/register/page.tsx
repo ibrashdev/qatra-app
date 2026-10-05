@@ -1,6 +1,6 @@
-import { PlaceholderRoute } from "@/components/ui/PlaceholderRoute";
+import { RegisterScreen } from "@/components/auth/RegisterScreen";
 
-// Placeholder only: the register screen (S-02) is the next step of Batch 1. The login screen links here.
+// S-02. The screen builds its own header (a back control, no logo) and shows the wake-up line above its button.
 export default function RegisterPage() {
-  return <PlaceholderRoute screen="register" />;
+  return <RegisterScreen />;
 }

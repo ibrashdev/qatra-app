@@ -17,6 +17,7 @@ import { ApiRuntimeProvider } from "@/lib/api/react";
 import { createApiRuntime, type ApiRuntime } from "@/lib/api/runtime";
 import { createMockFetch, MOCK_PASSWORD, mockProfile, type MockScenario } from "@/lib/api/mock";
 import { clearLoginArrival, raiseLoginArrival } from "@/lib/auth/flash";
+import { clearRegisterDraft, readRegisterDraft, saveRegisterDraft } from "@/lib/auth/register-draft";
 import { takeReturnPath } from "@/lib/auth/return-path";
 
 const WAKING = { ar: "جارٍ تشغيل الخادم المجاني، قد يستغرق ذلك دقيقة.", en: "Starting the free server, this may take about a minute." };
@@ -114,6 +115,7 @@ beforeEach(() => {
   resetLocaleStoreForTests();
   resetRouteFocusForTests();
   clearLoginArrival();
+  clearRegisterDraft();
   takeReturnPath();
   navigation.router.replace.mockReset();
   browser.reloadPage.mockReset();
@@ -228,7 +230,7 @@ describe("password toggle (P-08, S-01 c5)", () => {
     renderLogin();
     await user.type(passwordInput(), "a synthetic passphrase");
     const show = screen.getByRole("button", { name: "إظهار كلمة المرور" });
-    expect(show).toHaveAttribute("aria-pressed", "false");
+    expect(show).not.toHaveAttribute("aria-pressed");
     expect(show).toHaveClass("size-target");
     expect(show.querySelector("svg")).toHaveAttribute("aria-hidden", "true");
 
@@ -236,15 +238,15 @@ describe("password toggle (P-08, S-01 c5)", () => {
     expect(passwordInput()).toHaveAttribute("type", "text");
     expect(passwordInput()).toHaveValue("a synthetic passphrase");
     const hide = screen.getByRole("button", { name: "إخفاء كلمة المرور" });
-    expect(hide).toHaveAttribute("aria-pressed", "true");
+    expect(hide).not.toHaveAttribute("aria-pressed");
 
     await user.click(hide);
     expect(passwordInput()).toHaveAttribute("type", "password");
   });
 
-  it("is named in English too", () => {
+  it("is named in English too, by its name alone (no pressed state, O-07)", () => {
     renderLogin({ language: "en" });
-    expect(screen.getByRole("button", { name: "Show password" })).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByRole("button", { name: "Show password" })).not.toHaveAttribute("aria-pressed");
   });
 });
 
@@ -256,7 +258,8 @@ describe("validation, on submit only (P-03, S-01 section 3)", () => {
 
     expect(backend.count("POST /api/auth/login")).toBe(0);
     const summary = screen.getByRole("alert");
-    expect(summary).toHaveTextContent("يوجد ٢ أخطاء في النموذج");
+    // Two takes the Arabic dual: no number is written (decision of 4 October 2026).
+    expect(summary).toHaveTextContent("يوجد خطآن في النموذج");
     const links = within(summary).getAllByRole("link");
     expect(links.map((link) => link.textContent)).toEqual(["أدخل اسم المستخدم.", "أدخل كلمة المرور."]);
 
@@ -486,6 +489,26 @@ describe("submitting E04 and the exits (S-01 section 1)", () => {
     await user.type(passwordInput(), `${MOCK_PASSWORD}{Enter}`);
     await vi.waitFor(() => expect(navigation.router.replace).toHaveBeenCalledWith("/today"));
     expect(backend.count("POST /api/auth/login")).toBe(1);
+  });
+
+  it("wipes a registration draft kept for S-03: a session exists now, and the draft holds a password", async () => {
+    saveRegisterDraft({ username: "someone_01", password: "a synthetic passphrase", confirmation: "a synthetic passphrase", consent: true });
+    const user = userEvent.setup();
+    renderLogin();
+    await fill(user, "sample_user_01", MOCK_PASSWORD);
+    await user.click(submitButton());
+    await vi.waitFor(() => expect(navigation.router.replace).toHaveBeenCalled());
+    expect(readRegisterDraft()).toBeNull();
+  });
+
+  it("keeps a registration draft when the login fails", async () => {
+    saveRegisterDraft({ username: "someone_01", password: "a synthetic passphrase", confirmation: "a synthetic passphrase", consent: true });
+    const user = userEvent.setup();
+    renderLogin();
+    await fill(user, "sample_user_01", "a wrong passphrase");
+    await user.click(submitButton());
+    await screen.findByRole("alert");
+    expect(readRegisterDraft()).not.toBeNull();
   });
 
   it("stores nothing in the browser and shows no message on success", async () => {

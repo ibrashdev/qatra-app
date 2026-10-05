@@ -31,11 +31,10 @@ export interface UiMessages {
     englishName: string; // contains the visible label (WCAG 2.5.3)
     changed: string;
   };
-  back: string;
   backTo: (destination: string) => string;
   placeholder: { notBuilt: string };
-  // Screen names: the H1 and the document title. Register, recovery, consent and start are still placeholders.
-  screens: { login: string; register: string; recovery: string; consent: string; start: string };
+  // Screen names: the H1 and the document title. Recovery, consent, start, terms and the recovery code are still placeholders.
+  screens: { login: string; register: string; recovery: string; consent: string; start: string; terms: string; recoveryCode: string };
   notFound: { title: string; body: string; action: string };
   error: { title: string; retry: string };
   server: { waking: string; retry: string; ready: string; busy: string };
@@ -56,7 +55,6 @@ const ar: UiMessages = {
     englishName: "English (EN)",
     changed: "تم تغيير اللغة إلى العربية",
   },
-  back: "رجوع",
   backTo: (destination) => `رجوع إلى ${destination}`,
   placeholder: { notBuilt: "هذه الشاشة لم تُبنَ بعد، وستصل في دفعة لاحقة." },
   screens: {
@@ -65,6 +63,8 @@ const ar: UiMessages = {
     recovery: "استرجاع الحساب",
     consent: "موافقة جديدة على الشروط",
     start: "ما هي خطتك؟",
+    terms: "شروط الاستخدام وبيان الخصوصية",
+    recoveryCode: "حفظ رمز الاسترجاع",
   },
   notFound: {
     title: "الصفحة غير موجودة",
@@ -95,7 +95,6 @@ const en: UiMessages = {
     englishName: "English (EN)",
     changed: "Language changed to English",
   },
-  back: "Back",
   backTo: (destination) => `Back to ${destination}`,
   placeholder: { notBuilt: "This screen has not been built yet. It arrives in a later batch." },
   screens: {
@@ -104,6 +103,8 @@ const en: UiMessages = {
     recovery: "Account recovery",
     consent: "Agree to the updated terms",
     start: "What is your plan?",
+    terms: "Terms of use and privacy statement",
+    recoveryCode: "Save your recovery code",
   },
   notFound: {
     title: "Page not found",

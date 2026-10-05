@@ -424,6 +424,21 @@ export interface LoginResponse {
   reconsentRequired: boolean;
 }
 
+// E03 (API-spec 4.2). `termsAccepted` is exactly true; `recoveryCode` is shown once and never retrievable again.
+export interface RegisterRequest {
+  username: string;
+  password: string;
+  timeZone: string; // IANA name from the browser
+  language: "ar" | "en";
+  termsAccepted: true;
+  termsVersion: string;
+}
+
+export interface RegisterResponse {
+  profile: Profile;
+  recoveryCode: string; // 32 lowercase hex characters in eight groups of four joined by "-"
+}
+
 export interface CatalogResponse {
   editions: CatalogEdition[];
 }

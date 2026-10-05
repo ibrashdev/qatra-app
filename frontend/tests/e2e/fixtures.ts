@@ -88,7 +88,9 @@ export async function smallTargets(page: Page): Promise<string[]> {
     const small: string[] = [];
     for (const element of document.querySelectorAll<HTMLElement>(selector)) {
       if (!element.checkVisibility()) continue;
-      const rect = element.getBoundingClientRect();
+      // A checkbox is a native input laid over its 24 px box; the target is the whole row, whose label is part of it (UI-tokens 6.3).
+      const target = element instanceof HTMLInputElement && element.type === "checkbox" ? (element.closest("label") ?? element) : element;
+      const rect = target.getBoundingClientRect();
       // The skip link is clipped until it receives focus.
       if (element.closest(".sr-only") === element && rect.width <= 1) continue;
       if (rect.width < 43.5 || rect.height < 43.5) small.push(`${element.tagName} "${(element.textContent ?? "").trim()}" ${Math.round(rect.width)}x${Math.round(rect.height)}`);
