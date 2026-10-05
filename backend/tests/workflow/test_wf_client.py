@@ -1,7 +1,8 @@
 """JSON-RPC client against httpx.MockTransport.
 
-The live host (mcp.islamiccontent.org) is NOT reachable from the build container: nothing here
-proves the client works against the real server, only that it speaks the documented protocol.
+These tests use httpx.MockTransport and never touch the network: nothing here proves the client
+works against the real server, only that it speaks the documented protocol. The one live run is
+recorded in the module docstring of ``app/workflow/mcp_client.py``.
 """
 
 from __future__ import annotations
@@ -19,11 +20,13 @@ from app.workflow.errors import (
     SourceUnreachableError,
 )
 from app.workflow.mcp_client import (
+    USER_AGENT,
     McpJsonRpcClient,
     hadith_arguments,
+    layout_summary,
     quran_arguments,
 )
-from tests.workflow.wf_support import DATA
+from tests.workflow.wf_support import DATA, assert_no_source_text
 
 QURAN_TEXT = (DATA / "synthetic_mcp_quran_response.txt").read_text(encoding="utf-8")
 HADITH_TEXT = (DATA / "synthetic_mcp_hadith_response.txt").read_text(encoding="utf-8")
@@ -192,3 +195,44 @@ def test_only_the_approved_host_over_https_is_accepted() -> None:
 def test_argument_builders() -> None:
     assert quran_arguments(78) == {"surah": 78, "language": "ar"}
     assert hadith_arguments(66511) == {"id": 66511, "language": "ar"}
+
+
+def test_every_request_carries_an_honest_descriptive_identity() -> None:
+    server = FakeServer()
+    with client_for(server) as client:
+        client.get_quran_verses_text(112)
+    assert len(server.requests) == 3  # initialize, initialized, tools/call
+    assert {r.headers["user-agent"] for r in server.requests} == {USER_AGENT}
+    assert USER_AGENT.startswith("qatra-content-workflow/") and "read-only" in USER_AGENT
+    assert "mozilla" not in USER_AGENT.lower() and "python" not in USER_AGENT.lower()
+
+
+def test_a_parse_error_names_counts_of_the_layout_and_never_the_text() -> None:
+    server = FakeServer()
+    broken = QURAN_TEXT.replace("[/EXACT]", "")  # the block never closes
+    server.tool_text = broken
+    with client_for(server) as client, pytest.raises(McpParseError) as error:
+        client.fetch_quran_surah(112)
+    message = str(error.value)
+    assert "no [EXACT] block" in message and "layout:" in message
+    assert f"{len(broken)} characters" in message and "EXACT 1/0" in message
+    assert "ayah markers 4" in message and "Source lines 1" in message
+    assert_no_source_text(message)
+    assert QURAN_TEXT.splitlines()[3] not in message  # a verse line
+
+    server = FakeServer()
+    server.tool_text = HADITH_TEXT.replace("[EXACT]", "").replace("[/EXACT]", "")
+    with client_for(server) as client, pytest.raises(McpParseError) as error:
+        client.fetch_hadith(990001, 1)
+    assert "layout:" in str(error.value) and "EXACT 0/0" in str(error.value)
+    assert_no_source_text(str(error.value))
+
+
+def test_layout_summary_counts_only() -> None:
+    text = "[EXACT]\n[112:1]\nabc\n[112:2]\ndef\n[/EXACT]\nSource: https://example.invalid/x\n"
+    summary = layout_summary(text)
+    assert summary == (
+        f"layout: {len(text)} characters, 7 lines; block tags open/close "
+        "EXACT 1/1, ATTRIBUTION 0/0, COMMENTARY 0/0; ayah markers 2; Source lines 1"
+    )
+    assert "abc" not in summary and "def" not in summary

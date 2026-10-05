@@ -29,6 +29,10 @@ both independent passes are stored: which hadiths legitimately have no record is
 ``surah|ayah|text``; blank lines and lines starting with ``#`` are ignored; a trailing ayah
 number (digits, optionally with U+06DD or ornate brackets) is stripped before comparing.
 **Skeleton file** (``verify --skeleton PATH``, hadith, optional): ``fortyNumber|text`` lines.
+
+**Source-only mode** (``verify --source-only-decision D83``): for exactly the scope of D83 (see
+``source_only``) two independent HTTP acquisitions from the service replace the oracle and the
+skeleton. Without the option nothing changes: a missing oracle still fails closed.
 """
 
 from __future__ import annotations
@@ -45,6 +49,7 @@ from typing import Any, Literal
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, ValidationError
 
 from app.domain.normalization import letter_skeleton
+from app.workflow import source_only
 from app.workflow.editions import (
     MCP_SOURCE_URL,
     QURAN_AYAH_COUNTS,
@@ -67,7 +72,6 @@ from app.workflow.jobs import JobRepository
 from app.workflow.mcp_client import (
     McpJsonRpcClient,
     hadith_arguments,
-    parse_quran_response,
     quran_arguments,
 )
 from app.workflow.models import (
@@ -699,7 +703,7 @@ def _verify_quran(
         by_ayah = {r.ayah: r for r in obj.quran_records()}
         fetched: dict[int, QuranRecord] = {}
         if client is not None:
-            fetched = {r.ayah: r for r in parse_quran_response(client.get_quran_verses_text(surah))}
+            fetched = {r.ayah: r for r in client.fetch_quran_surah(surah)}
         for ayah in range(1, QURAN_AYAH_COUNTS[surah] + 1):
             ref = f"{surah}:{ayah}"
             record = by_ayah.get(ayah)
@@ -832,6 +836,125 @@ def _verify_hadith(
     return units, gaps, suspected
 
 
+# --- source-only mode (D83) ----------------------------------------------------------------
+
+
+def _records_payload_sha256(records: Sequence[QuranRecord]) -> str:
+    """The ``rawSha256`` that a raw object holding exactly these records would have."""
+    ordered = sorted(records, key=lambda r: r.ayah)
+    return sha256_hex(canonical_json({"records": [r.model_dump(by_alias=True) for r in ordered]}))
+
+
+def _compare_source_only(raw: str, other: str) -> tuple[bool, str]:
+    """Byte identity and NFC equality (D83); the details hold positions only, never text."""
+    same_bytes, bytes_details = _compare_bytes(raw, other)
+    same_nfc = _nfc(raw) == _nfc(other)
+    if same_bytes and same_nfc:
+        return True, "byte-for-byte equal; equal after NFC"
+    state = "equal" if same_nfc else "different"
+    return False, f"{bytes_details}; after NFC the texts are {state}"
+
+
+def _verify_quran_source_only(
+    *,
+    bank_version: int,
+    scope: EditionScope,
+    storage: RawStorage,
+    client: McpJsonRpcClient,
+    edition_key: str,
+    clock: Clock,
+) -> tuple[list[VerificationRecord], list[dict[str, Any]]]:
+    """Compare each stored HTTP acquisition with a fresh HTTP re-acquisition of the same surah."""
+    stored = {
+        quran_object_name(bank_version, surah): _read_object(
+            storage, edition_key, quran_object_name(bank_version, surah)
+        )
+        for surah in scope.surahs
+    }
+    source_only.assert_http_acquired(stored)  # before any request is made
+    units: list[VerificationRecord] = []
+    entries: list[dict[str, Any]] = []
+    method = "source_only_http_reacquisition"
+    for surah in scope.surahs:
+        name = quran_object_name(bank_version, surah)
+        obj = stored[name]
+        by_ayah = {r.ayah: r for r in obj.quran_records()}
+        retrieved_at = clock()
+        fetched = client.fetch_quran_surah(surah)
+        by_fetched = {r.ayah: r for r in fetched}
+        for ayah in sorted(set(range(1, QURAN_AYAH_COUNTS[surah] + 1)) | set(by_fetched)):
+            ref = f"{surah}:{ayah}"
+            record, other = by_ayah.get(ayah), by_fetched.get(ayah)
+            if record is None:
+                outcome = (False, "no raw record")
+            elif other is None:
+                outcome = (False, "the HTTP answer has no such ayah")
+            else:
+                outcome = _compare_source_only(record.text, other.text)
+            units.append(_record(method, ref, outcome))
+        reacquired_sha = _records_payload_sha256(fetched)
+        entries.append(source_only.acquisition_entry("stored", name, obj))
+        entries.append(
+            {
+                "role": "reacquired",
+                "object": name,
+                "acquisition": "http",
+                "rawSha256": reacquired_sha,
+                "retrievedAt": _iso(retrieved_at),
+                "equalToStored": reacquired_sha == obj.raw_sha256,
+            }
+        )
+    return units, entries
+
+
+def _verify_hadith_source_only(
+    *,
+    bank_version: int,
+    scope: EditionScope,
+    storage: RawStorage,
+    client: McpJsonRpcClient | None,
+    edition_key: str,
+) -> tuple[list[VerificationRecord], list[Gap], list[dict[str, Any]], dict[str, Any]]:
+    """Pass 1 against pass 2 after NFC (D83); both passes must be HTTP acquisitions of the
+    record named by the decision. The byte comparison of the passes is recorded as information."""
+    stored: dict[str, RawObject] = {}
+    entries: list[dict[str, Any]] = []
+    for pass_number in (1, 2):
+        for number in scope.forty_numbers:
+            name = hadith_object_name(bank_version, pass_number, number)
+            if storage.exists(edition_key, name):
+                stored[name] = _read_object(storage, edition_key, name)
+                entries.append(
+                    source_only.acquisition_entry(f"pass{pass_number}", name, stored[name])
+                )
+    source_only.assert_http_acquired(stored)
+    pass1 = hadith_pass_records(storage, edition_key, bank_version, 1)
+    pass2 = hadith_pass_records(storage, edition_key, bank_version, 2)
+    source_only.assert_hadith_ids(pass1)
+    source_only.assert_hadith_ids(pass2)
+    units, gaps, suspected = _verify_hadith(
+        bank_version=bank_version,
+        scope=scope,
+        storage=storage,
+        skeleton=None,
+        client=client,
+        edition_key=edition_key,
+    )
+    identical: dict[str, dict[str, bool]] = {}
+    for number in scope.forty_numbers:
+        if number in pass1 and number in pass2:
+            first, second = pass1[number], pass2[number]
+            identical[f"forty:{number}"] = {
+                label: getattr(first, field_name) == getattr(second, field_name)
+                for field_name, label in (
+                    ("narration", "narration"),
+                    ("narrator", "takhrij"),
+                    ("grade", "grade"),
+                )
+            }
+    return units, gaps, suspected, {"acquisitions": entries, "passesByteIdentical": identical}
+
+
 def verify_verbatim(
     *,
     edition_key: str,
@@ -841,27 +964,71 @@ def verify_verbatim(
     oracle: Mapping[tuple[int, int], str] | None = None,
     skeleton: Mapping[int, str] | None = None,
     recheck_client: McpJsonRpcClient | None = None,
+    source_only_decision: str | None = None,
     clock: Clock,
 ) -> VerificationOutcome:
     """Run the verbatim checks of contract §2.7 and return per-unit records (no exception for
     mismatches: the caller decides). Quran: NFC equality with the oracle for every ayah of the
     scope. Hadith: pass 1 equals pass 2 after NFC; optional letter-skeleton review flags;
-    optional HTTP re-acquisition compared byte for byte."""
+    optional HTTP re-acquisition compared byte for byte.
+
+    With ``source_only_decision`` (D83) the oracle and the skeleton are not used: for exactly the
+    scope of the decision, two HTTP acquisitions from the service itself are compared instead
+    (Quran: the stored one against a re-acquisition made here, byte for byte; hadith: pass 1
+    against pass 2 after NFC). Any other scope is refused."""
     spec = edition_spec(edition_key)
     gaps: list[Gap] = []
     suspected: list[dict[str, Any]] = []
+    evidence: dict[str, Any] = {}
+    acquisitions = 0
+    if source_only_decision is not None:
+        source_only.require_decision(source_only_decision)
+        if oracle is not None or skeleton is not None:
+            raise InputError(
+                "the source-only decision replaces the oracle and the skeleton: pass neither"
+            )
+        source_only.assert_scope(edition_key, bank_version, scope)
     if spec.kind == "quran":
-        if oracle is None:
-            raise InputError("the Quran edition needs an oracle file (--oracle)")
-        units = _verify_quran(
+        if source_only_decision is not None:
+            if recheck_client is None:
+                raise InputError(
+                    "the source-only decision needs the HTTP re-acquisition (--http-recheck)"
+                )
+            units, entries = _verify_quran_source_only(
+                bank_version=bank_version,
+                scope=scope,
+                storage=storage,
+                client=recheck_client,
+                edition_key=edition_key,
+                clock=clock,
+            )
+            method = source_only.method_name("http_reacquisition_byte_equality")
+            evidence = {"acquisitions": entries, "priorEvidence": dict(source_only.PRIOR_EVIDENCE)}
+            acquisitions = 2
+        else:
+            if oracle is None:
+                raise InputError("the Quran edition needs an oracle file (--oracle)")
+            units = _verify_quran(
+                bank_version=bank_version,
+                scope=scope,
+                storage=storage,
+                oracle=oracle,
+                client=recheck_client,
+                edition_key=edition_key,
+            )
+            method = "nfc_equality_vs_oracle"
+    elif source_only_decision is not None:
+        units, gaps, suspected, evidence = _verify_hadith_source_only(
             bank_version=bank_version,
             scope=scope,
             storage=storage,
-            oracle=oracle,
             client=recheck_client,
             edition_key=edition_key,
         )
-        method = "nfc_equality_vs_oracle"
+        method = source_only.method_name(
+            "two_pass_nfc_equality" + ("+http_byte_diff" if recheck_client is not None else "")
+        )
+        acquisitions = 2 + (1 if recheck_client is not None else 0)
     else:
         units, gaps, suspected = _verify_hadith(
             bank_version=bank_version,
@@ -874,7 +1041,7 @@ def verify_verbatim(
         method = "two_pass_nfc_equality"
         if skeleton is not None:
             method += "+letter_skeleton_flag"
-    if recheck_client is not None:
+    if recheck_client is not None and source_only_decision is None:
         method += "+http_byte_diff"
 
     refs = {u.unit_ref for u in units}
@@ -887,6 +1054,8 @@ def verify_verbatim(
         "gaps": len(gaps),
         "flagged": len(suspected),
     }
+    if source_only_decision is not None:
+        counts["acquisitions"] = acquisitions
     passed = not failed and not nothing_verified
     details = (
         f"{counts['passed']} of {counts['units']} units passed; "
@@ -906,25 +1075,26 @@ def verify_verbatim(
         suspected=suspected,
         counts=counts,
         generated_at=clock(),
+        decision=source_only_decision,
+        evidence=evidence,
     )
-    outcome.digest = sha256_hex(
-        canonical_json(
-            {
-                "scope": scope.to_dict(),
-                "method": method,
-                "units": [[u.unit_ref, u.method, u.result] for u in units],
-                "gaps": [g.to_dict() for g in gaps],
-                "flagged": [s["unit"] for s in suspected],
-            }
-        )
-    )
+    digest_input: dict[str, Any] = {
+        "scope": scope.to_dict(),
+        "method": method,
+        "units": [[u.unit_ref, u.method, u.result] for u in units],
+        "gaps": [g.to_dict() for g in gaps],
+        "flagged": [s["unit"] for s in suspected],
+    }
+    if source_only_decision is not None:
+        digest_input["decision"] = source_only_decision
+    outcome.digest = sha256_hex(canonical_json(digest_input))
     return outcome
 
 
 def verification_summary(outcome: VerificationOutcome) -> dict[str, Any]:
     """The first part of ``content_jobs.validation_summary`` (text-free)."""
     when = _iso(outcome.generated_at) if outcome.generated_at else None
-    return {
+    summary: dict[str, Any] = {
         "scope": outcome.scope.to_dict(),
         "verification": outcome.source.model_dump(mode="json", exclude={"unit_ref"}),
         "counts": outcome.counts,
@@ -941,6 +1111,10 @@ def verification_summary(outcome: VerificationOutcome) -> dict[str, Any]:
             }
         },
     }
+    if outcome.decision is not None:
+        summary["sourceOnly"] = {"decision": outcome.decision, **outcome.evidence}
+        summary["reviewRecordEntry"]["verification"]["decision"] = outcome.decision
+    return summary
 
 
 def make_verify_handler(
@@ -953,11 +1127,15 @@ def make_verify_handler(
     oracle_path: Path | None,
     skeleton_path: Path | None,
     recheck_client: McpJsonRpcClient | None,
+    source_only_decision: str | None = None,
     clock: Clock,
 ) -> StepHandler:
     """Runner handler for the ``verified`` step. Reports are written whether or not the
     verification passes; a failure blocks the affected units and raises
-    ``VerificationFailedError`` (the step is recorded ``failed`` and the edition stays draft)."""
+    ``VerificationFailedError`` (the step is recorded ``failed`` and the edition stays draft).
+
+    With ``source_only_decision`` (D83) the oracle and skeleton files are refused and the
+    verification compares two HTTP acquisitions of the service instead."""
     spec = edition_spec(edition_key)
 
     def handler(job: ContentJob) -> StepOutcome:
@@ -965,7 +1143,13 @@ def make_verify_handler(
         if acquired is None or not acquired.cursor or "scope" not in acquired.cursor:
             raise ObjectNotFoundError("the acquisition record of this build is missing")
         scope = EditionScope.from_dict(acquired.cursor["scope"])
-        if spec.kind == "quran":
+        if source_only_decision is not None:
+            if oracle_path is not None or skeleton_path is not None:
+                raise InputError(
+                    "the source-only decision replaces the oracle and the skeleton: pass neither"
+                )
+            oracle, skeleton = None, None
+        elif spec.kind == "quran":
             if oracle_path is None:
                 raise InputError("the Quran edition needs an oracle file (--oracle)")
             if skeleton_path is not None:
@@ -984,6 +1168,7 @@ def make_verify_handler(
             oracle=oracle,
             skeleton=skeleton,
             recheck_client=recheck_client,
+            source_only_decision=source_only_decision,
             clock=clock,
         )
         write_verification_files(paths, outcome)

@@ -36,6 +36,9 @@ DEFAULT_BOUNDARIES_PATH: Final = (
 )
 _SAHIHAYN_WORDS: Final = frozenset({"البخاري", "بخاري", "مسلم", "الصحيحين"})
 PATH_RANK: Final = {"quran": 0, "matn": 1, "sanad": 2, "grade": 3}
+# The grade question is a choice among the distinct grade phrases of the edition (contract §2.3),
+# so a grade passage can only be tested when the edition holds at least two of them.
+MIN_GRADE_PHRASES: Final = 2
 
 
 @dataclass(slots=True)
@@ -310,6 +313,16 @@ def _doubt_note(number: int, doubt: str, entry: BoundaryEntry | None) -> dict[st
     }
 
 
+def distinct_grade_phrases(records: Mapping[int, HadithRecord], numbers: Sequence[int]) -> int:
+    """Number of distinct grade phrases (compared by their normalized words) among ``numbers``."""
+    phrases: set[tuple[str, ...]] = set()
+    for number in numbers:
+        words = tuple(t.n for t in tokenize(nfc(records[number].grade)) if t.k == "word")
+        if words:
+            phrases.add(words)
+    return len(phrases)
+
+
 def segment_hadith(
     *,
     edition_key: str,
@@ -318,14 +331,22 @@ def segment_hadith(
     numbers: Sequence[int],
     labels: EditionLabels,
     boundaries: Boundaries,
+    sample: bool = False,
 ) -> SegmentResult:
     """Sections (one per included hadith, ascending), narration/takhrij/grade units and the
     ``matn``, ``sanad`` and ``grade`` passages. ``numbers`` are the Forty numbers to include
-    (gaps are already excluded by the caller)."""
+    (gaps are already excluded by the caller).
+
+    ``sample`` marks a build whose scope is narrower than the whole edition. A sample with fewer
+    than two distinct grade phrases cannot test the grade, so it makes no grade passage (the
+    grade unit is kept) and flags that in ``suspected``. A full build always makes the grade
+    passage, so a missing question stays a validation failure there.
+    """
     ids = (edition_key, bank_version)
     result = SegmentResult()
     unit_ordinal = 0
     counters = {"matn": 0, "sanad": 0, "grade": 0}
+    grade_testable = not sample or distinct_grade_phrases(records, numbers) >= MIN_GRADE_PHRASES
     for section_ordinal, number in enumerate(numbers, start=1):
         record = records[number]
         url = record.url
@@ -421,7 +442,18 @@ def segment_hadith(
                     )
                 )
         grade = unit_toks.get("hadith_grade")
-        if grade is not None and _words(grade) > 0:
+        if grade is not None and _words(grade) > 0 and not grade_testable:
+            result.suspected.append(
+                {
+                    "unit": f"forty:{number}:grade",
+                    "kind": "grade_path_unavailable",
+                    "details": (
+                        "a sample build with fewer than two distinct grade phrases cannot test "
+                        "the grade; no grade passage is made and the grade unit is kept"
+                    ),
+                }
+            )
+        elif grade is not None and _words(grade) > 0:
             counters["grade"] += 1
             result.passages.append(
                 _make_passage(
