@@ -31,7 +31,16 @@ def parse(lines: list[str]) -> list[dict]:
 def test_access_log_has_only_the_allowed_fields(client: TestClient, log_lines: list[str]) -> None:
     client.get("/api/health")
     (entry,) = parse(log_lines)
-    assert set(entry) == {"event", "method", "route", "status", "latency_ms", "error_code"}
+    assert set(entry) == {
+        "event",
+        "method",
+        "route",
+        "status",
+        "latency_ms",
+        "error_code",
+        "xff_entries",
+        "via_vercel",
+    }
     assert entry["method"] == "GET"
     assert entry["route"] == "/api/health"
     assert entry["status"] == 200
