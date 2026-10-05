@@ -5,6 +5,12 @@ export const MOCK_QURAN_EDITION_ID = "11111111-1111-4111-8111-0000000000e1";
 export const MOCK_HADITH_EDITION_ID = "11111111-1111-4111-8111-0000000000e2";
 export const MOCK_PLAN_ID = "44444444-4444-4444-8444-000000000001";
 
+// The terms version the mock server asks for, equal to the one in mockProfile and in .env.example.
+export const MOCK_TERMS_VERSION = "2026-10-04";
+
+// The recovery code of the example in API-spec 4.2: synthetic, never a real code.
+export const MOCK_RECOVERY_CODE = "0123-4567-89ab-cdef-0123-4567-89ab-cdef";
+
 export const mockProfile: Profile = {
   username: "sample_user_01",
   language: "ar",
@@ -29,6 +35,25 @@ export const MOCK_LOGINS: ReadonlyMap<string, MockLoginOutcome> = new Map<string
   ["sample_user_01", "ok"],
   ["new_user_01", "ok_no_plan"],
   ["reconsent_user_01", "reconsent"],
+  ["throttled_user_01", "throttled"],
+  ["locked_user_01", "locked"],
+  ["unavailable_user_01", "unavailable"],
+  ["internal_user_01", "internal"],
+  ["origin_user_01", "origin"],
+]);
+
+export type MockRegisterOutcome = "taken" | "terms" | "silent" | "throttled" | "locked" | "unavailable" | "internal" | "origin";
+
+// User names that make the mock answer each documented outcome of E03 (API-spec 4.2). The first four exist already, so they are taken.
+// `terms_user_01` makes the server ask for a terms version this build has not shown, and `silent_user_01` gets no answer at all (the network
+// fails), which is the uncertain outcome of P-10. Any other well-formed name registers: 201 with the example recovery code.
+export const MOCK_REGISTRATIONS: ReadonlyMap<string, MockRegisterOutcome> = new Map<string, MockRegisterOutcome>([
+  ["sample_user_01", "taken"],
+  ["new_user_01", "taken"],
+  ["reconsent_user_01", "taken"],
+  ["taken_user_01", "taken"],
+  ["terms_user_01", "terms"],
+  ["silent_user_01", "silent"],
   ["throttled_user_01", "throttled"],
   ["locked_user_01", "locked"],
   ["unavailable_user_01", "unavailable"],

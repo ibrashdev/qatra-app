@@ -95,3 +95,21 @@ export function UnavailableBanner() {
   const { messages } = useLocale();
   return <Banner variant="warning">{messages.form.unavailable}</Banner>;
 }
+
+// E03 and E05 `terms_required` for a version this build has not shown (O-09): it never sends a version it has not displayed, so the page is reloaded.
+export function TermsUpdatedAlert({ onReload }: { onReload: () => void }) {
+  const { messages } = useLocale();
+  return (
+    <Banner
+      variant="error"
+      role="alert"
+      action={
+        <Button variant="secondary" onClick={onReload}>
+          {messages.form.reloadPage}
+        </Button>
+      }
+    >
+      {messages.form.termsUpdated}
+    </Banner>
+  );
+}

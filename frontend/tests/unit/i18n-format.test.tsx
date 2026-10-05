@@ -50,6 +50,35 @@ describe("renderTemplate: placeholders filled with nodes", () => {
   });
 });
 
+describe("the error-summary title agrees with the number in Arabic (P-03, P-16; decision of 4 October 2026)", () => {
+  const title = (count: number) => getMessages("ar").form.errorSummary(count, formatInteger("ar", count));
+
+  it("writes the dual for two, with no figure", () => {
+    expect(title(2)).toBe("يوجد خطآن في النموذج");
+  });
+
+  it("uses the plural noun with the figure from three to ten", () => {
+    expect(title(3)).toBe("يوجد ٣ أخطاء في النموذج");
+    expect(title(10)).toBe("يوجد ١٠ أخطاء في النموذج");
+  });
+
+  it("uses the accusative singular with the figure from eleven to ninety-nine", () => {
+    expect(title(11)).toBe("يوجد ١١ خطأً في النموذج");
+    expect(title(99)).toBe("يوجد ٩٩ خطأً في النموذج");
+    expect(title(111)).toBe("يوجد ١١١ خطأً في النموذج");
+  });
+
+  it("uses the plain singular with the figure from one hundred", () => {
+    expect(title(100)).toBe("يوجد ١٠٠ خطأ في النموذج");
+    expect(title(101)).toBe("يوجد ١٠١ خطأ في النموذج");
+  });
+
+  it("keeps the English sentence as it was, whatever the number", () => {
+    const en = getMessages("en").form;
+    for (const count of [2, 3, 11, 100]) expect(en.errorSummary(count, formatInteger("en", count))).toBe(`There are ${count} errors in the form`);
+  });
+});
+
 describe("the copy of S-01 and the shared form patterns, as the spec gives it", () => {
   it("keeps the fixed Arabic strings of UI-screens verbatim", () => {
     const ar = getMessages("ar");
@@ -71,7 +100,7 @@ describe("the copy of S-01 and the shared form patterns, as the spec gives it", 
     });
     expect(ar.form.showPassword).toBe("إظهار كلمة المرور");
     expect(ar.form.hidePassword).toBe("إخفاء كلمة المرور");
-    expect(ar.form.errorSummary("٢")).toBe("يوجد ٢ أخطاء في النموذج");
+    expect(ar.form.errorSummary(3, "٣")).toBe("يوجد ٣ أخطاء في النموذج");
     expect(ar.form.offline).toBe("لا يوجد اتصال بالشبكة. تحقّق من اتصالك ثم أعد المحاولة.");
     expect(ar.form.backOnline).toBe("عاد الاتصال.");
     expect(ar.form.throttleSeconds("٢٠")).toBe("محاولات كثيرة. انتظر ٢٠ ثانية ثم أعد المحاولة.");
@@ -94,7 +123,7 @@ describe("the copy of S-01 and the shared form patterns, as the spec gives it", 
     expect(en.auth.login.noAccount).toBe("Don't have an account?");
     expect(en.auth.login.createAccount).toBe("Create an account");
     expect(en.auth.login.invalidCredentials).toBe("The username or password is not correct.");
-    expect(en.form.errorSummary("2")).toBe("There are 2 errors in the form");
+    expect(en.form.errorSummary(2, "2")).toBe("There are 2 errors in the form");
     expect(en.form.throttleSeconds("20")).toBe("Too many attempts. Wait 20 seconds and try again.");
     expect(en.form.throttleClock).toBe("Too many attempts. You can try again in {time}.");
     expect(en.form.stillProcessing).toBe("We are still processing your request; this may take a moment.");

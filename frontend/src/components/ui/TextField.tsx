@@ -8,6 +8,8 @@ export interface TextFieldProps extends Omit<ComponentPropsWithoutRef<"input">, 
   label: string;
   helper?: string;
   error?: string;
+  // More of the same answer, under the error message and part of its description (a hint line and a link, UI-screens P-10).
+  errorHint?: ReactNode;
   // A control that sits inside the field at the end edge (the show or hide button of a password).
   endAdornment?: ReactNode;
   inputRef?: Ref<HTMLInputElement>;
@@ -18,10 +20,12 @@ export interface TextFieldProps extends Omit<ComponentPropsWithoutRef<"input">, 
 // UI-tokens 6.2: visible label above (never a placeholder), the field, helper text, then the error with its glyph.
 // The border belongs to a box around a borderless input, so the end adornment stays at the end edge of the page
 // even when dir="auto" turns the typed text the other way.
-export function TextField({ label, helper, error, endAdornment, inputRef, id, ...input }: TextFieldProps) {
+export function TextField({ label, helper, error, errorHint, endAdornment, inputRef, id, ...input }: TextFieldProps) {
   const helperId = useId();
   const errorId = useId();
-  const describedBy = [helper ? helperId : null, error ? errorId : null].filter(Boolean).join(" ");
+  const hintId = useId();
+  const hint = error && errorHint ? errorHint : null;
+  const describedBy = [helper ? helperId : null, error ? errorId : null, hint ? hintId : null].filter(Boolean).join(" ");
 
   return (
     <div>
@@ -57,6 +61,7 @@ export function TextField({ label, helper, error, endAdornment, inputRef, id, ..
           {error}
         </p>
       ) : null}
+      {hint ? <div id={hintId}>{hint}</div> : null}
     </div>
   );
 }

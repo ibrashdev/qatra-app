@@ -175,15 +175,55 @@ describe("PublicShell and the language switch (F0-3, UA-11)", () => {
     act(() => runtime.monitor.settle(runtime.monitor.start(), "connectivity"));
     expect(screen.queryByText("جارٍ تشغيل الخادم المجاني، قد يستغرق ذلك دقيقة.")).not.toBeInTheDocument();
   });
+
+  it("puts a back control at the start edge when the screen has one, in place of the lockup, named for where it goes (P-02)", async () => {
+    setLanguage("ar");
+    renderWithApp(
+      <PublicShell back={{ destination: "تصفّح الكتب", href: "/login" }} logo={false}>
+        content
+      </PublicShell>,
+    );
+    const back = screen.getByRole("link", { name: "رجوع إلى تصفّح الكتب" });
+    expect(back).toHaveAttribute("href", "/login");
+    expect(back).toHaveClass("size-target");
+    expect(screen.queryByRole("link", { name: "قطرة غيث" })).not.toBeInTheDocument();
+    // The focus order of the header: the skip link, the back control, then the switch.
+    await userEvent.tab();
+    expect(screen.getByRole("link", { name: "انتقل إلى المحتوى" })).toHaveFocus();
+    await userEvent.tab();
+    expect(back).toHaveFocus();
+    await userEvent.tab();
+    expect(screen.getByRole("radio", { name: "العربية" })).toHaveFocus();
+  });
+
+  it("names the back control in English and lets it take the place of the lockup even when the lockup is on", () => {
+    setLanguage("en");
+    renderWithApp(<PublicShell back={{ destination: "Browse books", href: "/login" }}>content</PublicShell>);
+    expect(screen.getByRole("link", { name: "Back to Browse books" })).toHaveAttribute("href", "/login");
+    expect(screen.queryByRole("link", { name: "Qatra" })).not.toBeInTheDocument();
+  });
+});
+
+describe("BackControl (UI-tokens 5 and 6.1, P-02)", () => {
+  it("is a 44 px icon control whose arrow is hidden from assistive technology and mirrors in right-to-left only", () => {
+    setLanguage("ar");
+    renderWithApp(<PublicShell back={{ destination: "x", href: "/login" }}>content</PublicShell>);
+    const back = screen.getByRole("link", { name: "رجوع إلى x" });
+    expect(back).toHaveClass("size-target");
+    const arrow = back.querySelector("svg");
+    expect(arrow).toHaveAttribute("aria-hidden", "true");
+    expect(arrow).toHaveClass("size-icon-lg", "rtl:-scale-x-100");
+    expect(back).toHaveTextContent("");
+  });
 });
 
 describe("route focus (UI-screens P-01)", () => {
   it("leaves focus alone on the first load, then moves it to the heading when another shell mounts on a new path", () => {
     setLanguage("ar");
-    navigation.pathname = "/register";
+    navigation.pathname = "/terms";
     const first = renderWithApp(
       <PublicShell>
-        <PlaceholderPage screen="register" />
+        <PlaceholderPage screen="terms" />
       </PublicShell>,
     );
     expect(document.body).toHaveFocus();
@@ -200,16 +240,16 @@ describe("route focus (UI-screens P-01)", () => {
 
   it("does not move focus when a shell mounts again on the same path", () => {
     setLanguage("ar");
-    navigation.pathname = "/register";
+    navigation.pathname = "/terms";
     const first = renderWithApp(
       <PublicShell>
-        <PlaceholderPage screen="register" />
+        <PlaceholderPage screen="terms" />
       </PublicShell>,
     );
     first.unmount();
     renderWithApp(
       <PublicShell>
-        <PlaceholderPage screen="register" />
+        <PlaceholderPage screen="terms" />
       </PublicShell>,
     );
     expect(document.body).toHaveFocus();
@@ -227,6 +267,10 @@ describe("FocusShell: the focus-flow variant (UA-10)", () => {
     expect(screen.getByRole("heading", { level: 1, name: "عنوان تجريبي" })).toBeInTheDocument();
     const back = screen.getByRole("link", { name: "رجوع إلى الصفحة السابقة" });
     expect(back).toHaveAttribute("href", "/today");
+    // The same arrow control as the public header: no text on it, the name says where it goes.
+    expect(back).toHaveClass("size-target");
+    expect(back).toHaveTextContent("");
+    expect(back.querySelector("svg")).toHaveClass("rtl:-scale-x-100");
     expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
     expect(screen.getByRole("main")).toHaveTextContent("content");
   });
@@ -263,7 +307,7 @@ describe("placeholder pages (screens that arrive in a later step)", () => {
     ["games", "الألعاب"],
     ["progress", "التقدم"],
     ["settings", "الإعدادات"],
-    ["register", "إنشاء الحساب"],
+    ["terms", "شروط الاستخدام وبيان الخصوصية"],
     ["recovery", "استرجاع الحساب"],
   ] as const)("%s shows its name and says plainly that it is not built yet, with no control", (screen_, name) => {
     setLanguage("ar");

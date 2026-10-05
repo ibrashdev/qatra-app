@@ -1,16 +1,19 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { createRef } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Banner } from "@/components/ui/Banner";
 import { Button } from "@/components/ui/Button";
+import { Checkbox } from "@/components/ui/Checkbox";
 import { ErrorSummary } from "@/components/ui/ErrorSummary";
 import { Icon, type IconName } from "@/components/ui/Icon";
+import { Notice } from "@/components/ui/Notice";
 import { PasswordField } from "@/components/ui/PasswordField";
 import { TextField } from "@/components/ui/TextField";
+import { TextLink } from "@/components/ui/TextLink";
 
 describe("Icon: the one seam to the icon set", () => {
-  const names: IconName[] = ["close", "droplet", "error", "eye", "eye-off", "info", "success", "warning"];
+  const names: IconName[] = ["back", "check", "close", "droplet", "error", "eye", "eye-off", "info", "success", "warning"];
 
   it.each(names)("renders %s as a decorative line glyph in the current colour", (name) => {
     const { container } = render(<Icon name={name} />);
@@ -28,6 +31,15 @@ describe("Icon: the one seam to the icon set", () => {
     expect(container.querySelector("svg")).toHaveAttribute("stroke-width", "1.5");
     rerender(<Icon name="eye" active />);
     expect(container.querySelector("svg")).toHaveAttribute("stroke-width", "2");
+  });
+
+  it("mirrors the back arrow in right-to-left and no other glyph (UI-tokens 5)", () => {
+    for (const name of names) {
+      const { container, unmount } = render(<Icon name={name} />);
+      const mirrored = container.querySelector("svg")?.classList.contains("rtl:-scale-x-100");
+      expect(mirrored, name).toBe(name === "back");
+      unmount();
+    }
   });
 
   it("takes its size from the icon tokens: 16, 20, 24 and 32 px, scaling with the browser font size", () => {
@@ -265,7 +277,8 @@ describe("PasswordField (UI-screens P-08)", () => {
     expect(input).not.toHaveAttribute("maxlength");
     expect(input).toHaveAttribute("autocomplete", "current-password");
     const toggle = screen.getByRole("button", { name: "Show password" });
-    expect(toggle).toHaveAttribute("aria-pressed", "false");
+    // The name carries the state; a pressed state on top of it would announce the toggle twice (O-07).
+    expect(toggle).not.toHaveAttribute("aria-pressed");
     expect(toggle).toHaveAttribute("type", "button");
     expect(toggle).toHaveClass("size-target");
   });
@@ -279,12 +292,12 @@ describe("PasswordField (UI-screens P-08)", () => {
     expect(input).toHaveAttribute("type", "text");
     expect(input).toHaveValue("a long synthetic phrase");
     const hide = screen.getByRole("button", { name: "Hide password" });
-    expect(hide).toHaveAttribute("aria-pressed", "true");
+    expect(hide).not.toHaveAttribute("aria-pressed");
     expect(hide).toHaveFocus();
 
     await userEvent.click(hide);
     expect(input).toHaveAttribute("type", "password");
-    expect(screen.getByRole("button", { name: "Show password" })).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByRole("button", { name: "Show password" })).not.toHaveAttribute("aria-pressed");
   });
 
   it("is operated by Space and by Enter, and never submits the form", async () => {
@@ -344,5 +357,150 @@ describe("ErrorSummary (UI-screens P-03)", () => {
     );
     await userEvent.click(screen.getByRole("link", { name: "Fix this." }));
     expect(screen.getByLabelText("target")).toHaveFocus();
+  });
+});
+
+describe("TextField error hint (UI-screens P-10)", () => {
+  it("shows the hint under the error only while there is an error, and describes the field with all three in order", () => {
+    const { rerender } = render(<TextField id="f" label="Username" helper="Helper line" error="Error line" errorHint={<p>Hint line</p>} />);
+    const input = screen.getByLabelText("Username");
+    const described = (input.getAttribute("aria-describedby") ?? "").split(" ").map((id) => document.getElementById(id)?.textContent);
+    expect(described).toEqual(["Helper line", "Error line", "Hint line"]);
+
+    rerender(<TextField id="f" label="Username" helper="Helper line" errorHint={<p>Hint line</p>} />);
+    expect(screen.queryByText("Hint line")).not.toBeInTheDocument();
+    expect(input.getAttribute("aria-describedby")?.split(" ")).toHaveLength(1);
+  });
+
+  it("lets the hint carry a link that can be reached", () => {
+    render(<TextField id="f" label="Username" error="Error line" errorHint={<a href="/login">Log in</a>} />);
+    expect(screen.getByRole("link", { name: "Log in" })).toHaveAttribute("href", "/login");
+  });
+});
+
+describe("TextLink", () => {
+  // jsdom cannot navigate: a press is observed, and the page stays.
+  const stay = (event: Event) => event.preventDefault();
+  beforeEach(() => document.addEventListener("click", stay));
+  afterEach(() => document.removeEventListener("click", stay));
+
+  it("is an underlined 44 px line in the link colour, and runs its handler when pressed", async () => {
+    const onClick = vi.fn();
+    render(
+      <TextLink href="/terms" prefetch onClick={onClick}>
+        Terms
+      </TextLink>,
+    );
+    const link = screen.getByRole("link", { name: "Terms" });
+    expect(link).toHaveAttribute("href", "/terms");
+    expect(link).toHaveClass("min-h-target", "text-link", "underline");
+    await userEvent.click(link);
+    expect(onClick).toHaveBeenCalledTimes(1);
+  });
+
+  it("needs no handler", async () => {
+    render(<TextLink href="/login">Log in</TextLink>);
+    await userEvent.click(screen.getByRole("link", { name: "Log in" }));
+    expect(screen.getByRole("link", { name: "Log in" })).toBeInTheDocument();
+  });
+});
+
+describe("Notice (UI-tokens 6.12)", () => {
+  it("is small secondary text with the info glyph, no fill, no role and nothing to dismiss", () => {
+    const { container } = render(<Notice>Fixed copy</Notice>);
+    const box = container.firstElementChild as HTMLElement;
+    expect(box).toHaveTextContent("Fixed copy");
+    expect(box).toHaveClass("text-small", "text-ink-secondary");
+    expect(box.className).not.toMatch(/\bbg-/);
+    expect(box).not.toHaveAttribute("role");
+    expect(box).not.toHaveAttribute("aria-live");
+    const glyph = box.querySelector("svg");
+    expect(glyph).toHaveAttribute("aria-hidden", "true");
+    expect(glyph).toHaveClass("lucide-info");
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  });
+});
+
+describe("Checkbox (UI-tokens 6.3)", () => {
+  function setup(props: Partial<React.ComponentProps<typeof Checkbox>> = {}) {
+    const onSubmit = vi.fn((event: { preventDefault: () => void }) => event.preventDefault());
+    render(
+      <form onSubmit={onSubmit}>
+        <Checkbox id="consent" name="consent" label="I agree to the terms" {...props} />
+        <button type="submit">Send</button>
+      </form>,
+    );
+    return { box: screen.getByRole("checkbox", { name: "I agree to the terms" }) as HTMLInputElement, onSubmit };
+  }
+
+  it("is the native checkbox, unchecked, named by its visible label, with the label inside the row so the row is the target", () => {
+    const { box } = setup();
+    expect(box).not.toBeChecked();
+    expect(box).toHaveAttribute("type", "checkbox");
+    expect(box).toHaveAttribute("id", "consent");
+    expect(box).toHaveAttribute("name", "consent");
+    const row = box.closest("label");
+    expect(row).toHaveClass("min-h-target", "cursor-pointer");
+    expect(row).toHaveTextContent("I agree to the terms");
+  });
+
+  it("draws a 24 px box with a 2 px border and a check that the checked state reveals, hidden from assistive technology", () => {
+    const { box } = setup();
+    const drawn = box.parentElement as HTMLElement;
+    expect(drawn).toHaveClass("size-checkbox", "border-2", "rounded-xs", "group-has-[:checked]:bg-primary", "group-has-[:checked]:border-primary");
+    const check = drawn.querySelector("svg");
+    expect(check).toHaveAttribute("aria-hidden", "true");
+    expect(check).toHaveClass("lucide-check", "text-on-primary", "opacity-0", "group-has-[:checked]:opacity-100");
+    // A faded glyph that comes after the input would otherwise sit on top of it and take the press.
+    expect(check).toHaveClass("pointer-events-none");
+    // The input lies over the box and is transparent, so the platform keeps the focus ring, the state and the keyboard.
+    expect(box).toHaveClass("opacity-0", "absolute", "inset-0");
+  });
+
+  it("toggles by a press on the box, by a press on the label text, and by Space; Enter does not toggle it", async () => {
+    const { box } = setup();
+    await userEvent.click(box);
+    expect(box).toBeChecked();
+    await userEvent.click(screen.getByText("I agree to the terms"));
+    expect(box).not.toBeChecked();
+    box.focus();
+    await userEvent.keyboard(" ");
+    expect(box).toBeChecked();
+    await userEvent.keyboard("{Enter}");
+    expect(box).toBeChecked();
+  });
+
+  it("lets Enter send the form from the box, as the spec has it", async () => {
+    const { box, onSubmit } = setup();
+    box.focus();
+    await userEvent.keyboard("{Enter}");
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+  });
+
+  it("passes aria-required, a starting state and the input ref on", () => {
+    const ref = createRef<HTMLInputElement>();
+    const { box } = setup({ "aria-required": "true", defaultChecked: true, inputRef: ref });
+    expect(box).toHaveAttribute("aria-required", "true");
+    expect(box).toBeChecked();
+    expect(ref.current).toBe(box);
+  });
+
+  it("marks an error with a red border, the message below with its glyph, aria-invalid and a description", () => {
+    const { box } = setup({ error: "You must agree." });
+    expect(box).toHaveAttribute("aria-invalid", "true");
+    const message = document.getElementById(box.getAttribute("aria-describedby") ?? "");
+    expect(message).toHaveTextContent("You must agree.");
+    expect(message).toHaveClass("text-error-ink");
+    expect(message?.querySelector("svg")).toHaveAttribute("aria-hidden", "true");
+    expect(box.parentElement).toHaveClass("border-error-edge");
+    expect(box.parentElement).not.toHaveClass("border-edge");
+  });
+
+  it("has no error attributes without an error", () => {
+    const { box } = setup();
+    expect(box).not.toHaveAttribute("aria-invalid");
+    expect(box).not.toHaveAttribute("aria-describedby");
+    expect(box.parentElement).toHaveClass("border-edge");
   });
 });

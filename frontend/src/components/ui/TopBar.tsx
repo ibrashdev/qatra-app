@@ -22,7 +22,8 @@ export function TopBar({ children, className }: { children: ReactNode; className
         className,
       )}
     >
-      <div className="flex min-h-appbar items-center justify-between gap-q12 px-page">{children}</div>
+      {/* The controls wrap rather than run off the page when the text is enlarged (their sizes are in rem). */}
+      <div className="flex min-h-appbar flex-wrap items-center justify-between gap-q12 px-page">{children}</div>
     </header>
   );
 }
