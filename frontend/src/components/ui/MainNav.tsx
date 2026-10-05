@@ -6,6 +6,7 @@ import { useLocale } from "@/i18n/LocaleProvider";
 import type { TabId } from "@/i18n/messages";
 import { cx } from "@/lib/cx";
 import { Brand } from "./Brand";
+import { Icon } from "./Icon";
 
 // The four destinations of UX.md, in DOM order: today is first, at the start edge in both directions.
 export const TAB_ITEMS: readonly { id: TabId; href: string }[] = [
@@ -27,7 +28,8 @@ function isActive(pathname: string | null, href: string): boolean {
   return pathname === href || (pathname?.startsWith(`${href}/`) ?? false);
 }
 
-// Bottom tab bar below 1024 px (UA-03). Text only: the active tab is marked by a 3 px top bar and aria-current, not by colour alone.
+// Bottom tab bar below 1024 px (UA-03, UI-tokens 6.6): a 24 px icon above the label. The icon is decorative; the label names the link. The active tab is
+// marked by a 3 px top bar, a heavier icon stroke, the deep blue and aria-current, not by colour alone.
 export function TabBar() {
   const { messages } = useLocale();
   const pathname = usePathname();
@@ -45,10 +47,11 @@ export function TabBar() {
                 href={href}
                 aria-current={active ? "page" : undefined}
                 className={cx(
-                  "flex h-full min-h-[calc(var(--q-size-tabbar)-1px)] items-center justify-center border-t-[3px] px-q4 py-q8 text-center text-caption [overflow-wrap:anywhere] transition-[color,background-color,border-color] duration-(--q-duration-fast) hover:bg-selection focus-visible:outline-offset-[-2px]",
+                  "flex h-full min-h-[calc(var(--q-size-tabbar)-1px)] flex-col items-center justify-center gap-q4 border-t-[3px] px-q4 py-q8 text-center text-caption [overflow-wrap:anywhere] transition-[color,background-color,border-color] duration-(--q-duration-fast) hover:bg-selection focus-visible:outline-offset-[-2px]",
                   active ? "border-primary text-primary-deep" : "border-transparent text-ink-secondary",
                 )}
               >
+                <Icon name={id} size="lg" active={active} />
                 {messages.tabs[id]}
               </Link>
             </li>

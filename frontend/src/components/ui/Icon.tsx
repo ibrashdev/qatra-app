@@ -1,4 +1,4 @@
-import { ArrowLeft, Check, CircleAlert, CircleCheck, Clock, Contrast, Copy, Download, Droplet, ExternalLink, Eye, EyeOff, Info, Lightbulb, Lock, Pause, RefreshCw, TriangleAlert, Undo2, X, type LucideIcon } from "lucide-react";
+import { ArrowLeft, CalendarCheck, ChartColumn, Check, CircleAlert, CircleCheck, Clock, Contrast, Copy, Download, Droplet, ExternalLink, Eye, EyeOff, Info, Lightbulb, Lock, Pause, Puzzle, RefreshCw, Settings, TriangleAlert, Undo2, X, type LucideIcon } from "lucide-react";
 import { cx } from "@/lib/cx";
 
 // The only place that imports the icon set (Lucide, owner decision of 4 October 2026). Screens ask for a meaning, never a glyph.
@@ -14,13 +14,17 @@ const GLYPHS = {
   eye: Eye,
   "eye-off": EyeOff,
   external: ExternalLink,
+  games: Puzzle, // main navigation, the Games destination
   half: Contrast, // a circle with one half filled: the lucide set has no circle-half, and this is its closest glyph
   hint: Lightbulb,
   info: Info,
   lock: Lock,
   pause: Pause,
+  progress: ChartColumn, // main navigation, the Progress destination
   refresh: RefreshCw,
+  settings: Settings, // main navigation, the Settings destination
   success: CircleCheck,
+  today: CalendarCheck, // main navigation, the Today destination
   undo: Undo2,
   warning: TriangleAlert,
 } as const satisfies Record<string, LucideIcon>;
@@ -28,7 +32,7 @@ const GLYPHS = {
 export type IconName = keyof typeof GLYPHS;
 
 // UI-tokens 5: direction arrows mirror in right-to-left (back, and the undo arrow of 6.16); check, close, copy, download, info, warning, error, eye,
-// the droplet, the lightbulb, the lock, refresh and external-link do not.
+// the droplet, the lightbulb, the lock, refresh, external-link and the four tab icons do not.
 const MIRRORED: ReadonlySet<IconName> = new Set<IconName>(["back", "undo"]);
 
 // UI-tokens 4: 16, 20, 24 and 32 px. The classes follow the --q-icon-* tokens, so the glyphs scale with the browser font size.
