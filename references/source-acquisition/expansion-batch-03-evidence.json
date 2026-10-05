@@ -1,0 +1,518 @@
+{
+  "task": "CONTENT-EXPANSION-03",
+  "status": "Hadith bank validated as private draft; source and Quran review pending; not approved or published",
+  "authorizationEvidence": {
+    "ownerWords": "use subagents and resume work and expand the content",
+    "date": "2026-10-05",
+    "scope": "continue the existing private Juz Amma and Forty expansion, including bounded approved B8 remediation; no publication approval",
+    "approvedDesignBasis": [
+      "D71",
+      "D74",
+      "G3"
+    ]
+  },
+  "privateBuildRoot": "backend/.content-build/expansion-batch-03/",
+  "bankVersion": 3,
+  "reusedFromBatch": "CONTENT-EXPANSION-02",
+  "sourceEvidenceReference": "expansion-batch-02-evidence.json",
+  "reuse": {
+    "mcpRawObjects": 70,
+    "allRawObjectsByteIdentical": true,
+    "batch02FilesUnchanged": 118,
+    "newFullCollectionPasses": 0,
+    "sourceUnitsSectionsPassagesPartsLessonsUnchanged": true,
+    "gradeQuestionsUnchanged": 41,
+    "newCandidateExtracts": 8,
+    "preservationSnapshotSha256": "fc066913cd456983603e7da413636545acd9e318f65da7ede345d763328c59a4"
+  },
+  "candidateRecords": [
+    {
+      "hadeethencId": 4563,
+      "candidateForFortyNumbers": [
+        2
+      ],
+      "classification": "uncertain",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/4563",
+      "retrievedAtUtc": "2026-10-05T12:47:22Z",
+      "originalRetrievedResponseSha256": "4D17B4B4C240D01A0093321C5CFAAD36E7FED85CEADAAB58801C242C38F54CC8",
+      "originalResponseHashInformationalOnly": true,
+      "retainedFileSha256": "D4859BD131FDB5EC5AEDE3285FAC7C1410293BC6DAFC6F3BDBAD75516DAA0EBB",
+      "privateObjectPath": "backend/.content-build/expansion-batch-03/gap-research/hadith-4563.raw.json",
+      "metadataPath": "backend/.content-build/expansion-batch-03/gap-research/hadith-4563.meta.json",
+      "retainedFields": [
+        "grade",
+        "hadeethencId",
+        "languages",
+        "narration",
+        "narrator",
+        "url"
+      ]
+    },
+    {
+      "hadeethencId": 4714,
+      "candidateForFortyNumbers": [
+        14
+      ],
+      "classification": "uncertain",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/4714",
+      "retrievedAtUtc": "2026-10-05T12:47:22Z",
+      "originalRetrievedResponseSha256": "835F0AB77313FC4641E1E5D611F4EFAF22132B740867FD50F13B5BBE9BD2B544",
+      "originalResponseHashInformationalOnly": true,
+      "retainedFileSha256": "078EFA09FAC5B0430E9FFCAA989122AA95465565E02C7F9C8FCD088C10D15E69",
+      "privateObjectPath": "backend/.content-build/expansion-batch-03/gap-research/hadith-4714.raw.json",
+      "metadataPath": "backend/.content-build/expansion-batch-03/gap-research/hadith-4714.meta.json",
+      "retainedFields": [
+        "grade",
+        "hadeethencId",
+        "languages",
+        "narration",
+        "narrator",
+        "url"
+      ]
+    },
+    {
+      "hadeethencId": 58194,
+      "candidateForFortyNumbers": [
+        14
+      ],
+      "classification": "nonmatch",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/58194",
+      "retrievedAtUtc": "2026-10-05T12:48:30Z",
+      "originalRetrievedResponseSha256": "9220FAAB4958D5CD1D65FC78426EBBFEC3FB2025314A3F65A2BEA3BDBD6586CF",
+      "originalResponseHashInformationalOnly": true,
+      "retainedFileSha256": "F376BF98C7E1BD1526C39FC7DDEF957EBD1ED64F47DA1B4F055D659A5A22A3B8",
+      "privateObjectPath": "backend/.content-build/expansion-batch-03/gap-research/hadith-58194.raw.json",
+      "metadataPath": "backend/.content-build/expansion-batch-03/gap-research/hadith-58194.meta.json",
+      "retainedFields": [
+        "grade",
+        "hadeethencId",
+        "languages",
+        "narration",
+        "narrator",
+        "url"
+      ]
+    },
+    {
+      "hadeethencId": 4810,
+      "candidateForFortyNumbers": [
+        24
+      ],
+      "classification": "uncertain",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/4810",
+      "retrievedAtUtc": "2026-10-05T12:49:40Z",
+      "originalRetrievedResponseSha256": "48F0E3AD6ED9EF1923C51255238AB7B37657BB1312A1A10FE4DC5E8F6D11B23B",
+      "originalResponseHashInformationalOnly": true,
+      "retainedFileSha256": "629814464AE25E8B78CF3A2FB9F87C4EEC86076186FB7CBFDCEEFAEF543C12E0",
+      "privateObjectPath": "backend/.content-build/expansion-batch-03/gap-research/hadith-4810.raw.json",
+      "metadataPath": "backend/.content-build/expansion-batch-03/gap-research/hadith-4810.meta.json",
+      "retainedFields": [
+        "grade",
+        "hadeethencId",
+        "languages",
+        "narration",
+        "narrator",
+        "url"
+      ]
+    },
+    {
+      "hadeethencId": 4558,
+      "candidateForFortyNumbers": [
+        25
+      ],
+      "classification": "uncertain",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/4558",
+      "retrievedAtUtc": "2026-10-05T12:49:40Z",
+      "originalRetrievedResponseSha256": "C9FD7DE9C9D631087600335C1A6CE75473A9B3003C6E20A0F43A6E0F5AA0A680",
+      "originalResponseHashInformationalOnly": true,
+      "retainedFileSha256": "E71948321330F3C7013191378F2D5E832CB834DB5C2E632D9EBFC2B7A0A93428",
+      "privateObjectPath": "backend/.content-build/expansion-batch-03/gap-research/hadith-4558.raw.json",
+      "metadataPath": "backend/.content-build/expansion-batch-03/gap-research/hadith-4558.meta.json",
+      "retainedFields": [
+        "grade",
+        "hadeethencId",
+        "languages",
+        "narration",
+        "narrator",
+        "url"
+      ]
+    },
+    {
+      "hadeethencId": 4706,
+      "candidateForFortyNumbers": [
+        35
+      ],
+      "classification": "uncertain",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/4706",
+      "retrievedAtUtc": "2026-10-05T12:49:40Z",
+      "originalRetrievedResponseSha256": "833706F9320ED431B1D645EABD0F84F299482D6279E91601467A605BE0A4C4DA",
+      "originalResponseHashInformationalOnly": true,
+      "retainedFileSha256": "02429DAFB347B4CDD19B146408E8D39277B13C3B73294B5B79A2FF4648357565",
+      "privateObjectPath": "backend/.content-build/expansion-batch-03/gap-research/hadith-4706.raw.json",
+      "metadataPath": "backend/.content-build/expansion-batch-03/gap-research/hadith-4706.meta.json",
+      "retainedFields": [
+        "grade",
+        "hadeethencId",
+        "languages",
+        "narration",
+        "narrator",
+        "url"
+      ]
+    },
+    {
+      "hadeethencId": 4704,
+      "candidateForFortyNumbers": [
+        40
+      ],
+      "classification": "uncertain",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/4704",
+      "retrievedAtUtc": "2026-10-05T12:50:30Z",
+      "originalRetrievedResponseSha256": "0DFC42C19858FF13770F2D90551AF7F01955ED7CF55415A4DE10D3895D9E1E23",
+      "originalResponseHashInformationalOnly": true,
+      "retainedFileSha256": "532552D7E19B1E83F9DC956B073669F0D351E33A9F70E62802AD11715D0C973E",
+      "privateObjectPath": "backend/.content-build/expansion-batch-03/gap-research/hadith-4704.raw.json",
+      "metadataPath": "backend/.content-build/expansion-batch-03/gap-research/hadith-4704.meta.json",
+      "retainedFields": [
+        "grade",
+        "hadeethencId",
+        "languages",
+        "narration",
+        "narrator",
+        "url"
+      ]
+    },
+    {
+      "hadeethencId": 5456,
+      "candidateForFortyNumbers": [
+        42
+      ],
+      "classification": "uncertain",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/5456",
+      "retrievedAtUtc": "2026-10-05T12:50:30Z",
+      "originalRetrievedResponseSha256": "8F34E51C00F7244E0A5DCABC25D2BCB108DD231CFC24C308B8233FC23BA25419",
+      "originalResponseHashInformationalOnly": true,
+      "retainedFileSha256": "8FEB72CD60943FB4BB2DD9C8C49BACDC16AE967055B3A828EE0E8058C09568E1",
+      "privateObjectPath": "backend/.content-build/expansion-batch-03/gap-research/hadith-5456.raw.json",
+      "metadataPath": "backend/.content-build/expansion-batch-03/gap-research/hadith-5456.meta.json",
+      "retainedFields": [
+        "grade",
+        "hadeethencId",
+        "languages",
+        "narration",
+        "narrator",
+        "url"
+      ]
+    }
+  ],
+  "unmappedFortyNumbers": [
+    2,
+    14,
+    24,
+    25,
+    35,
+    40,
+    42
+  ],
+  "candidateRecordsExcludedFromEditionMapAndBank": true,
+  "nonmatchCandidateIds": [
+    58194
+  ],
+  "nawawiVerification": {
+    "sourcePassChecks": {
+      "method": "two_pass_nfc_equality+letter_skeleton_flag",
+      "result": "passed",
+      "units": 140,
+      "passed": 140,
+      "failed": 0
+    },
+    "independentSkeletonComparison": {
+      "flaggedNarrationUnits": 35,
+      "kind": "skeleton_difference",
+      "flags": [
+        {
+          "unit": "forty:1:narration",
+          "kind": "skeleton_difference"
+        },
+        {
+          "unit": "forty:3:narration",
+          "kind": "skeleton_difference"
+        },
+        {
+          "unit": "forty:4:narration",
+          "kind": "skeleton_difference"
+        },
+        {
+          "unit": "forty:5:narration",
+          "kind": "skeleton_difference"
+        },
+        {
+          "unit": "forty:6:narration",
+          "kind": "skeleton_difference"
+        },
+        {
+          "unit": "forty:7:narration",
+          "kind": "skeleton_difference"
+        },
+        {
+          "unit": "forty:8:narration",
+          "kind": "skeleton_difference"
+        },
+        {
+          "unit": "forty:9:narration",
+          "kind": "skeleton_difference"
+        },
+        {
+          "unit": "forty:10:narration",
+          "kind": "skeleton_difference"
+        },
+        {
+          "unit": "forty:11:narration",
+          "kind": "skeleton_difference"
+        },
+        {
+          "unit": "forty:12:narration",
+          "kind": "skeleton_difference"
+        },
+        {
+          "unit": "forty:13:narration",
+          "kind": "skeleton_difference"
+        },
+        {
+          "unit": "forty:15:narration",
+          "kind": "skeleton_difference"
+        },
+        {
+          "unit": "forty:16:narration",
+          "kind": "skeleton_difference"
+        },
+        {
+          "unit": "forty:17:narration",
+          "kind": "skeleton_difference"
+        },
+        {
+          "unit": "forty:18:narration",
+          "kind": "skeleton_difference"
+        },
+        {
+          "unit": "forty:19:narration",
+          "kind": "skeleton_difference"
+        },
+        {
+          "unit": "forty:20:narration",
+          "kind": "skeleton_difference"
+        },
+        {
+          "unit": "forty:21:narration",
+          "kind": "skeleton_difference"
+        },
+        {
+          "unit": "forty:22:narration",
+          "kind": "skeleton_difference"
+        },
+        {
+          "unit": "forty:23:narration",
+          "kind": "skeleton_difference"
+        },
+        {
+          "unit": "forty:26:narration",
+          "kind": "skeleton_difference"
+        },
+        {
+          "unit": "forty:27:narration",
+          "kind": "skeleton_difference"
+        },
+        {
+          "unit": "forty:28:narration",
+          "kind": "skeleton_difference"
+        },
+        {
+          "unit": "forty:29:narration",
+          "kind": "skeleton_difference"
+        },
+        {
+          "unit": "forty:30:narration",
+          "kind": "skeleton_difference"
+        },
+        {
+          "unit": "forty:31:narration",
+          "kind": "skeleton_difference"
+        },
+        {
+          "unit": "forty:32:narration",
+          "kind": "skeleton_difference"
+        },
+        {
+          "unit": "forty:33:narration",
+          "kind": "skeleton_difference"
+        },
+        {
+          "unit": "forty:34:narration",
+          "kind": "skeleton_difference"
+        },
+        {
+          "unit": "forty:36:narration",
+          "kind": "skeleton_difference"
+        },
+        {
+          "unit": "forty:37:narration",
+          "kind": "skeleton_difference"
+        },
+        {
+          "unit": "forty:38:narration",
+          "kind": "skeleton_difference"
+        },
+        {
+          "unit": "forty:39:narration",
+          "kind": "skeleton_difference"
+        },
+        {
+          "unit": "forty:41:narration",
+          "kind": "skeleton_difference"
+        }
+      ],
+      "disposition": "human review required; no confirmed wording errors or wording equivalence claimed"
+    },
+    "gaps": 7
+  },
+  "nawawiBuild": {
+    "sections": 35,
+    "units": 105,
+    "words": 2537,
+    "passages": 108,
+    "parts": 440,
+    "lessons": 108,
+    "questions": 1943,
+    "questionSkips": [
+      "segment_ambiguous:19:16",
+      "segment_ambiguous:85:16",
+      "segment_ambiguous:100:16"
+    ],
+    "segmentationReviewFlags": {
+      "boundaryDoubtFortyNumbers": [
+        5,
+        7,
+        16,
+        19,
+        27
+      ],
+      "hardSplitFortyNumbers": [
+        29
+      ]
+    },
+    "validationExitCode": 0,
+    "validationIssueCount": 0,
+    "partsCovered": 440,
+    "resolvedUncoveredPart": {
+      "reference": "nawawi40:22",
+      "partKey": "matn:25:1",
+      "tokenRef": "58:56"
+    }
+  },
+  "remediation": {
+    "genericBlankContextsExcludeGradeOnlyPassages": true,
+    "gradeSingletonCollisionCount": 29,
+    "nonGradeSingletonTargetCount": 1,
+    "nonGradeAmbiguityGuardsRetained": true,
+    "gradeQuestionsUnchanged": 41,
+    "sourceAndCoverageRulesUnchanged": true,
+    "changedImplementationFiles": [
+      "backend/app/workflow/lesson_question_builder.py",
+      "backend/app/workflow/validation.py"
+    ],
+    "testOnlyWindowsPathPortabilityFix": "backend/tests/workflow/test_wf_publish.py"
+  },
+  "verificationEvidence": {
+    "syntheticRegressionRedObserved": true,
+    "focusedRegressionsPassed": 2,
+    "forgedAmbiguousNonGradeQuestionStillRejected": true,
+    "fullBackendTestsPassed": 4587,
+    "existingDeprecationWarnings": 1,
+    "fullRuffPassed": true,
+    "realPipelineStepsExitZero": [
+      "verify",
+      "segment",
+      "build-bank",
+      "validate"
+    ]
+  },
+  "quran": {
+    "sourceEvidenceReference": "expansion-batch-02-evidence.json",
+    "acquiredSurahs": 37,
+    "acquiredVerses": 564,
+    "status": "acquired only; exact independent KFGQPC Hafs v18 oracle remains unconfirmed",
+    "independentOracleAccepted": false
+  },
+  "independentOpenItiReference": {
+    "sourceUrl": "https://raw.githubusercontent.com/OpenITI/0700AH/master/data/0676Nawawi/0676Nawawi.ArbacunaNawawiyya/0676Nawawi.ArbacunaNawawiyya.Shamela0012836-ara1.mARkdown",
+    "sourceVersionUri": "0676Nawawi.ArbacunaNawawiyya.Shamela0012836-ara1",
+    "sourceBytes": 36708,
+    "sourceSha256": "bd24252bb5baa7175e504fc36536c62b9d797a662c1965a7ed520c8d79ba7431",
+    "skeletonFormat": "UTF-8, one fortyNumber|text row per key; split only at first delimiter",
+    "skeletonBytes": 27036,
+    "skeletonSha256": "ef9b39b7180bbb13d8185d9704ed88750d1cffba702692daf2dd8510d6229cb3",
+    "numberedSectionCount": 42,
+    "keys": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      14,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24,
+      25,
+      26,
+      27,
+      28,
+      29,
+      30,
+      31,
+      32,
+      33,
+      34,
+      35,
+      36,
+      37,
+      38,
+      39,
+      40,
+      41,
+      42
+    ],
+    "missingNumbers": [],
+    "duplicateNumbers": [],
+    "serialization": "Extract each numbered heading body up to the next numbered heading. Preserve all body wording including sanad, takhrij, notes, and editorial wording. Remove explicit ordinal heading lines and OpenITI structural/layout markers: single-hash line prefix, nested heading prefix, linewrap ~~ at line start, PageV page identifiers. Collapse layout whitespace to one ASCII space; comparison uses letter skeleton. No wording was trimmed to resemble HadeethEnc.",
+    "openitiWrappersRemoved": {
+      "heading_label_lines": 42,
+      "single_hash_prefixes": 189,
+      "linewrap_markers": 159,
+      "page_markers": 81,
+      "nested_heading_prefixes": 0,
+      "percent_wrap_markers": 0
+    },
+    "metadataCaveat": "OpenITI version metadata reports MISSING_PARTS, PRIMARY_VERSION, CLEANED_VERSION and notes an omitted introductory paragraph after basmala and the conclusion (PDF pp.118-120), plus title/pagination/paragraph divergences. Reference only, never a content source. Rights not re-evaluated for this expressly permitted comparison.",
+    "role": "independent flag-only verification reference, never a content source"
+  },
+  "publication": {
+    "thisBatchApproved": false,
+    "thisBatchPublished": false,
+    "g6Extended": false,
+    "d83Extended": false,
+    "providerOrDatabaseWrites": false
+  }
+}
