@@ -125,6 +125,9 @@ learning adapter. Without the plan service (supabase mode without `SUPABASE_URL`
   `OPENROUTER_API_KEY` and `OPENROUTER_MODELS` are set. Set it to `true` only when conversation
   text may reach the model. The guard and the quick replies run before any provider call in
   both settings, and the model payload never holds the account, the username or the session.
+- **Contact details (D89)**: learner and assistant text in the model payload has emails, phone
+  numbers (9+ digits), links and @handles replaced with `[redacted]` before sending; stored
+  messages are unchanged.
 - **Tests**: `install_plan_chat(app, settings, provider=..., ledger=..., repository=..., clock=...)`
   replaces the conversation after `create_app` (as `install_auth` does); pass an
   `OpenRouterProvider` over `httpx.MockTransport`. No test calls a live provider.
