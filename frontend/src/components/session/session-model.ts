@@ -18,12 +18,15 @@ export function stageOfStep(step: Step): Stage {
   }
 }
 
-const STAGE_ORDER: readonly Stage[] = ["review", "new", "test"];
-
-// The stages the snapshot holds, in the fixed order of the contract (reviews, then the new passage, then the end test).
+// The stages the snapshot holds, in the order they first occur. D90 puts the new passage and its drills first, then the due reviews, then the end test;
+// a snapshot stored with the earlier order (reviews first) and a light review (no new passage) keep their own order too.
 export function stagesOf(steps: readonly Step[]): Stage[] {
-  const present = new Set(steps.map(stageOfStep));
-  return STAGE_ORDER.filter((stage) => present.has(stage));
+  const stages: Stage[] = [];
+  for (const step of steps) {
+    const stage = stageOfStep(step);
+    if (!stages.includes(stage)) stages.push(stage);
+  }
+  return stages;
 }
 
 // A question the pieces can draw. A step that fails this is skipped with a calm line, and nothing is sent for it (S-19 "Question not valid").

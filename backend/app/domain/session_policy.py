@@ -5,30 +5,44 @@ Three compositions, all deterministic given their inputs. Anything that varies b
 (rotation, shuffling, tie-breaks) comes from the integer ``seed`` the caller passes in, through a
 hash, never through a random number generator, so a result does not depend on the Python version.
 
-**Daily** (``compose_daily``), in this order:
+**Daily** (``compose_daily``), in this order (owner decision D90, 5 October 2026: the lesson first,
+then the game batches, then the due reviews, then the end test; D64 and D41 stay in force):
 
-1. *Due review rounds*, overdue first (ties: plan order). A round for a passage has ``k`` questions
-   (``review_round_size``: 1 for at most 2 parts, 2 for 3-5, 3 for 6 or more) over the parts
-   uncovered first, then error parts, then least recently tested; question types rotate. Whole
-   rounds are added while the question total stays within the cap of 6/10/14 for 5/10/15 minutes;
-   the first round that does not fit ends the step (later rounds must not jump the queue) and every
-   round left over stays due. Passages known from the placement test that were never learned get a
-   quick drill of the same size in place of new learning (contract §5, "early quick review"): no
-   learn step, no capacity use, role ``training``.
-2. *New material*: the passages still being learned, then the next new passages, in plan order
+1. *New material*: the passages still being learned, then the next new passages, in plan order
    (``plan_order``), up to the day's capacity in words (12/25/40). The first passage is taken even
    when it alone exceeds the capacity (it is then introduced alone, "one passage at a time"). Words
    already introduced earlier today (``initial_learning_date`` is today) count against the
    capacity, so a second daily session of the same date does not add a second day of new material.
-   Each passage gets a ``learn`` step, one training question per part (rotating templates, parts
-   already covered by an earlier multi-part question are skipped) and, when fewer than
-   ``STREAK_TARGET`` questions resulted, extra questions toward the streak of D41.
+   Each passage gets a ``learn`` step (the whole text is read first) and then *training batches*
+   (``TRAINING_BATCHES``: 2/2/3 for 5/10/15 minutes). A batch is one game type taken over all the
+   ranked parts of the passage (one question per part; a question that covers several parts serves
+   them all; a part with no unused question of that type is skipped, never filled with another
+   type), so the questions of a batch are contiguous and of one type. The batch types follow the
+   difficulty order word choice, word order, word recall, similar-text distinction, over the types
+   the passage has. A batch that yields nothing does not count and the next type is tried. When
+   fewer than ``STREAK_TARGET`` questions resulted, further batches (next types, wrapping, unused
+   questions only) are added until the streak of D41 is reachable or no question is left.
+2. *Due review rounds*, overdue first (ties: plan order). A round for a passage has ``k`` questions
+   (``review_round_size``: 1 for at most 2 parts, 2 for 3-5, 3 for 6 or more) over the parts
+   uncovered first, then error parts, then least recently tested. Whole rounds are added while the
+   question total stays within the cap of 6/10/14 for 5/10/15 minutes; the first round that does
+   not fit ends the step (later rounds must not jump the queue) and every round left over stays
+   due. Passages known from the placement test that were never learned get a quick drill of the
+   same size in place of new learning (contract §5, "early quick review"): no learn step, no
+   capacity use, role ``training``; these follow the rounds. The day's review game type
+   (``review_game_type``) rotates with the seed (D64): each part takes a question of that type when
+   it has an unused one and its latest attempt did not use that type, else the usual rotation pick
+   (which avoids the type last used); the rounds' questions are then grouped by
+   type (the day's type first), and so are the quick drills. A round is evaluated from its own
+   ``review_round_id``, so grouping does not change any outcome.
 3. *End test* of 3/5/7 questions drawn in turn from three pools: today's passage parts, error
-   parts, and uncovered parts of the passages in progress.
+   parts, and uncovered parts of the passages in progress; the drawn questions are then grouped by
+   type (the order of ``_ROTATION``).
 
 *Absence* (R07): three or more full learning days without activity make the session a light review
-(step 1 only: no new material, no quick drills, no end test). A *completed* plan serves maintenance
-reviews only (step 1 only). Rounds that do not fit stay due for the following days.
+(the review rounds only: no new material, no quick drills, no end test). A *completed* plan serves
+maintenance reviews only (the review rounds only). Rounds that do not fit stay due for the
+following days.
 
 **Game** (``compose_game``): up to 10 questions of an optional game type, spread over the candidate
 passages first (one question per passage, then deeper), error parts first.
@@ -74,8 +88,19 @@ ABSENCE_THRESHOLD_DAYS: Final = 3  # PRD R07
 END_TEST_MAX_PASSAGES: Final = 12
 GAME_LOAD_CHUNK: Final = 10
 
+# D90 (owner, 5 October 2026): a new passage is trained in batches of one game type each, over all
+# of its parts. How many batches the passage gets, by session minutes.
+TRAINING_BATCHES: Final[Mapping[int, int]] = {5: 2, 10: 2, 15: 3}
+
 # The order in which question types rotate (only the types a part actually has take part).
 _ROTATION: Final[tuple[str, ...]] = (WORD_CHOICE, WORD_RECALL, WORD_ORDER, SIMILAR_DISTINCTION)
+# The order of the training batches of D90: from the easiest game to the hardest.
+_TRAINING_PROGRESSION: Final[tuple[str, ...]] = (
+    WORD_CHOICE,
+    WORD_ORDER,
+    WORD_RECALL,
+    SIMILAR_DISTINCTION,
+)
 _NEVER: Final = float("-inf")
 
 ROLE_TRAINING: Final = "training"
@@ -315,11 +340,17 @@ def _questions_for_parts(
     role: str,
     review_round_id: UUID | None,
     stop_at_count: bool,
+    only_type: str | None = None,
+    prefer_type: str | None = None,
 ) -> list[PlannedQuestion]:
     """One question per ranked part (a question that covers several parts serves them all).
 
     With ``stop_at_count`` the walk ends after ``count`` questions (a review round); otherwise every
-    part gets its question (training) and ``count`` is the streak target the caller tops up to.
+    part gets its question and ``count`` is only the target a caller tops up to. With ``only_type``
+    just that question type qualifies (a training batch: a part with no unused question of the type
+    is skipped); with ``prefer_type`` that type is tried first for each part and the usual rotation
+    pick is the fallback (the day's review game type). A part whose latest attempt used the
+    preferred type skips it, so a review still changes the template (contract §4.3, D64).
     """
     planned: list[PlannedQuestion] = []
     served: set[UUID] = set()
@@ -328,14 +359,31 @@ def _questions_for_parts(
             break
         if part.id in served:
             continue
-        question = _pick_question(
-            part.id,
-            by_part,
-            used,
-            rotation=rotation_base + len(planned),
-            last_type=data.last_type.get(part.id),
-            seed=seed,
-        )
+        question: QuestionInfo | None = None
+        if (
+            prefer_type is not None
+            and only_type is None
+            and data.last_type.get(part.id) != prefer_type
+        ):
+            question = _pick_question(
+                part.id,
+                by_part,
+                used,
+                rotation=rotation_base + len(planned),
+                last_type=data.last_type.get(part.id),
+                seed=seed,
+                only_type=prefer_type,
+            )
+        if question is None:
+            question = _pick_question(
+                part.id,
+                by_part,
+                used,
+                rotation=rotation_base + len(planned),
+                last_type=data.last_type.get(part.id),
+                seed=seed,
+                only_type=only_type,
+            )
         if question is None:
             continue
         used.add(question.id)
@@ -347,49 +395,65 @@ def _questions_for_parts(
 def _training_questions(
     passage: PassageInfo,
     *,
+    minutes: int,
     mastery: PassageMastery | None,
     covered: frozenset[UUID],
     data: PassageData,
     used: set[UUID],
     seed: int,
 ) -> list[PlannedQuestion]:
-    """One question per part, then extras until at least ``STREAK_TARGET`` questions exist (the
-    streak of D41 needs that many answers; the passage may have fewer parts than that)."""
+    """The training batches of a new passage (D90).
+
+    A batch is one game type over every ranked part: one unused question of that type per part,
+    a question covering several parts serving them all, a part with no unused question of the type
+    skipped (no other type is mixed in). The batches are taken in the difficulty order of
+    ``_TRAINING_PROGRESSION`` over the types the passage has: ``TRAINING_BATCHES[minutes]`` batches
+    that yield questions (a batch that yields none does not count; the next type is tried). If fewer
+    than ``STREAK_TARGET`` questions resulted (the streak of D41 needs that many answers; a passage
+    may have few parts), further batches follow with the next types, wrapping round, taking unused
+    questions only, until the target is reached or no question is left.
+    """
     errors = set(mastery.error_part_ids) if mastery is not None else set()
     ranked = rank_parts(passage.parts, covered, errors, data.last_tested)
-    by_part = _index_by_part(data.questions.get(passage.id, ()))
+    questions = data.questions.get(passage.id, ())
+    by_part = _index_by_part(questions)
+    present = {q.type for q in questions}
+    kinds = [kind for kind in _TRAINING_PROGRESSION if kind in present]
     base = stable_hash(seed, "train", passage.id)
-    planned = _questions_for_parts(
-        passage,
-        ranked,
-        count=STREAK_TARGET,
-        by_part=by_part,
-        used=used,
-        data=data,
-        seed=seed,
-        rotation_base=base,
-        role=ROLE_TRAINING,
-        review_round_id=None,
-        stop_at_count=False,
-    )
-    misses, position = 0, 0
-    while len(planned) < STREAK_TARGET and ranked and misses < len(ranked):
-        part = ranked[position % len(ranked)]
-        position += 1
-        question = _pick_question(
-            part.id,
-            by_part,
-            used,
-            rotation=base + len(planned),
-            last_type=data.last_type.get(part.id),
+
+    def batch(kind: str) -> list[PlannedQuestion]:
+        return _questions_for_parts(
+            passage,
+            ranked,
+            count=STREAK_TARGET,
+            by_part=by_part,
+            used=used,
+            data=data,
             seed=seed,
+            rotation_base=base,
+            role=ROLE_TRAINING,
+            review_round_id=None,
+            stop_at_count=False,
+            only_type=kind,
         )
-        if question is None:
+
+    planned: list[PlannedQuestion] = []
+    wanted, taken, cursor = TRAINING_BATCHES[minutes], 0, 0
+    while cursor < len(kinds) and taken < wanted:
+        found = batch(kinds[cursor])
+        cursor += 1
+        if found:
+            planned += found
+            taken += 1
+    misses = 0
+    while kinds and len(planned) < STREAK_TARGET and misses < len(kinds):
+        found = batch(kinds[cursor % len(kinds)])
+        cursor += 1
+        if not found:
             misses += 1
             continue
         misses = 0
-        used.add(question.id)
-        planned.append(PlannedQuestion(question.id, passage.id, ROLE_TRAINING, None))
+        planned += found
     return planned
 
 
@@ -404,6 +468,7 @@ def _round_questions(
     data: PassageData,
     used: set[UUID],
     seed: int,
+    prefer_type: str | None = None,
 ) -> list[PlannedQuestion]:
     errors = set(mastery.error_part_ids) if mastery is not None else set()
     ranked = rank_parts(passage.parts, covered, errors, data.last_tested)
@@ -419,7 +484,27 @@ def _round_questions(
         role=role,
         review_round_id=review_round_id,
         stop_at_count=True,
+        prefer_type=prefer_type,
     )
+
+
+def review_game_type(seed: int) -> str:
+    """The game type the day's reviews prefer. It follows the seed (which changes with the plan and
+    the date), so the type rotates across days (D64)."""
+    return _ROTATION[stable_hash(seed, "review-type") % len(_ROTATION)]
+
+
+def _group_by_type(
+    planned: Sequence[PlannedQuestion],
+    kinds: Mapping[UUID, str],
+    first: str | None = None,
+) -> list[PlannedQuestion]:
+    """``planned`` with the questions of one type side by side: ``first`` (if any), then the other
+    types in ``_ROTATION`` order, a type outside the four games last. Stable inside a type, so the
+    round order of the input survives in each group."""
+    order = [first, *(kind for kind in _ROTATION if kind != first)] if first else list(_ROTATION)
+    rank = {kind: position for position, kind in enumerate(order)}
+    return sorted(planned, key=lambda item: rank.get(kinds.get(item.question_id, ""), len(rank)))
 
 
 # --- daily -------------------------------------------------------------------------------------
@@ -569,6 +654,10 @@ def _end_test_questions(
 def compose_daily(inputs: DailyInputs, load: PassageLoader) -> DailyComposition:
     """The daily session of ``inputs.learning_date`` (see the module docstring).
 
+    Step order (D90): each new passage (learn step, then its training batches), the due review
+    rounds, the quick drills of known passages, the end test. A light-review day and a completed
+    plan hold the review rounds only.
+
     ``load`` is called once with every passage the session may use (rounds, quick drills, new
     material and the end-test pools) and returns their questions and history. A paused plan is not
     a valid input: the caller rejects it before composing.
@@ -584,7 +673,8 @@ def compose_daily(inputs: DailyInputs, load: PassageLoader) -> DailyComposition:
     light = active and is_light_review_day(today, inputs.last_active_date)
     full = active and not light
 
-    # (1) due rounds, overdue first, within the question cap
+    # Selection: due rounds (overdue first, within the question cap), quick drills, new material
+    # and the end-test pools. The steps are built below in the order of D90.
     due = sorted(
         (p for p in ordered if (row := mastery.get(p.id)) is not None and row.is_due(today)),
         key=lambda p: (mastery[p.id].next_review_due or today, index[p.id]),
@@ -611,7 +701,6 @@ def compose_daily(inputs: DailyInputs, load: PassageLoader) -> DailyComposition:
                 quick.append((passage, size))
                 total += size
 
-    # (2) new material, (3) end-test pools
     new_passages = (
         _select_new_passages(ordered, mastery, inputs.known_passage_ids, today, minutes)
         if full
@@ -629,10 +718,28 @@ def compose_daily(inputs: DailyInputs, load: PassageLoader) -> DailyComposition:
     )
     data = load(needed) if needed else PassageData(questions={})
 
+    kind_of = {q.id: q.type for questions in data.questions.values() for q in questions}
+    review_type = review_game_type(inputs.seed)
     used: set[UUID] = set()
     steps: list[PlannedStep] = []
+    # (1) new material first: the lesson, then its game batches (D90)
+    for passage in new_passages:
+        steps.append(PlannedLearn(passage.id))
+        steps += _training_questions(
+            passage,
+            minutes=minutes,
+            mastery=mastery.get(passage.id),
+            covered=inputs.covered_part_ids,
+            data=data,
+            used=used,
+            seed=inputs.seed,
+        )
+    # (2) due review rounds, then the quick drills, each block grouped by game type. A round is
+    # evaluated from its review_round_id (the set of its questions, each answered once), never from
+    # the position of its steps, so its questions need not stay side by side.
+    review_block: list[PlannedQuestion] = []
     for passage, size in rounds:
-        steps += _round_questions(
+        review_block += _round_questions(
             passage,
             size,
             role=ROLE_REVIEW,
@@ -642,9 +749,11 @@ def compose_daily(inputs: DailyInputs, load: PassageLoader) -> DailyComposition:
             data=data,
             used=used,
             seed=inputs.seed,
+            prefer_type=review_type,
         )
+    drill_block: list[PlannedQuestion] = []
     for passage, size in quick:
-        steps += _round_questions(
+        drill_block += _round_questions(
             passage,
             size,
             role=ROLE_TRAINING,
@@ -654,21 +763,16 @@ def compose_daily(inputs: DailyInputs, load: PassageLoader) -> DailyComposition:
             data=data,
             used=used,
             seed=inputs.seed,
+            prefer_type=review_type,
         )
-    for passage in new_passages:
-        steps.append(PlannedLearn(passage.id))
-        steps += _training_questions(
-            passage,
-            mastery=mastery.get(passage.id),
-            covered=inputs.covered_part_ids,
-            data=data,
-            used=used,
-            seed=inputs.seed,
-        )
+    steps += _group_by_type(review_block, kind_of, review_type)
+    steps += _group_by_type(drill_block, kind_of, review_type)
+    # (3) the end test last, its questions grouped by game type
     if full:
-        steps += _end_test_questions(
+        test_block = _end_test_questions(
             pools, count=END_TEST_QUESTIONS[minutes], data=data, used=used, seed=inputs.seed
         )
+        steps += _group_by_type(test_block, kind_of)
     return DailyComposition(
         steps=tuple(steps),
         light_review=light,

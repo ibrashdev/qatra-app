@@ -39,10 +39,23 @@ describe("stages of a session (UI-tokens 6.23)", () => {
     expect(stagesOf(steps)).toEqual(["review", "new", "test"]);
   });
 
-  it("lists only the stages the snapshot holds, in the contract order", () => {
+  it("lists only the stages the snapshot holds", () => {
     const light = stepsOf().filter((step) => step.type === "question" && step.question.role !== "training");
     expect(stagesOf(light)).toEqual(["review", "test"]);
     expect(stagesOf([])).toEqual([]);
+  });
+
+  it("lists the stages in the order the session runs them: the new passage, then the reviews, then the end test (D90)", () => {
+    const [review, learn, ...rest] = stepsOf();
+    const test = rest[rest.length - 1];
+    const drills = rest.slice(0, -1);
+    if (review === undefined || learn === undefined || test === undefined) throw new Error("fixture changed");
+    const d90 = [learn, ...drills, review, test];
+    expect(d90.map(stageOfStep)).toEqual(["new", "new", "new", "new", "new", "review", "test"]);
+    expect(stagesOf(d90)).toEqual(["new", "review", "test"]);
+    // a session without reviews and one without a new passage still list what they hold
+    expect(stagesOf([learn, ...drills, test])).toEqual(["new", "test"]);
+    expect(stagesOf([review, learn, ...drills, test])).toEqual(["review", "new", "test"]);
   });
 });
 

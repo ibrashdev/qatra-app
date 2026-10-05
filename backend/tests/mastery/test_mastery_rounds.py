@@ -20,7 +20,7 @@ from app.domain.mastery_policy import (
     round_is_complete,
     summarize_round,
 )
-from app.domain.session_policy import rank_parts, review_round_size
+from app.domain.session_policy import rank_parts, review_game_type, review_round_size
 from tests.mastery.mastery_support import D0, Learner, at, day, right, wrong
 from tests.sessions.ss_policy_support import (
     PLAN,
@@ -97,7 +97,14 @@ def test_rule3_question_types_rotate_across_reviews() -> None:
             index[q.question_id].type
             for q in questions_of(compose([p], banks, minutes=5, rows=rows, seed=seed), "review")
         ]
-        assert len(set(round_types)) == 3  # one round, three different templates
+        # D90: a day's reviews prefer one game type, which changes with the seed (so it rotates
+        # across days); the bank has no similar_distinction question, so the usual rotation then
+        # gives a round three different templates.
+        day_type = review_game_type(seed)
+        if day_type == "similar_distinction":
+            assert len(set(round_types)) == 3
+        else:
+            assert set(round_types) == {day_type}
         for last in ("word_choice", "word_recall", "word_order"):
             result = compose(
                 [p],
@@ -107,9 +114,12 @@ def test_rule3_question_types_rotate_across_reviews() -> None:
                 seed=seed,
                 load=loader(banks, last_type={first_part: last}),
             )
-            first = questions_of(result, "review")[0]
-            assert index[first.question_id].covered_part_ids == (first_part,)
-            assert index[first.question_id].type != last  # the next review changes the template
+            asked = next(
+                index[q.question_id]
+                for q in questions_of(result, "review")
+                if index[q.question_id].covered_part_ids == (first_part,)
+            )
+            assert asked.type != last  # the next review changes the template
 
 
 # --- rule 3: the round verdict -------------------------------------------------------------------
