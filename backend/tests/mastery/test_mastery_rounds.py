@@ -336,31 +336,63 @@ def test_rule4_stages_one_and_two_never_confirm_even_with_full_coverage() -> Non
     assert learner.state.status == "reviewing"
 
 
-def test_rule4_stage_three_passed_with_a_part_uncovered_does_not_confirm() -> None:
+def six_parts_at_stage_three_with_three_uncovered() -> Learner:
+    """Initial evidence with parts 1 to 3 covered, then three clean rounds on days 1, 3 and 7."""
     learner = Learner(parts=6)
-    learner.reach_initial_evidence(cover=False)  # parts 1 to 3 covered
-    learner.review((right(), (1,)), (right(), (2,)), (right(), (3,)), on=1)
-    learner.review((right(), (1,)), (right(), (2,)), (right(), (3,)), on=3)
-    learner.review((right(), (1,)), (right(), (2,)), (right(), (3,)), on=7)
+    learner.reach_initial_evidence(cover=False)
+    for on in (1, 3, 7):
+        learner.review((right(), (1,)), (right(), (2,)), (right(), (3,)), on=on)
+    return learner
+
+
+def test_rule4_stage_three_passed_with_a_part_uncovered_does_not_confirm() -> None:
+    learner = six_parts_at_stage_three_with_three_uncovered()
     state = learner.state
     assert learner.part(4) not in learner.covered
     assert state.status == "reviewing"
     assert state.confirmed_at is None
+    assert state.first_confirmed_at is None
     assert state.review_stage == 3
-    assert state.next_review_due == day(11)  # decision: the stage 3 interval again
+
+
+def test_rule4_stage_three_with_a_part_uncovered_stays_at_stage_three_without_a_lapse() -> None:
+    state = six_parts_at_stage_three_with_three_uncovered().state
+    assert state.review_stage == 3
+    assert state.lapse_count == 0
+    assert state.last_review_date == day(7)
+
+
+def test_rule4_stage_three_with_a_part_uncovered_is_due_again_the_next_learning_day() -> None:
+    """Decision of the coordinator: retention is shown, coverage is the only missing condition."""
+    state = six_parts_at_stage_three_with_three_uncovered().state
+    assert state.next_review_due == day(8)
 
 
 def test_rule4_a_later_stage_three_round_that_completes_coverage_confirms() -> None:
-    learner = Learner(parts=6)
-    learner.reach_initial_evidence(cover=False)
-    learner.review((right(), (1,)), (right(), (2,)), (right(), (3,)), on=1)
-    learner.review((right(), (1,)), (right(), (2,)), (right(), (3,)), on=3)
-    learner.review((right(), (1,)), (right(), (2,)), (right(), (3,)), on=7)
+    learner = six_parts_at_stage_three_with_three_uncovered()
     assert learner.state.status == "reviewing"
-    learner.review((right(), (4,)), (right(), (5,)), (right(), (6,)), on=11)
+    learner.review((right(), (4,)), (right(), (5,)), (right(), (6,)), on=8)
     assert learner.state.status == "confirmed"
-    assert learner.state.confirmed_at == at(11)
-    assert learner.state.next_review_due == day(25)
+    assert learner.state.confirmed_at == at(8)
+    assert learner.state.first_confirmed_at == at(8)
+    assert learner.state.next_review_due == day(22)  # maintenance after 14 days
+
+
+def test_rule4_a_game_that_completes_coverage_is_picked_up_by_the_next_stage_three_round() -> None:
+    learner = six_parts_at_stage_three_with_three_uncovered()
+    for number in (4, 5, 6):
+        learner.answer(right(), number, on=7)  # games on the same day cover the missing parts
+    assert learner.state.status == "reviewing"  # coverage alone does not confirm
+    learner.review((right(), (1,)), (right(), (2,)), (right(), (3,)), on=8)
+    assert learner.state.status == "confirmed"
+
+
+def test_rule4_a_failed_round_after_the_gap_resets_the_ladder_as_usual() -> None:
+    learner = six_parts_at_stage_three_with_three_uncovered()
+    learner.review((wrong(), (4,)), (right(), (5,)), (right(), (6,)), on=8)
+    assert learner.state.review_stage == 1
+    assert learner.state.lapse_count == 1
+    assert learner.state.next_review_due == day(9)
 
 
 def test_rule4_evidence_from_the_rounds_own_answers_counts_toward_the_confirmation() -> None:

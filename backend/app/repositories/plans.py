@@ -122,6 +122,9 @@ class PlanRepository(Protocol):
     def read_plan(self, ctx: SessionContext, plan_id: UUID) -> StoredPlan | None:
         """The caller's plan, or ``None`` when unknown or not owned (indistinguishable)."""
 
+    def list_plans(self, ctx: SessionContext) -> list[StoredPlan]:
+        """Every plan of the caller, newest first (E18 and E19): active, paused and completed."""
+
     def read_in_force(self, ctx: SessionContext, plan_id: UUID, on: date) -> PlanInForce | None:
         """The caller's plan with the values in force on the learning date ``on``, or ``None`` when
         unknown or not owned. The status is not judged here."""
@@ -267,6 +270,14 @@ class MemoryPlanRepository:
         with self._lock:
             plan = self._owned(ctx.user_id, plan_id)
             return self._stored(plan) if plan is not None else None
+
+    def list_plans(self, ctx: SessionContext) -> list[StoredPlan]:
+        with self._lock:
+            mine = [plan for plan in self._plans.values() if plan.user_id == ctx.user_id]
+            newest_first = sorted(
+                enumerate(mine), key=lambda item: (item[1].created_at, item[0]), reverse=True
+            )
+            return [self._stored(plan) for _, plan in newest_first]
 
     def read_in_force(self, ctx: SessionContext, plan_id: UUID, on: date) -> PlanInForce | None:
         with self._lock:
@@ -559,6 +570,34 @@ class PostgrestPlanRepository:
             return _plan_from_row(row, policy if isinstance(policy, dict) else {})
         except (KeyError, TypeError, ValueError, AttributeError):
             raise _bad_row("plan_shape") from None
+
+    def list_plans(self, ctx: SessionContext) -> list[StoredPlan]:
+        token = require_token(ctx.access_token)
+        rows = self._client.select(
+            "master_plans",
+            columns=PLAN_COLUMNS,
+            filters={"user_id": f"eq.{ctx.user_id}"},
+            order="created_at.desc,id.desc",
+            token=token,
+        )
+        found: list[StoredPlan] = []
+        for row in rows:
+            try:
+                versions = self._client.select(
+                    "plan_versions",
+                    columns="policy_json",
+                    filters={
+                        "plan_id": f"eq.{row['id']}",
+                        "user_id": f"eq.{ctx.user_id}",
+                        "version_no": f"eq.{int(row['current_version'])}",
+                    },
+                    token=token,
+                )
+                policy = versions[0].get("policy_json") if versions else {}
+                found.append(_plan_from_row(row, policy if isinstance(policy, dict) else {}))
+            except (KeyError, TypeError, ValueError, AttributeError):
+                raise _bad_row("plan_shape") from None
+        return sorted(found, key=lambda plan: plan.created_at, reverse=True)
 
     def read_in_force(self, ctx: SessionContext, plan_id: UUID, on: date) -> PlanInForce | None:
         token = require_token(ctx.access_token)

@@ -173,16 +173,18 @@ def validate_activity(
     server_now: datetime,
     session_created_at: datetime,
     session_kind: str,
-    time_zone: str,
+    time_zone: str | None = None,
     pending_time_zone: str | None = None,
     pending_effective: date | None = None,
+    learning_date: date | None = None,
 ) -> ActivityVerdict:
     """Check one activity event against the server clock and the session (contract §7).
 
     ``endedAt <= serverNow + 60 s``; ``startedAt >= session.createdAt - 60 s``;
     ``activeMs <= endedAt - startedAt + 1000``; at most 30 minutes per event (the span and the
     active time both); a placement session is never counted. The learning date comes from
-    ``startedAt`` in the account time zone effective that day. The device clock is never proof: only
+    ``startedAt`` in the account time zone effective that day, or is given as ``learning_date`` by a
+    caller that already resolved it (then no zone is needed). The device clock is never proof: only
     these bounds relative to the server's own time decide.
     """
     for value in (started_at, ended_at, server_now, session_created_at):
@@ -203,9 +205,15 @@ def validate_activity(
         return ActivityRejected(EVENT_TOO_LONG)
     if session_kind == PLACEMENT:
         return ActivityIgnored()
+    if learning_date is None:
+        if time_zone is None:
+            raise ValueError("a time zone or a learning date is needed")
+        learning_date = learning_date_at(
+            started_at, time_zone, pending_time_zone, pending_effective
+        )
     return ActivityAccepted(
         interval=credited_interval(started_at, ended_at, active_ms),
-        learning_date=learning_date_at(started_at, time_zone, pending_time_zone, pending_effective),
+        learning_date=learning_date,
         active_ms=active_ms,
     )
 

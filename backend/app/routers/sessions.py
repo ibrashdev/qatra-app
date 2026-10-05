@@ -1,4 +1,5 @@
-"""Session endpoints: E20 ``POST /api/sessions`` (package B5; API-spec §4.7).
+"""Session endpoints: E20 ``POST /api/sessions`` (package B5), E21 ``POST /api/sessions/:id/events``
+and E22 ``POST /api/sessions/:id/complete`` (package B6; API-spec §4.7).
 
 The route lists ``require_valid_origin`` before ``require_session`` and then the per-IP "Session
 write" limiter (``QATRA_RATE_SESSION_WRITE_PER_MIN``, API-spec §1.8). The body is
@@ -18,26 +19,40 @@ Request E20 (all other properties are refused):
 - ``{"kind": "daily", "planId", "expectedPlanVersion"}``
 - ``{"kind": "game", "planId", "expectedPlanVersion", "gameType"?, "passageIds"?}``
 - ``{"kind": "placement", "editionId", "targetScope": {"sectionOrdinals": [...]}, "selfRating"?}``
+
+E21 takes ``{"events": [...]}`` (1 to 100 answer and activity events, API-spec E21) and answers
+``200`` with the outcome of every event; there is no ``409``, conflicts are reported per event.
+The session (404) is checked before the body (422). E22 takes no body (an empty body or ``{}`` is
+ignored) and an optional ``Idempotency-Key`` header: a UUID, otherwise ``422``; the key adds no
+semantics, completion is idempotent per session. Both use the Session write limiter and set
+``Cache-Control: no-store``; neither the body, an answer nor a question is ever logged.
+
+``install_sessions`` also includes the router of E18 and E19 (``routers/progress.py``) and builds
+the ``ProgressService``, so the application factory and ``app/wiring.py`` need no change.
 """
 
 from __future__ import annotations
 
+import re
 from collections.abc import Callable
 from datetime import datetime
 from typing import Annotated, Any
 from uuid import UUID
 
-from fastapi import APIRouter, Body, Depends, FastAPI, Request, Response
+from fastapi import APIRouter, Body, Depends, FastAPI, Header, Request, Response
 
 from app.config import Settings
 from app.contracts import ErrorEnvelope
-from app.contracts_sessions import SessionSnapshot
+from app.contracts_sessions import CompleteResponse, EventsResponse, SessionSnapshot
 from app.dependencies import SessionContext, require_session, require_valid_origin
 from app.errors import AppError, ErrorCode
 from app.providers.postgrest import PostgrestClient
 from app.repositories.bank import BankRepository
 from app.repositories.learning import LearningRepository
 from app.routers.health import ip_rate_limit
+from app.routers.progress import router as progress_router
+from app.services.plans import PlanService
+from app.services.progress import PlanDirectory, PlanServiceDirectory, ProgressService
 from app.services.sessions import (
     LearningCalendar,
     PlanAccess,
@@ -58,6 +73,15 @@ _ERRORS = {
     429: {"model": ErrorEnvelope, "description": "throttled"},
     503: {"model": ErrorEnvelope, "description": "unavailable"},
 }
+# E21 and E22 have no 409: conflicts are reported per event (E21) or are not possible (E22).
+_EVENT_ERRORS = {
+    **{code: spec for code, spec in _ERRORS.items() if code != 409},
+    413: {"model": ErrorEnvelope, "description": "payload_too_large"},
+}
+_COMPLETE_ERRORS = {code: spec for code, spec in _ERRORS.items() if code != 409}
+_UUID_TEXT = re.compile(
+    r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+)
 
 
 def get_sessions_service(request: Request) -> SessionService:
@@ -104,6 +128,49 @@ def create_session(
     return created.snapshot
 
 
+@router.post(
+    "/sessions/{session_id}/events",
+    response_model=EventsResponse,
+    response_model_by_alias=True,
+    summary="Record answers and active time of a session (E21)",
+    responses=_EVENT_ERRORS,
+    dependencies=_WRITE_GUARDS,
+)
+def record_events(
+    session_id: UUID,
+    body: Annotated[dict[str, Any], Body()],
+    response: Response,
+    ctx: Session,
+    service: Service,
+) -> EventsResponse:
+    response.headers["Cache-Control"] = _NO_STORE
+    return service.record_events(ctx, session_id, body)
+
+
+@router.post(
+    "/sessions/{session_id}/complete",
+    response_model=CompleteResponse,
+    response_model_by_alias=True,
+    summary="Complete a session and return its summary (E22)",
+    responses=_COMPLETE_ERRORS,
+    dependencies=_WRITE_GUARDS,
+)
+def complete_session(
+    session_id: UUID,
+    response: Response,
+    ctx: Session,
+    service: Service,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key")] = None,
+) -> CompleteResponse:
+    response.headers["Cache-Control"] = _NO_STORE
+    if idempotency_key is not None and not _UUID_TEXT.match(idempotency_key):
+        raise AppError(
+            ErrorCode.validation_error,
+            details={"fields": [{"field": "Idempotency-Key", "rule": "uuid_parsing"}]},
+        )
+    return service.complete_session(ctx, session_id)
+
+
 def install_sessions(
     app: FastAPI,
     settings: Settings,
@@ -115,15 +182,24 @@ def install_sessions(
     client: PostgrestClient | None = None,
     clock: Callable[[], datetime] | None = None,
     new_id: Callable[[], UUID] | None = None,
+    plan_directory: PlanDirectory | None = None,
+    open_chat_lookup: Callable[[SessionContext], UUID | None] | None = None,
 ) -> None:
-    """Include the E20 router once and build the services on ``app.state``.
+    """Include the routers of E20 to E22 and E18 and E19 once and build the services on
+    ``app.state``.
 
     ``plans`` and ``calendar`` are the ports of package B4 and B3; when omitted, the ones left on
     ``app.state.plan_access`` and ``app.state.learning_calendar`` are used, and when there are none
     the endpoint answers ``503`` rather than guessing. ``bank`` and ``learning`` default to the
     repositories of the configured data backend (supabase mode builds them over ``client``; with
     neither the endpoint answers ``503``). Besides ``sessions_service`` this sets
-    ``bank_repository`` and ``learning_repository`` so that later packages (B6, B9) share them.
+    ``bank_repository`` and ``learning_repository`` so that later packages (B9) share them.
+
+    E18 and E19 need the plans of the account: ``plan_directory`` (a ``PlanDirectory``) or, when it
+    is omitted, a ``PlanServiceDirectory`` over ``app.state.plan_service``, which the application
+    wiring sets before it calls this function; without either they answer ``503``.
+    ``open_chat_lookup`` is the seam that lets ``Today.openPlanChatId`` name the open plan
+    conversation; without it the field is ``null``.
     """
     if not getattr(app.state, "sessions_router_included", False):
         app.include_router(router)
@@ -141,6 +217,22 @@ def install_sessions(
         new_id=new_id,
     )
     app.state.sessions_service = service
+    if not getattr(app.state, "progress_router_included", False):
+        app.include_router(progress_router)
+        app.state.progress_router_included = True
+    app.state.progress_service = None
     if service is not None:
         app.state.bank_repository = service.bank
         app.state.learning_repository = service.learning
+        directory = plan_directory
+        plan_service: PlanService | None = getattr(app.state, "plan_service", None)
+        if directory is None and plan_service is not None:
+            directory = PlanServiceDirectory(plan_service)
+        if directory is not None:
+            app.state.progress_service = ProgressService(
+                bank=service.bank,
+                learning=service.learning,
+                plans=directory,
+                calendar=service.calendar,
+                open_chat_lookup=open_chat_lookup,
+            )
