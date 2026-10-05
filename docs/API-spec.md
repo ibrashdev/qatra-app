@@ -1,10 +1,12 @@
 # Qatra — API Specification (`/api`)
 
-Version 1.6 · 2026-10-05 · Status: Approved: D74, 4 October 2026 (owner: «approve best practice», «q7 approved») for the v1.1 content; Approved: D75, A1 (owner, 4 October 2026: «A1 approved , best practice») for the D75 additions of version 1.2 (E31–E34, §4.10); the version 1.3, 1.4 and 1.5 additions are implementation clarifications (implementation record, no new owner approval); the version 1.6 additions record D92 (Approved: owner, 5 October 2026)
+Version 1.7 · 2026-10-05 · Status: Approved: D74, 4 October 2026 (owner: «approve best practice», «q7 approved») for the v1.1 content; Approved: D75, A1 (owner, 4 October 2026: «A1 approved , best practice») for the D75 additions of version 1.2 (E31–E34, §4.10); the version 1.3, 1.4 and 1.5 additions are implementation clarifications (implementation record, no new owner approval); the version 1.6 and 1.7 additions record D92 (Approved: owner, 5 October 2026)
 
 Owner of this draft: Solutions Architect (Role 3), for the root coordinator. This is design documentation only: no endpoint exists, every application path is Planned (D61), and implementation is not authorized until the architecture deliverables are presented and explicitly approved (D69).
 
-**Version 1.6 (5 October 2026).** Records D92 (Approved: owner, 5 October 2026; additive changes only): the E20 daily-session order (new material first, then due reviews, quick drills and the end test), the whole-passage `QuestionBase.context` with `ayahEnds` (replacing ±6 words), `referenceAr` on `SourceRef` and `PassageView` (the source line is shown only after the answer), `Estimate.dailyNew` in E15 (whole-unit daily pace) and the plan-card and reply-guard wording of the plan conversation; §5 gains a one-line note on the `propose-questions` CLI step. No endpoint, error code or limit is added. Implemented locally on branch `question-bank-fixes` (local tests only, not deployed, not Verified). The read-only Lessons tab approved in D92 is documented in a later pass.
+**Version 1.7 (5 October 2026).** Records the D92 Lessons endpoints (Approved: owner, 5 October 2026): E35 `GET /api/lessons` and E36 `GET /api/lessons/:sectionId` (§4.11; E35 is the next free number after E34), the read-only Lessons tab. Both are GET only, Session read class, `no-store`; no table, migration, DTO field of an existing operation or limit is added. Reading time is credited through the existing E21 events (§4.11). Implemented locally on branch `question-bank-fixes` (local tests only, not deployed, not Verified).
+
+**Version 1.6 (5 October 2026).** Records D92 (Approved: owner, 5 October 2026; additive changes only): the E20 daily-session order (new material first, then due reviews, quick drills and the end test), the whole-passage `QuestionBase.context` with `ayahEnds` (replacing ±6 words), `referenceAr` on `SourceRef` and `PassageView` (the source line is shown only after the answer), `Estimate.dailyNew` in E15 (whole-unit daily pace) and the plan-card and reply-guard wording of the plan conversation; §5 gains a one-line note on the `propose-questions` CLI step. No endpoint, error code or limit is added. Implemented locally on branch `question-bank-fixes` (local tests only, not deployed, not Verified). The read-only Lessons tab approved in D92 is documented in version 1.7 (§4.11).
 
 **Version 1.5 (5 October 2026).** Clarifications, no new behaviour; implementation record, no new owner approval. It adds §5.5, which records what the operator CLI implementation (commit bde8bd1, merge 3d40a3e, on main by PR #14) settled for the scope of D83: `verify` has an optional source-only mode for that one scope, `segment`, `build-bank` and `validate` follow the scope of the first `acquire`, `approve` takes the owner's words typed in the chat as its confirmation, and `publish` exists in SQL-file mode (one transactional file that the owner applies; the upload to the private bucket is deferred). No endpoint, DTO field, error code, limit or status is added or changed, and the text of §5.1 to §5.4 and of every other section is unchanged; the lead of §5 gains a one-line pointer to §5.5. Implemented locally (local tests only); nothing is published and this version records no deployment of this code.
 
@@ -16,7 +18,7 @@ Owner of this draft: Solutions Architect (Role 3), for the root coordinator. Thi
 
 **Version 1.1 (4 October 2026).** The coordinator consistency pass resolved differences C-02..C-15 and the open points per §8, and the items formerly marked "owner confirms" (Q1–Q7) are confirmed by D74 (4 October 2026; owner: «approve best practice», «q7 approved»). Approval covers this document as a design only; nothing is built or tested.
 
-**Contents:** [0 Scope and authority](#0-scope-authority-and-how-to-read-this-file) · [1 Conventions](#1-conventions) · [2 Access matrix](#2-access-matrix) · [3 Common session validation](#3-server-side-validation-rules-common-to-sessions) · [4 Endpoints E01–E34](#4-endpoint-specifications) · [5 Operator CLI](#5-operator-cli-interface-no-http) · [6 Keep-awake job](#6-keep-awake-job-interface-d72) · [7 Traceability](#7-traceability) · [8 Differences and open points](#8-differences-between-sources-and-open-points)
+**Contents:** [0 Scope and authority](#0-scope-authority-and-how-to-read-this-file) · [1 Conventions](#1-conventions) · [2 Access matrix](#2-access-matrix) · [3 Common session validation](#3-server-side-validation-rules-common-to-sessions) · [4 Endpoints E01–E36](#4-endpoint-specifications) · [5 Operator CLI](#5-operator-cli-interface-no-http) · [6 Keep-awake job](#6-keep-awake-job-interface-d72) · [7 Traceability](#7-traceability) · [8 Differences and open points](#8-differences-between-sources-and-open-points)
 
 ## 0. Scope, authority and how to read this file
 
@@ -38,7 +40,7 @@ Where sources differ, the contract plus the D-decisions are followed and the dif
 
 **Notation.** `E01`–`E30` identify operations. DTO type names (`Profile`, `Plan`, `SessionSnapshot`, …) are the contract §7 names. A response shape that has no contract type name is written inline. Paths are always written in full, with the `/api` prefix.
 
-**Inventory.** 30 HTTP operations: the 28 operations of contract §7 (GET and PATCH `/me` counted separately), plus `GET /api/health/ready` (directive 1), plus E30 `POST /api/plans/:id/resume` (contract v1.4 amendment, D74). Version 1.2 adds E31–E34 (D75, plan conversation): 34 HTTP operations in total. Under the same proposed amendment E13 is `POST /api/account/delete` (§8.3).
+**Inventory.** 30 HTTP operations: the 28 operations of contract §7 (GET and PATCH `/me` counted separately), plus `GET /api/health/ready` (directive 1), plus E30 `POST /api/plans/:id/resume` (contract v1.4 amendment, D74). Version 1.2 adds E31–E34 (D75, plan conversation): 34 HTTP operations in total. Version 1.7 adds E35–E36 (D92, Lessons): 36 HTTP operations in total. Under the same proposed amendment E13 is `POST /api/account/delete` (§8.3).
 
 **Not specified here.**
 
@@ -216,7 +218,7 @@ Only the auth throttle has approved numbers. The per-IP values below are configu
 | Readiness | E02 | 6 per client IP per minute (configuration default, A-12) |
 | Public read | E14 | 60 per client IP per minute (configuration default, A-12) |
 | Anonymous entry | E03, E26 | 10 per client IP per minute (configuration default, A-12) |
-| Session read | E11, E15, E18, E19, E24, E33 | 120 per client IP per minute (configuration default, A-12) |
+| Session read | E11, E15, E18, E19, E24, E33, E35, E36 | 120 per client IP per minute (configuration default, A-12) |
 | Session write | E05, E08, E09, E10, E12, E13, E16, E17, E20, E21, E22, E23, E25, E30 | 60 per client IP per minute (configuration default, A-12) |
 | Chat write | E31, E32, E34 | 20 per client IP per minute (configuration default; D75, Approved — D75, A1 (owner, 4 October 2026)) |
 | Demo | E27, E28, E29, plus the usage and budget limit of D29 | A-09 (confirmed by D74, Q6): at most 5 demo accounts per client IP per day (E26); at most 10 `POST /demo/plans` per demo account per day (E28); demo Teaching-Agent calls draw on a configured daily free budget and fall back to the rules engine when it is exhausted (D54/D60). Values are configuration, not code |
@@ -229,7 +231,7 @@ Every `429 throttled` carries a `Retry-After` header (seconds; A-12). Capacity a
 
 | Responses | `Cache-Control` |
 |---|---|
-| All Anonymous-entry, Session and Demo operations (E03–E13 and E15–E34) | `no-store` (personal and offline data; Authentication-and-privacy, PWA-design §5) |
+| All Anonymous-entry, Session and Demo operations (E03–E13 and E15–E36) | `no-store` (personal and offline data; Authentication-and-privacy, PWA-design §5) |
 | E24 (snapshot download) | `no-store` (contract §7) |
 | E01, E02 | `no-store`: they are wake-up and keep-alive probes and must always reach the origin |
 | E14 (catalog metadata) | `no-store`; public catalog caching is deferred |
@@ -284,7 +286,7 @@ The contract defines no query parameters on any endpoint. Version 1 therefore ha
 |---|---|---|
 | **P — Public** | no session; read-only `GET`; no personal data. Visitors (unregistered) get the catalog **metadata only** (D71) | E01, E02, E14 |
 | **A — Anonymous entry** | no session yet; state-changing; Origin check and auth throttle apply. Needed because PRD v14 lets a visitor register, log in, recover an account and create a demo account [C-13] | E03, E04, E06, E07, E26 |
-| **S — Session** | a valid `__Host-qatra_session`; any account, learner or demo account (D71 "same as learners") unless the notes say otherwise | E05, E08–E13, E15–E25, E30, E31–E34 |
+| **S — Session** | a valid `__Host-qatra_session`; any account, learner or demo account (D71 "same as learners") unless the notes say otherwise | E05, E08–E13, E15–E25, E30, E31–E36 |
 | **D — Demo session** | a valid session whose account has `is_demo = true`, set by the server only; anything else gets `403` | E27, E28, E29 |
 | **O — Operator CLI** | no HTTP at all. Developer tools run by the content manager (the owner) and the reviewer (the owner, D71); `service_role` limited to publishing | the CLI commands of §5 |
 
@@ -328,6 +330,8 @@ The contract defines no query parameters on any endpoint. Version 1 therefore ha
 | E32 | `POST /api/plan-chats/:id/messages` | S | 401 | yes | yes | D75: one learner turn (text or quick reply) and one assistant turn; Chat write class |
 | E33 | `GET /api/plan-chats/:id` | S | 401 | yes | yes | D75: reload and resume; Session read class |
 | E34 | `POST /api/plan-chats/:id/confirm` | S | 401 | yes | yes | D75: saves the plan (E16 or E17 semantics) and closes the conversation; a demo account's creation runs in `synthetic_demo` mode; Chat write class |
+| E35 | `GET /api/lessons` | S | 401 | yes | yes | D92: read-only list of the sections of the active plan; own plan only; Session read class |
+| E36 | `GET /api/lessons/:sectionId` | S | 401 | yes | yes | D92: read-only verbatim passages of one section inside the active plan's scope; Session read class |
 | — | CLI `acquire` … `delete-unused-draft` (§5) | O | no HTTP | no HTTP | no HTTP | content manager and reviewer only |
 
 ### 2.3 Cross-check against the PRD v14 roles matrix
@@ -1254,7 +1258,7 @@ At least one optional field must be present (`422` rule `no_fields`). The scope 
 
 **Snapshot content** (contract §5)
 - `daily`, in order (D92: new material first; contract §5): (1) the current learning passage or the next passage(s) in plan order up to the day's capacity — per new passage a `learn` step with the full passage, its reference, edition, canonical URL, takhrij and the D50 notice where it applies, then training batches (`TRAINING_BATCHES` 5 → 2, 10 → 2, 15 → 3; type progression `word_choice`, `word_order`, `word_recall`, `similar_distinction`; each batch is one question of a single type per ranked part, parts lacking that type are skipped, an empty batch does not count; fewer than 3 training questions wrap over the unused types so the passage can reach 3 consecutive correct answers); (2) due review rounds, overdue first, capped at 6/10/14 questions for 5/10/15 minutes, each round's questions preferring the day's review type unless the part's last attempt used it, the review block grouped by type (rounds are evaluated by round id, independent of order); (3) quick drills grouped the same way; (4) an end-of-session test of 3/5/7 questions mixing today's parts, error parts and uncovered parts, grouped by type. After 3 or more days of absence the session holds the light review only (reviews, no new material by default); maintenance days are reviews only; missed days are not stacked (R07). Nothing force-closes a session.
-- **Question payload (D92, additive).** `QuestionBase.context` is `{before: Token[], after: Token[], ayahEnds: AyahEnd[]}`: `before` and `after` hold all tokens of the question's passage outside the target span (`start_ref` to `end_ref`, across units), unaltered, instead of ±6 words; `AyahEnd = {afterRef, number}` marks the last token of each ayah unit except the passage's last ayah, never inside the blank; `ayahEnds` defaults to `[]`; `word_order` also carries the whole passage as context. `SourceRef` gains `referenceAr` (hadith: the section title; Quran: «سورة X، الآية n» or «…، الآيات a–b» in Arabic-Indic digits) and `PassageView` gains `referenceAr`; `publisher`, `editionLabel` and `reference` stay for compatibility and are never rendered to learners, and the UI shows the source line only after the question is answered. Context is orientation, not coverage (D64, D66). Implemented locally on branch `question-bank-fixes`, local tests only, not deployed. The read-only Lessons tab approved in D92 (within plan scope; its time counts toward the daily goal) is documented in a later pass; E21 events are unchanged.
+- **Question payload (D92, additive).** `QuestionBase.context` is `{before: Token[], after: Token[], ayahEnds: AyahEnd[]}`: `before` and `after` hold all tokens of the question's passage outside the target span (`start_ref` to `end_ref`, across units), unaltered, instead of ±6 words; `AyahEnd = {afterRef, number}` marks the last token of each ayah unit except the passage's last ayah, never inside the blank; `ayahEnds` defaults to `[]`; `word_order` also carries the whole passage as context. `SourceRef` gains `referenceAr` (hadith: the section title; Quran: «سورة X، الآية n» or «…، الآيات a–b» in Arabic-Indic digits) and `PassageView` gains `referenceAr`; `publisher`, `editionLabel` and `reference` stay for compatibility and are never rendered to learners, and the UI shows the source line only after the question is answered. Context is orientation, not coverage (D64, D66). Implemented locally on branch `question-bank-fixes`, local tests only, not deployed. The read-only Lessons tab approved in D92 (within plan scope; its time counts toward the daily goal) is documented in version 1.7 (§4.11); E21 events are unchanged.
 - `game`: up to 10 questions of the optional `gameType` over the optional `passageIds`.
 - `placement`: never counted in daily progress.
 - `steps` is an immutable snapshot. Every `Question` carries its `answerKey` (accepted MVP risk, S-5). Passage text is shown with the canonical URL beside it (D68).
@@ -2171,6 +2175,62 @@ Plan-conversation v1.1 is approved as written (A1); these points are not decided
 7. **Atomicity and internal fields.** Whether closing the conversation shares the transaction of the plan commit is fixed at B13. The stored proposal keeps `placementSessionId` although the `PlanProposal` DTO has no such field (it is an internal field).
 8. **Purge of abandoned conversations.** The source allows opportunistic purging of an abandoned conversation's messages; no `DELETE` path exists in the grant posture (Database-schema OPEN-18).
 
+### 4.11 Lessons (D92; version 1.7)
+
+Read-only reading of the source material inside the active plan's scope (Approved: D92, owner, 5 October 2026). Both operations are GET only, Session read class (§1.8), `Cache-Control: no-store`; there is no new table or migration, and a GET never creates a session or any evidence. Implemented locally on branch `question-bank-fixes` (local tests only, not deployed, not Verified).
+
+#### E35 · `GET /api/lessons`
+
+| | |
+|---|---|
+| Purpose, module | the Lessons tab list: the sections the learner can read. M4 (R04; D92) |
+| Auth | S — Session |
+| Success | `200` `{planId, planVersion, sections}` |
+
+**Request:** none.
+
+**Field semantics**
+- `planId` and `planVersion` identify the active plan and its current version.
+- `sections` is a list of `{sectionId, kind, referenceAr, passageCount}`: `sectionId` is the section ordinal in the plan's edition (integer ≥ 1), `kind` is `"surah"` or `"hadith"`, `referenceAr` is the Arabic reference of the section, and `passageCount` is the number of passages of the section on the plan's selected paths.
+- Only the ACTIVE plan's scope (`targetScope`) and selected paths are used. A section with no passage on those paths is omitted. The list is in plan order (`book` or `reverse`, as `Plan.order`).
+
+**Errors**
+
+| Status | Code | When |
+|---|---|---|
+| 401 | `unauthenticated` | no valid session |
+| 409 | `version_conflict` | `details.reason` = `plan_not_active`: the account has no active plan (a paused or completed plan counts as none) |
+| 429 | `throttled` | Session read class |
+| 503 | `unavailable` | |
+
+#### E36 · `GET /api/lessons/:sectionId`
+
+| | |
+|---|---|
+| Purpose, module | the reader: the passages of one section, verbatim. M4 (R04; D92) |
+| Auth | S — Session |
+| Success | `200` `{sectionId, kind, referenceAr, bookTitleAr, sourceUrl, passages}` |
+
+**Request:** path parameter `sectionId`, an integer ≥ 1.
+
+**Field semantics**
+- `passages` is a list of `PassageView`, in book order, with the text verbatim and unaltered; it is built by the same `PassageView` builder as the `learn` step of E20 (§4.7), so it carries `referenceAr`, the takhrij and the hadith grade where they apply.
+- `bookTitleAr` and `sourceUrl` come from the edition of the active plan; the canonical URL is shown beside the text (D68).
+- Only passages of the plan's selected paths inside its scope are returned.
+
+**Errors**
+
+| Status | Code | When |
+|---|---|---|
+| 401 | `unauthenticated` | no valid session |
+| 404 | `not_found` | the section is outside the plan's scope, has no passage on the selected paths, or the edition was revoked or its version changed |
+| 409 | `version_conflict` | `details.reason` = `plan_not_active` (no active plan; paused and completed count as none) |
+| 422 | `validation_error` | `sectionId` is smaller than 1 or not numeric |
+| 429 | `throttled` | Session read class |
+| 503 | `unavailable` | |
+
+**Reading time (D92; no new endpoint).** While a learner reads, the reader posts E21 `ActivityEvent`s to today's OPEN `daily` session: the session id comes from E18 `openSessionId`, or the reader calls E20 `kind=daily` only when no daily session exists yet today and no activity was recorded. The reader never creates a session after the day's daily session is complete, and it stops crediting when E21 answers `session_closed`. Time counts toward the daily goal under the E21 rules (verified active intervals). **Known limitation:** if the learner played a game earlier today (activity but no `daily` session), reading time is not credited, because E18 has no field for the status of the daily session.
+
 ## 5. Operator CLI interface (no HTTP)
 
 **Entry point:** `backend/scripts/content_tools.py` (`main() -> int`), which calls `app/workflow/runner.py` (Programming-guide). No HTTP endpoint exposes any of these commands, and none is planned: the content manager and the reviewer have no application account and no UI (PRD roles matrix; D43/D44). Version 1.5 adds §5.5, an implementation record of the CLI as built for D83.
@@ -2390,6 +2450,8 @@ Rows E31–E34 (D75) are Approved — D75, A1 (owner, 4 October 2026); their req
 | E32 | `POST /api/plan-chats/:id/messages` | M3, M8 | R24, R26, R27, R28 | NFR-15, NFR-16, NFR-17, NFR-18 | D17 (narrowed), D26, D38, D51, D60, D75 |
 | E33 | `GET /api/plan-chats/:id` | M3 | R24, R25 | NFR-03 | D75 |
 | E34 | `POST /api/plan-chats/:id/confirm` | M3, M8 | R24, R25, R28 | NFR-03, NFR-16 | D34, D57, D60, D71, D75 |
+| E35 | `GET /api/lessons` | M4 | R04 | NFR-03 | D92 |
+| E36 | `GET /api/lessons/:sectionId` | M4 | R04 | NFR-03 | D92 |
 | CLI | `acquire` … `delete-unused-draft` | M11 | R13, R21 (refs R03, R08) | NFR-11 | D37, D43, D44, D65, D68, D69, D70, D71 |
 | Job | keep-awake workflow | cross-cutting (M7) | R23 | NFR-01, NFR-02 | D48, D70, D72 |
 
@@ -2400,7 +2462,7 @@ Rows E31–E34 (D75) are Approved — D75, A1 (owner, 4 October 2026); their req
 | M1 Account and privacy | E03–E10, E13, E26 |
 | M2 Catalog and sources | E14 |
 | M3 Goal, placement, plan | E15–E17, E30, E20 (`placement`), E31–E34 (D75) |
-| M4 Daily session | E18, E20, E22 |
+| M4 Daily session | E18, E20, E22, E35, E36 (D92) |
 | M5 Games and hint | E20, E21 |
 | M6 Progress and memorization | E18, E19, E21, E22 |
 | M7 Offline and PWA | E01, E02, E10, E11, E21, E23–E25 |
@@ -2412,7 +2474,7 @@ Rows E31–E34 (D75) are Approved — D75, A1 (owner, 4 October 2026); their req
 
 ## 8. Differences between sources and open points
 
-Summary: 34 HTTP operations (E01–E34) are specified (29 → 30: E30 `POST /api/plans/:id/resume` is a contract v1.4 amendment, D74; 30 → 34: E31–E34, the plan conversation of version 1.2, Approved: D75, A1 (owner, 4 October 2026)); 17 differences between sources are recorded (§8.1): 11 resolved (C-01 and C-08 earlier, and C-02..C-07, C-11, C-12, C-15 on 4 October 2026) and 4 already applied (C-09, C-10, C-13, C-14), plus C-16 resolved by D75 and C-17 resolved by the B6 implementation decision (version 1.3, implementation record, no new owner approval); 32 open points are listed (§8.2): 26 decided by the architect (A-xx) and approved by D74 (4 of these were decided as defaults that the owner confirmed: O-16, O-17 mushaf order, O-19, O-29) and 4 still open with a deferral target (O-02, O-06, O-08, O-26), plus O-31 (open, deferred to provisioning) and O-32 (decided, D75) added in version 1.2. The 26 decided points are approved by D74 and the 4 open points keep their deferral targets. The rule applied to a difference is: **the contract plus the D-decisions win**.
+Summary: 36 HTTP operations (E01–E36) are specified (34 → 36: E35–E36, the read-only Lessons endpoints of version 1.7, D92; 29 → 30: E30 `POST /api/plans/:id/resume` is a contract v1.4 amendment, D74; 30 → 34: E31–E34, the plan conversation of version 1.2, Approved: D75, A1 (owner, 4 October 2026)); 17 differences between sources are recorded (§8.1): 11 resolved (C-01 and C-08 earlier, and C-02..C-07, C-11, C-12, C-15 on 4 October 2026) and 4 already applied (C-09, C-10, C-13, C-14), plus C-16 resolved by D75 and C-17 resolved by the B6 implementation decision (version 1.3, implementation record, no new owner approval); 32 open points are listed (§8.2): 26 decided by the architect (A-xx) and approved by D74 (4 of these were decided as defaults that the owner confirmed: O-16, O-17 mushaf order, O-19, O-29) and 4 still open with a deferral target (O-02, O-06, O-08, O-26), plus O-31 (open, deferred to provisioning) and O-32 (decided, D75) added in version 1.2. The 26 decided points are approved by D74 and the 4 open points keep their deferral targets. The rule applied to a difference is: **the contract plus the D-decisions win**.
 
 ### 8.1 Differences between sources
 
