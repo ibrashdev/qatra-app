@@ -1,6 +1,6 @@
 # Qatra — API Specification (`/api`)
 
-Version 1.5 · 2026-10-05 · Status: Approved: D74, 4 October 2026 (owner: «approve best practice», «q7 approved») for the v1.1 content; Approved: D75, A1 (owner, 4 October 2026: «A1 approved , best practice») for the D75 additions of version 1.2 (E31–E34, §4.10); the version 1.3, 1.4 and 1.5 additions are implementation clarifications (implementation record, no new owner approval)
+Version 1.6 · 2026-10-05 · Amendment record (D91, owner, 5 October 2026): the web admin under `/api/admin` is specified in [Content-admin.md](Content-admin.md) and amends §0 and §5 below; no other section changes. Status: Approved: D74, 4 October 2026 (owner: «approve best practice», «q7 approved») for the v1.1 content; Approved: D75, A1 (owner, 4 October 2026: «A1 approved , best practice») for the D75 additions of version 1.2 (E31–E34, §4.10); the version 1.3, 1.4 and 1.5 additions are implementation clarifications (implementation record, no new owner approval)
 
 Owner of this draft: Solutions Architect (Role 3), for the root coordinator. This is design documentation only: no endpoint exists, every application path is Planned (D61), and implementation is not authorized until the architecture deliverables are presented and explicitly approved (D69).
 
@@ -41,7 +41,7 @@ Where sources differ, the contract plus the D-decisions are followed and the dif
 **Not specified here.**
 
 - The conditional D45 feedback endpoints (Architecture-and-data «عقد الملاحظات الشرطي», Programming-guide §6). They depend on the Day-1 gate (D43–D45) and are outside contract §7 [C-14].
-- Any HTTP content-management endpoint. None exists by design (D43/D44; Programming-guide §6: no public CRUD for CLI operations). Content work is the operator CLI (§5).
+- Any HTTP content-management endpoint. None exists by design (D43/D44; Programming-guide §6: no public CRUD for CLI operations). Content work is the operator CLI (§5). **D91 amendment (5 October 2026):** a content-manager web admin under `/api/admin` now exists as an owner-approved exception, specified in [Content-admin.md](Content-admin.md) (read, display-metadata edit, delete of unused items, withdraw and hide/show; no create, no account management). The CLI remains the only path for acquire, verify, segment, build-bank, validate, approve and publish.
 
 ## 1. Conventions
 
@@ -2165,6 +2165,8 @@ Plan-conversation v1.1 is approved as written (A1); these points are not decided
 8. **Purge of abandoned conversations.** The source allows opportunistic purging of an abandoned conversation's messages; no `DELETE` path exists in the grant posture (Database-schema OPEN-18).
 
 ## 5. Operator CLI interface (no HTTP)
+
+**D91 amendment (5 October 2026):** the statements below that no HTTP endpoint exists for content management and that the manager has no account or UI are amended by D91 for the web admin only; it is specified in [Content-admin.md](Content-admin.md) under `/api/admin`. The CLI commands in this section remain the only path for acquire, verify, segment, build-bank, validate, approve and publish.
 
 **Entry point:** `backend/scripts/content_tools.py` (`main() -> int`), which calls `app/workflow/runner.py` (Programming-guide). No HTTP endpoint exposes any of these commands, and none is planned: the content manager and the reviewer have no application account and no UI (PRD roles matrix; D43/D44). Version 1.5 adds §5.5, an implementation record of the CLI as built for D83.
 

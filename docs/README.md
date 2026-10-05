@@ -36,6 +36,7 @@
 | [Competition-alignment.md](Competition-alignment.md) | متطلبات التحدي وأدلتها وحدود المطابقة |
 | [Delivery-and-baseline.md](Delivery-and-baseline.md) | شروط الجاهزية والتوثيق والتسليم، وحالة تجهيز المزودين، وسجل الأدوات والتراخيص (الإصدار ١٧: ملاحظة مؤرخة بأن القيمة المقاسة لـ QATRA_TRUSTED_XFF_DEPTH هي 4) |
 | [Additional-features.md](Additional-features.md) | حد النطاق للميزات المؤجلة والمشروطة |
+| [Content-admin.md](Content-admin.md) | واجهة ويب لمدير المحتوى (D91، ٥ أكتوبر ٢٠٢٦): `/api/admin` والشاشات AD-00 إلى AD-06، قراءة وتعديل بيانات العرض وحذف ما لا يستخدم وسحب وإخفاء، دون إضافة ودون إدارة حسابات؛ الاتجاه Approved، والقواعد التفصيلية Needs Review، والتنفيذ In progress |
 
 المراجع الضرورية: [دليل التحدي](../challenge/README.md#challenge-guide)، [المرجعية العلمية](../challenge/README.md#scientific-source-reference)، [سجل استشهاد الشروط](../references/terms-citation.md). صور Design-system داخل visuals/ مراجع بصرية محفوظة دون تغيير؛ تتقدم عليها المتطلبات والقرارات.
 
