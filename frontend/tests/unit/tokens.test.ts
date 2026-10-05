@@ -54,8 +54,8 @@ describe("design tokens (docs/UI-tokens.md 2.1 and 2.2)", () => {
   it("uses the documented font stacks, with Cairo kept out of the religious stacks", () => {
     expect(tokens.get("--q-font-ui-ar")).toMatch(/^"Cairo"/);
     expect(tokens.get("--q-font-ui-en")).toMatch(/^"Inter"/);
-    expect(tokens.get("--q-font-quran")).toMatch(/^"Amiri Quran"/);
-    expect(tokens.get("--q-font-hadith")).toMatch(/^"Amiri"/);
+    expect(tokens.get("--q-font-quran")).toMatch(/^"Scheherazade New"/);
+    expect(tokens.get("--q-font-hadith")).toMatch(/^"Scheherazade New"/);
     expect(tokens.get("--q-font-quran")).not.toContain("Cairo");
     expect(tokens.get("--q-font-hadith")).not.toContain("Cairo");
   });

@@ -79,13 +79,12 @@ test.describe("original-text fonts render the six Uthmani marks (screenshots att
           document.querySelector("main")?.append(host);
         }, MARK_SAMPLE);
         await page.evaluate(async (sample) => {
-          await Promise.all([document.fonts.load('26px "Amiri Quran"', sample), document.fonts.load('24px "Amiri"', sample)]);
+          await document.fonts.load('26px "Scheherazade New"', sample);
           await document.fonts.ready;
         }, MARK_SAMPLE);
 
         const loaded = await page.evaluate(() => [...document.fonts].filter((face) => face.status === "loaded").map((face) => face.family.replace(/"/g, "")));
-        expect(loaded).toContain("Amiri Quran");
-        expect(loaded).toContain("Amiri");
+        expect(loaded).toContain("Scheherazade New");
 
         // The rendered family is the original-text font, and nothing clipped the marks.
         for (const kind of ["quran", "hadith"]) {
@@ -94,7 +93,7 @@ test.describe("original-text fonts render the six Uthmani marks (screenshots att
             const style = getComputedStyle(element);
             return { family: style.fontFamily, overflow: style.overflow, scrollWidth: element.scrollWidth, clientWidth: element.clientWidth };
           });
-          expect(info.family).toMatch(kind === "quran" ? /^"Amiri Quran"/ : /^Amiri/);
+          expect(info.family, kind).toMatch(/^"Scheherazade New"/);
           expect(info.overflow).toBe("visible");
           expect(info.scrollWidth).toBeLessThanOrEqual(info.clientWidth);
         }

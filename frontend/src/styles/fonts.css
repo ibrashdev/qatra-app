@@ -1,17 +1,9 @@
-/* Amiri Quran and Amiri (SIL OFL-1.1) from the npm packages, arabic subset, weight 400. Fontsource ships font-display: swap; original text must never fall back to a font without the Uthmani marks, hence block. */
+/* Scheherazade New (SIL OFL-1.1) from the npm package, arabic subset, weight 400, for the Quran and hadith text. Fontsource ships font-display: swap; original text must never fall back to a font without the Uthmani marks, hence block. Replaces Amiri and Amiri Quran, which draw a final alef maqsura after lam like a fatha (owner decision, 5 October 2026). */
 
 @font-face {
-  font-family: "Amiri Quran";
+  font-family: "Scheherazade New";
   font-style: normal;
   font-weight: 400;
   font-display: block;
-  src: url("../../node_modules/@fontsource/amiri-quran/files/amiri-quran-arabic-400-normal.woff2") format("woff2");
-}
-
-@font-face {
-  font-family: "Amiri";
-  font-style: normal;
-  font-weight: 400;
-  font-display: block;
-  src: url("../../node_modules/@fontsource/amiri/files/amiri-arabic-400-normal.woff2") format("woff2");
+  src: url("../../node_modules/@fontsource/scheherazade-new/files/scheherazade-new-arabic-400-normal.woff2") format("woff2");
 }
