@@ -134,9 +134,10 @@ async function pressSegment(page: Page, name: string) {
 function termsChunk(): string {
   const directory = path.resolve(process.cwd(), ".next/static/chunks");
   // A sentence of the terms text only: the shorter «الكتاب كما هو» is also in the catalog Notice of S-07 and S-25.
-  const file = readdirSync(directory).find((name) => name.endsWith(".js") && readFileSync(path.join(directory, name), "utf8").includes("التطبيق يحفظ الكتاب كما هو"));
-  if (file === undefined) throw new Error("the chunk that holds the terms text was not found in the build");
-  return file;
+  // The bundler may give the text of S-03 and the one of S-26 a chunk each (the text is large), so every chunk that holds it is named, as a glob alternative.
+  const files = readdirSync(directory).filter((name) => name.endsWith(".js") && readFileSync(path.join(directory, name), "utf8").includes("التطبيق يحفظ الكتاب كما هو"));
+  if (files.length === 0) throw new Error("the chunk that holds the terms text was not found in the build");
+  return files.length === 1 ? (files[0] as string) : `{${files.join(",")}}`;
 }
 
 test.describe("layout and design (UI-screens S-03 sections 2, 5 and 6)", () => {
@@ -168,7 +169,8 @@ test.describe("layout and design (UI-screens S-03 sections 2, 5 and 6)", () => {
       await expect(page.getByRole("heading", { level: 3 })).toHaveCount(7);
       await expect(page.getByRole("heading", { level: 3 })).toHaveText([...copy.topics]);
       await expect(page.getByRole("list")).toHaveCount(1);
-      await expect(page.getByRole("listitem")).toHaveCount(9);
+      // Nine rows of the data list and the tenth: the downloaded plan and local events (F13).
+      await expect(page.getByRole("listitem")).toHaveCount(10);
     });
 
     test(`${language}: 24 px between topics, 16 px between paragraphs, 8 px between list items, and the gaps around headings, the divider and the button`, async ({ page }) => {
@@ -200,7 +202,7 @@ test.describe("layout and design (UI-screens S-03 sections 2, 5 and 6)", () => {
       }
       expect(wrong).toEqual([]);
       const items = await page.evaluate(() => [...document.querySelectorAll("main li")].map((item) => ({ top: item.getBoundingClientRect().top, bottom: item.getBoundingClientRect().bottom })));
-      expect(items).toHaveLength(9);
+      expect(items).toHaveLength(10);
       for (let index = 1; index < items.length; index += 1) expect(Math.round((items[index] as { top: number }).top - (items[index - 1] as { bottom: number }).bottom), `item ${index}`).toBe(8);
     });
 

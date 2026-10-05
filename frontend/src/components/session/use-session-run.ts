@@ -11,6 +11,7 @@ import { holdSessionResult } from "@/lib/session/result-handoff";
 import { SessionEventQueue, type FlushResult } from "./event-queue";
 import { gradeLocally } from "./local-grade";
 import { clearResume, rememberResume } from "./resume-store";
+import { isPromiseLike, type RunBackend, type RunQueue } from "./run-backend";
 import { activityEvent, answerEvent, newEventId } from "./session-events";
 import { classifySessionError, retriesByItself, type SessionFailure } from "./session-failure";
 import { firstIndexFrom, nextStep, primaryAction, recallTarget, type PrimaryAction } from "./session-model";
@@ -40,6 +41,8 @@ export interface SessionRunInput {
   snapshot: SessionSnapshot;
   initialDaily: DailyProgress;
   resumeAt: number | null;
+  // The offline shell passes a backend (durable enveloped outbox, local finish, shell navigation). Online it is absent and nothing below changes.
+  backend?: RunBackend;
 }
 
 const RETRY_BASE_MS = 3000;
@@ -77,7 +80,7 @@ export interface SessionRun {
 
 // The runtime of S-19: the step machine, the answers and their first verdict, the outbox of events, the active time, the finish and the pause.
 // The snapshot is only read. The server's answers are authoritative: `daily` and each result replace the local figures.
-export function useSessionRun({ snapshot, initialDaily, resumeAt }: SessionRunInput): SessionRun {
+export function useSessionRun({ snapshot, initialDaily, resumeAt, backend }: SessionRunInput): SessionRun {
   const router = useRouter();
   const { client } = useApiRuntime();
   const steps = snapshot.steps;
@@ -109,8 +112,14 @@ export function useSessionRun({ snapshot, initialDaily, resumeAt }: SessionRunIn
   const retryTimer = useRef<number | null>(null);
   const announcementKey = useRef(0);
   const flushAgain = useRef<() => void>(() => undefined);
+  // The backend's methods are read when they run, so a changing banner never re-creates the callbacks below.
+  const backendRef = useRef(backend);
+  useEffect(() => {
+    backendRef.current = backend;
+  });
+  const storing = useRef(false);
 
-  const [queue] = useState(() => new SessionEventQueue({ send: (events: SessionEvent[]) => postSessionEvents(client, sessionId, events) }));
+  const [queue] = useState<RunQueue>(() => backend?.queue ?? new SessionEventQueue({ send: (events: SessionEvent[]) => postSessionEvents(client, sessionId, events) }));
 
   const announce = useCallback((text: string) => {
     announcementKey.current += 1;
@@ -118,7 +127,9 @@ export function useSessionRun({ snapshot, initialDaily, resumeAt }: SessionRunIn
   }, []);
 
   const goToday = useCallback(() => {
-    router.replace("/today");
+    const offline = backendRef.current;
+    if (offline !== undefined) offline.leave();
+    else router.replace("/today");
   }, [router]);
 
   useEffect(() => {
@@ -184,7 +195,9 @@ export function useSessionRun({ snapshot, initialDaily, resumeAt }: SessionRunIn
       const failure = classifySessionError(error);
       if (failure.kind === "aborted") return null;
       if (failure.kind === "session_ended") {
-        redirectToLogin(router, "/today");
+        const offline = backendRef.current;
+        if (offline !== undefined) offline.sessionEnded();
+        else redirectToLogin(router, "/today");
         return null;
       }
       if (failure.kind === "not_found") {
@@ -231,7 +244,9 @@ export function useSessionRun({ snapshot, initialDaily, resumeAt }: SessionRunIn
     onInterval: (startedAtMs, endedAtMs) => {
       const event = activityEvent(startedAtMs, endedAtMs);
       if (event === null) return;
-      queue.enqueue(event);
+      const stored = queue.enqueue(event);
+      // A durable queue settles when the interval is committed; a failed write is the backend's to show, and the interval is lost with it.
+      if (isPromiseLike(stored)) stored.catch((error: unknown) => backendRef.current?.storageFailed(error));
       void runFlush();
     },
   });
@@ -274,6 +289,13 @@ export function useSessionRun({ snapshot, initialDaily, resumeAt }: SessionRunIn
     }
     setSync(null);
     try {
+      const offline = backendRef.current;
+      if (offline !== undefined) {
+        // G-03: no E22 for a prepared descriptor. The shell closes the run on the device and shows the local, provisional summary.
+        await offline.finish();
+        clearResume(sessionId);
+        return;
+      }
       const complete = await completeSession(client, sessionId, { idempotencyKey });
       if (!mounted.current) return;
       holdSessionResult({ sessionId, complete });
@@ -300,7 +322,7 @@ export function useSessionRun({ snapshot, initialDaily, resumeAt }: SessionRunIn
   }, [index, steps, finish]);
 
   const check = useCallback(() => {
-    if (current === null || current.type !== "question" || checked || finishing) return;
+    if (current === null || current.type !== "question" || checked || finishing || storing.current) return;
     const { question } = current;
     const payload = finalizeAnswer(question, draft.answer);
     if (payload === null) {
@@ -312,14 +334,33 @@ export function useSessionRun({ snapshot, initialDaily, resumeAt }: SessionRunIn
     const hintUsed = draft.hint !== null;
     const event = answerEvent({ questionId: question.questionId, answer: payload, hintUsed, occurredAtMs: now, durationMs: now - shownAt.current });
     eventQuestion.current.set(event.clientEventId, question.questionId);
-    queue.enqueue(event);
+    const stored = queue.enqueue(event);
     const graded = gradeLocally(question, payload, hintUsed);
     const target = graded.correct ? null : recallTarget(steps, question);
     const result = target === null ? graded : { ...graded, expected: { word: target } };
-    setAnswered((previous) => ({ ...previous, [question.questionId]: { clientEventId: event.clientEventId, hintUsed, result } }));
-    setDraft((previous) => ({ ...previous, answer: payload, error: null }));
-    void runFlush();
-    focusPrimary();
+    const show = () => {
+      setAnswered((previous) => ({ ...previous, [question.questionId]: { clientEventId: event.clientEventId, hintUsed, result } }));
+      setDraft((previous) => ({ ...previous, answer: payload, error: null }));
+      void runFlush();
+      focusPrimary();
+    };
+    if (!isPromiseLike(stored)) {
+      show();
+      return;
+    }
+    // A durable queue: the feedback is shown only after the answer is committed to IndexedDB. A failed write shows none and the learner may press again.
+    storing.current = true;
+    stored.then(
+      () => {
+        storing.current = false;
+        if (mounted.current) show();
+      },
+      (error: unknown) => {
+        storing.current = false;
+        eventQuestion.current.delete(event.clientEventId);
+        if (mounted.current) backendRef.current?.storageFailed(error);
+      },
+    );
   }, [current, checked, finishing, draft, queue, runFlush, focusPrimary, steps]);
 
   const press = useCallback(() => {

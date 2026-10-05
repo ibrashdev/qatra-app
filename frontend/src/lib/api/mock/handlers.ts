@@ -1,6 +1,7 @@
 import { passwordViolations, usernameViolations } from "@/lib/auth/account-rules";
 import type { HealthResponse, LoginResponse, RegisterResponse } from "../types";
 import { MOCK_LOGINS, MOCK_PASSWORD, MOCK_RECOVERY_CODE, MOCK_REGISTRATIONS, MOCK_TERMS_VERSION, mockCatalog, mockProfile, mockToday, mockTodayWithoutPlan } from "./fixtures";
+import { offlineMockHandlers } from "./offline-handlers";
 import { planChatHandlers, type MockPlanChatStore } from "./plan-chat";
 import { planMockHandlers } from "./plan-handlers";
 import { sessionMockHandlers } from "./session-handlers";
@@ -144,6 +145,7 @@ export const mockHandlers: Readonly<Record<string, MockHandler>> = {
   ...todayMockHandlers, // E19 and E20 `daily` (S-11)
   ...planMockHandlers, // E15, E17 and E30 (S-12, S-13)
   ...sessionMockHandlers, // E20 daily snapshot, E21, E22 (S-19); after today's handlers so its POST /sessions wins
+  ...offlineMockHandlers, // E23 to E25, and E21 and E22 for the prepared sessions of an offline snapshot (S-32); after the session handlers it wraps
   "GET /catalog": () => ({ status: 200, body: mockCatalog }),
   "GET /today": (_request, scenario) => {
     if (!scenario.signedIn) return unauthenticated();
