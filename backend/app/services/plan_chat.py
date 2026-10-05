@@ -449,7 +449,10 @@ class PlanChatService:
             placement=PlacementView(
                 known_words=estimate.known_words, passage_count=estimate.passage_count
             ),
-            messages=[MessageView(role=m.role, text=m.text) for m in history],  # type: ignore[arg-type]
+            messages=[
+                MessageView(role=m.role, text=policy.redact_contact_details(m.text))  # type: ignore[arg-type]
+                for m in history
+            ],
             learning_record=self._learning_record(ctx, chat),
         )
 

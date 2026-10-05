@@ -208,6 +208,61 @@ def test_the_real_provider_sends_only_the_allowed_payload_over_http() -> None:
     assert (row.model, row.input_tokens, row.output_tokens) == ("free/a:free", 9, 3)
 
 
+def test_contact_details_in_learner_text_never_reach_the_wire() -> None:
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/models"):
+            data = [
+                {
+                    "id": "free/a:free",
+                    "pricing": {"prompt": "0", "completion": "0"},
+                    "supported_parameters": ["response_format"],
+                }
+            ]
+            return httpx.Response(200, json={"data": data})
+        seen.append(request)
+        content = json.dumps({"intent": "question", "reply": "Fine."})
+        return httpx.Response(
+            200,
+            json={
+                "choices": [{"message": {"content": content}}],
+                "usage": {"prompt_tokens": 9, "completion_tokens": 3},
+            },
+        )
+
+    settings = make_settings(
+        OPENROUTER_API_KEY="dummy-key",
+        OPENROUTER_MODELS="free/a:free",
+        QATRA_CHAT_MODEL_FOR_LEARNERS=True,
+    )
+    provider = OpenRouterProvider(settings, httpx.MockTransport(handler))
+    base = make_env()
+    service = build_plan_chat_service(
+        settings,
+        planning=base.planning,
+        writer=base.writer,
+        learning=base.learning,
+        repository=base.repo,
+        ledger=base.ledger,
+        provider=provider,
+        clock=base.clock,
+    )
+    email, phone, link = "learner.name@example.com", "+971 50 123 4567", "https://example.org/me"
+    goal = f"I want a calm plan, mail {email} or call {phone} or see {link} thanks"
+    chat = service.create_conversation(
+        ctx(), CreatePlanChatRequest.model_validate(create_body(goalText=goal))
+    )
+    (request,) = seen
+    wire = request.content.decode()
+    for private in (email, phone, link, "learner.name", "123 4567", "example.org"):
+        assert private not in wire
+    assert "[redacted]" in wire
+    stored = base.repo.get(USER_ID, chat.chat_id)
+    assert stored is not None
+    assert any(email in m.text for m in stored.messages)  # stored text is unchanged
+
+
 def test_ai_usage_rows_hold_no_text_and_no_account() -> None:
     goal = "a very distinctive goal sentence about the schedule"
     env = make_env(model_reply("question", "A distinctive reply."))
