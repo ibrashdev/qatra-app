@@ -569,6 +569,42 @@ _PRIVACY = re.compile(
     r"\b(?:password|passcode|username|e-?mail|phone number|address|device id|ip address)\b"
     r"|كلمه المرور|كلمة المرور|اسم المستخدم|البريد الالكتروني|رقم الهاتف|رقم الجوال"
 )
+# --- contact-detail redaction (D89): applied only to the outgoing model payload ---
+
+REDACTION_TOKEN = "[redacted]"
+_EMAIL = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
+_LINK = re.compile(
+    r"https?://\S+|www\.\S+"
+    r"|\b[\w-]+(?:\.[\w-]+)*\.(?:com|net|org|io|app|me|ae|sa|info|co|dev|ly|gl|edu|gov)\b(?:/\S*)?",
+    re.IGNORECASE,
+)
+_HANDLE = re.compile(r"(?<![\w@])@[A-Za-z0-9_.]{2,}")
+# Digits with at most two separator characters between them (so ") " passes but " - " splits a
+# date range); a candidate is a phone number only with 9+ digits (str.isdigit: Arabic-Indic too).
+_PHONE_CANDIDATE = re.compile(r"\+?\(?\d(?:[\s().-]{0,2}\d){6,}")
+_MIN_PHONE_DIGITS = 9
+
+
+def _redact_phone(match: re.Match[str]) -> str:
+    candidate = match.group(0)
+    if sum(1 for ch in candidate if ch.isdigit()) < _MIN_PHONE_DIGITS:
+        return candidate
+    return REDACTION_TOKEN
+
+
+def redact_contact_details(text: str) -> str:
+    """Replace emails, links, @handles and phone numbers (9+ digits) with ``REDACTION_TOKEN``.
+
+    Pure. Text with nothing to redact is returned unchanged (D89). Dates such as 2026-10-20 and
+    20/10/2026 have 8 digits and survive, as do plan numbers.
+    """
+    out = _EMAIL.sub(REDACTION_TOKEN, text)
+    out = _LINK.sub(REDACTION_TOKEN, out)
+    out = _HANDLE.sub(REDACTION_TOKEN, out)
+    out = _PHONE_CANDIDATE.sub(_redact_phone, out)
+    return text if out == text else out
+
+
 _DAY_UNIT = re.compile(r"^\s*[-–]?\s*(?:days?\b|يوم|ايام|أيام|يوما|يومًا)")
 _MINUTE_UNIT = re.compile(r"^\s*[-–]?\s*(?:minutes?\b|mins?\b|دقيق|دقائق|دقايق)")
 _WORD_UNIT = re.compile(r"^\s*[-–]?\s*(?:words?\b|كلمة|كلمات)")
