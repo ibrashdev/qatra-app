@@ -4,6 +4,7 @@ export { planChatHandlers, type MockPlanChatStore } from "./plan-chat";
 export { MOCK_SESSION_ID, mockProgress, todayMockHandlers } from "./today-handlers";
 export { MOCK_COMPLETED_PLAN_ID, MOCK_PAUSED_PLAN_ID, mockProgressWithOtherPlans, planMockHandlers } from "./plan-handlers";
 export { MOCK_QUESTION_IDS, MOCK_RECALL_WORD, mockSessionSnapshot, sessionMockHandlers } from "./session-handlers";
+export { placementMockHandlers, withPlacementMock } from "./placement-handlers";
 export { MOCK_CHAT_GOALS, MOCK_CHAT_TEXTS, MOCK_FALLBACK, MOCK_QUICK_REPLIES, MOCK_REDIRECT, MOCK_REFUSAL } from "./plan-chat-fixtures";
 export {
   MOCK_HADITH_EDITION_ID,

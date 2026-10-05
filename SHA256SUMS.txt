@@ -509,8 +509,8 @@ ed0f38bec97b8542e72172c8cc2f3177759ed0885bc47c823ffe1a3086646171  frontend/src/l
 29bb5cddf9dbbc227443d87ea34f2c5dfe4d44e698442c66b205668a773f1c75  frontend/src/lib/api/errors.ts
 47c3d383e3431192739e37b011031bb87837cfebeef96a34d235c2dc2b8ea8db  frontend/src/lib/api/mock/fixtures.ts
 4cf42b8aea9688be62861ed43a8e422a3b9e359206bf7834316f2e53aa71d877  frontend/src/lib/api/mock/handlers.ts
-d5eceb498e1a759cc03f45ff734e8ea17bacf535d2f647050d558ff0055980ae  frontend/src/lib/api/mock/index.ts
-23a7dbffa01481786ebc03d18e9b41f22928e02aae9ef95e378a41b30d798bba  frontend/src/lib/api/mock/mock-fetch.ts
+cdf07ff51b96c7b98ddb2ab94b33caf624050342a001a9253bb1f2318d5bca7a  frontend/src/lib/api/mock/index.ts
+5cd2fd279c51dee18ebb00ae813da9ddf5d2543bb9dc859c62b89793ef9af3eb  frontend/src/lib/api/mock/mock-fetch.ts
 7ea0afb4b564816f8e41e6787dc17a2408358fac23708af158af8fe77726415b  frontend/src/lib/api/mock/placement-handlers.ts
 60fe47be18b5e361f4afe009d5dcb36b93a8843825f658364e624bb90a1f505c  frontend/src/lib/api/mock/plan-chat-fixtures.ts
 0aee92ea961b01d9e593646285c4542e2db40785558ba6ea2a848c16de498df4  frontend/src/lib/api/mock/plan-chat.ts
