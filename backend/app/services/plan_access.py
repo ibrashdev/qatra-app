@@ -1,7 +1,8 @@
 """The plan and calendar ports of E20 (package B5), bound to package B4's plan service.
 
 A plan comes back with the values of the version in force today (D57) and the row id of its
-current version; the learning date is the one of the account's time zone.
+current version; the learning date is the one of the account's time zone. The calendar also names
+that zone (``learning_zone``), which E21 uses to date an activity event by its ``startedAt``.
 """
 
 from __future__ import annotations
@@ -11,7 +12,7 @@ from uuid import UUID
 
 from app.dependencies import SessionContext
 from app.errors import AppError, ErrorCode
-from app.repositories.plans import PlanInForce
+from app.repositories.plans import LearningZone, PlanInForce
 from app.services.plans import PlanService
 from app.services.sessions import PlanSnapshot
 
@@ -56,3 +57,6 @@ class PlanServiceCalendar:
 
     def learning_date(self, ctx: SessionContext) -> date:
         return self._plans.learning_date(ctx)
+
+    def learning_zone(self, ctx: SessionContext) -> LearningZone:
+        return self._plans.learning_zone(ctx)
