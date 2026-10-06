@@ -13,6 +13,7 @@ export const SOURCE: SourceRef = {
   editionLabel: "نسخة اصطناعية",
   bookTitleAr: "كتاب اصطناعي",
   reference: "المرجع ١",
+  referenceAr: "الحديث الأول",
   url: "https://example.test/reference/1",
   pages: [],
 };

@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
-// Cairo (arabic) and Inter (latin) from the Fontsource subset entry files; Amiri Quran and Amiri are declared in fonts.css.
+// Cairo (arabic) and Inter (latin) from the Fontsource subset entry files; Scheherazade New (original text) is declared in fonts.css.
 import "@fontsource/cairo/arabic-400.css";
 import "@fontsource/cairo/arabic-600.css";
 import "@fontsource/cairo/arabic-700.css";

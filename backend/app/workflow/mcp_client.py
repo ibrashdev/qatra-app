@@ -38,6 +38,7 @@ from urllib.parse import urlsplit
 
 import httpx
 
+from app.domain.normalization import has_arabic_letter, has_latin_letter
 from app.workflow.editions import (
     MCP_ENDPOINT,
     MCP_HOST,
@@ -68,6 +69,9 @@ _HEADER_RE = re.compile(r'^\[Surah\s+(\d+),\s*translation\s+"[^"]*"\]\s*$', re.M
 _MARKER_RE = re.compile(r"^\[(\d{1,3}):(\d{1,3})\]$")
 _SOURCE_RE = re.compile(r"^Source:[ \t]*(\S+)[ \t\r]*$", re.MULTILINE)
 _BLOCK_TAGS = ("EXACT", "ATTRIBUTION", "COMMENTARY")
+# A decoration line of the live envelope (box-drawing rule or the "RETRIEVED FROM <publisher>"
+# banner). It is never a title and never part of a narration.
+_BANNER_RE = re.compile(r"[\u2500-\u257f]|RETRIEVED\s+FROM", re.IGNORECASE)
 
 
 def quran_arguments(surah: int) -> dict[str, Any]:
@@ -152,14 +156,41 @@ def parse_quran_response(text: str) -> list[QuranRecord]:
     return records
 
 
+def _after_framing(block: str) -> str:
+    """The [EXACT] body without the publisher's framing lines before the narration.
+
+    The live ``get_hadith`` answer puts an English reminder line inside the block, ahead of the
+    Arabic narration. Leading lines without any Arabic-script letter are dropped, up to the first
+    line that has one; everything from that line on is returned untouched (nothing is rewritten:
+    harakat, zero-width characters and punctuation stay as received). Empty when no line has an
+    Arabic letter.
+    """
+    position = 0
+    while True:
+        newline = block.find("\n", position)
+        end = len(block) if newline == -1 else newline
+        if has_arabic_letter(block[position:end]):
+            return block[position:]
+        if newline == -1:
+            return ""
+        position = newline + 1
+
+
 def parse_hadith_response(text: str, hadeethenc_id: int, forty_number: int) -> HadithRecord:
     """Record of a ``get_hadith`` answer. The commentary block is never read.
 
     ``hadeethenc_id`` is the argument of the call; the ``Source:`` URL must carry the same id.
+    The narration, narrator and grade must be Arabic: a Latin letter left after the framing is
+    removed fails the parse (fail closed) instead of reaching the stored records.
     """
-    narration = (_block(text, "EXACT", required=True) or "").strip(_LAYOUT_WS)
-    if not narration:
+    block = (_block(text, "EXACT", required=True) or "").strip(_LAYOUT_WS)
+    if not block:
         raise McpParseError("the [EXACT] block is empty")
+    narration = _after_framing(block).strip(_LAYOUT_WS)
+    if not narration:
+        raise McpParseError("the [EXACT] block has no Arabic narration line")
+    if has_latin_letter(narration):
+        raise McpParseError("the narration still contains Latin letters after the framing")
     url = _source_url(text)
     if hadith_url_id(url) != hadeethenc_id:
         raise McpParseError("the 'Source:' URL does not carry the requested hadith id")
@@ -167,12 +198,14 @@ def parse_hadith_response(text: str, hadeethenc_id: int, forty_number: int) -> H
     attribution = _block(text, "ATTRIBUTION", required=False) or ""
     narrator = _labelled_value(attribution, "Narrator")
     grade = _labelled_value(attribution, "Grade")
+    if has_latin_letter(narrator) or has_latin_letter(grade):
+        raise McpParseError("the narrator or grade contains Latin letters")
 
     title = ""
     languages: list[str] = []
     for raw_line in _outside_blocks(text).splitlines():
         line = raw_line.strip(_LAYOUT_WS)
-        if not line or line.startswith(("Source:", "[")):
+        if not line or line.startswith(("Source:", "[")) or _BANNER_RE.search(line):
             continue
         if not title:
             title = line

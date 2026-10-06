@@ -344,6 +344,27 @@ def test_e16_creates_the_plan_exactly_as_confirmed(client: TestClient, env: Env)
     assert str(stored.plan_id) == body["planId"]
 
 
+def test_e16_accepts_a_confirmed_estimate_without_the_daily_amount(
+    client: TestClient, env: Env
+) -> None:
+    """A client that predates D92 echoes no ``dailyNew``; the plan is saved with the fresh one."""
+    confirmed = {key: value for key, value in EXAMPLE_ESTIMATE.items() if key != "dailyNew"}
+    response = client.post("/api/plans", json=create_body(confirmedEstimate=confirmed))
+    assert response.status_code == 201
+    assert response.json()["agreedEstimate"] == EXAMPLE_ESTIMATE
+
+
+def test_e16_stores_the_daily_amount_in_the_agreed_estimate_and_the_policy(
+    client: TestClient, env: Env
+) -> None:
+    plan = client.post("/api/plans", json=create_body()).json()
+    expected = {"unit": "ayah", "perDay": 5, "everyDays": None}
+    assert plan["agreedEstimate"]["dailyNew"] == expected
+    [version] = env.repository.versions_of(UUID(plan["planId"]))
+    assert version["policy"]["agreedEstimate"]["dailyNew"] == expected
+    assert version["policy"]["agreedEstimate"]["newWordsPerDay"] == 12  # the pace stays in words
+
+
 def test_e16_stores_version_one_with_phases_and_the_known_passages(
     client: TestClient, env: Env
 ) -> None:

@@ -32,6 +32,7 @@ ALL_COMMANDS = [
     "acquire",
     "verify",
     "segment",
+    "propose-questions",
     "build-bank",
     "validate",
     "approve",
@@ -98,7 +99,7 @@ def files(build: Path) -> list[str]:
     return sorted(str(p.relative_to(build)) for p in build.rglob("*")) if build.exists() else []
 
 
-def test_all_ten_commands_are_registered_with_help() -> None:
+def test_all_commands_are_registered_with_help() -> None:
     parser = cli.build_parser()
     action = next(
         a for a in parser._actions if getattr(a, "choices", None) and "acquire" in a.choices

@@ -13,7 +13,7 @@ test.describe("tab bar below 1024 px, side rail from 1024 px (UA-03)", () => {
     expect(Math.round((box?.y ?? 0) + (box?.height ?? 0))).toBe(VIEWPORTS.phone.height);
     expect(Math.round(box?.height ?? 0)).toBe(64);
     const items = await nav.getByRole("link").evaluateAll((links) => links.map((link) => link.getBoundingClientRect().width));
-    for (const width of items) expect(width).toBeCloseTo(VIEWPORTS.phone.width / 4, 0);
+    for (const width of items) expect(width).toBeCloseTo(VIEWPORTS.phone.width / 5, 0);
   });
 
   test("at 1280 px the rail sits at the start edge (the right in Arabic), 240 px wide, full height, and there is no bar", async ({ page }) => {

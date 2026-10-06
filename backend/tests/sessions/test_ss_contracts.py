@@ -16,6 +16,7 @@ from app.contracts_sessions import (
     AnswerExpected,
     AnswerPassageState,
     AnswerResult,
+    AyahEnd,
     ChoiceOption,
     CompleteResponse,
     CompleteSummary,
@@ -409,6 +410,7 @@ def test_a_snapshot_dumps_in_the_camel_case_shape_of_the_contract() -> None:
         "passageId",
         "path",
         "reference",
+        "referenceAr",
         "sectionTitleAr",
         "units",
         "highlight",
@@ -465,6 +467,38 @@ def test_a_dumped_snapshot_validates_back_into_the_same_steps() -> None:
             question_adapter.validate_python(question.model_dump(mode="json", by_alias=True))
             == question
         )
+
+
+def test_d90_fields_are_additive_a_session_stored_before_them_still_validates() -> None:
+    steps = [LearnStep(type="learn", passage=passage_view())] + [
+        QuestionStep(type="question", question=q) for q in all_questions()
+    ]
+    adapter = TypeAdapter(list[Step])
+    dumped = adapter.dump_python(steps, mode="json", by_alias=True)
+    assert (
+        dumped[0]["passage"]["referenceAr"] == ""
+        and dumped[0]["passage"]["source"]["referenceAr"] == ""
+    )
+    assert dumped[1]["question"]["context"]["ayahEnds"] == []
+    for step in dumped:
+        body = step["passage"] if step["type"] == "learn" else step["question"]
+        body.pop("referenceAr", None)
+        body["source"].pop("referenceAr")
+        if "context" in body:
+            body["context"].pop("ayahEnds")
+    assert adapter.validate_python(dumped) == steps  # the defaults fill what an old row lacks
+
+
+def test_an_ayah_end_is_a_reference_and_a_number_next_to_the_tokens() -> None:
+    context = QuestionContext(
+        before=[TokenView(ref="1:2", text="آخر")],
+        ayah_ends=[AyahEnd(after_ref="1:2", number=1)],
+    )
+    assert context.model_dump(mode="json", by_alias=True) == {
+        "before": [{"ref": "1:2", "text": "آخر"}],
+        "after": [],
+        "ayahEnds": [{"afterRef": "1:2", "number": 1}],
+    }
 
 
 def test_the_question_union_is_decided_by_type_and_refuses_a_foreign_shape() -> None:

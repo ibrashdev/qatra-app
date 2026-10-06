@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const navigation = vi.hoisted(() => ({ pathname: "/terms" }));
 vi.mock("next/navigation", () => ({ usePathname: () => navigation.pathname }));
 
+import { RoundShell } from "@/components/games/RoundShell";
 import { AppShell } from "@/components/ui/AppShell";
 import { FocusShell } from "@/components/ui/FocusShell";
 import { PublicShell } from "@/components/ui/PublicShell";
@@ -206,8 +207,18 @@ describe("the top bar is sticky while it is one row and static once it has wrapp
   });
 
   it("keeps its other classes, including those of a shell that hides it from 1024 px", () => {
-    render(<TopBar className="rail:hidden">content</TopBar>);
-    expect(header()).toHaveClass("rail:hidden", "sticky", "bg-page", "z-(--q-z-sticky)");
+    render(<TopBar className="mx-auto">content</TopBar>);
+    expect(header()).toHaveClass("mx-auto", "sticky", "bg-page", "z-(--q-z-sticky)");
+  });
+
+  it("declares itself to the page's scroll padding: a bar of every width, or one that is shown below 1024 px only (and hidden from there)", () => {
+    const always = render(<TopBar>content</TopBar>);
+    expect(header()).toHaveAttribute("data-bar", "top");
+    expect(header()).not.toHaveClass("rail:hidden");
+    always.unmount();
+    render(<TopBar below="rail">content</TopBar>);
+    expect(header()).toHaveAttribute("data-bar", "top-below-rail");
+    expect(header()).toHaveClass("rail:hidden", "sticky");
   });
 
   it("has no transition of its own, so that reduced motion has nothing to switch off", () => {
@@ -230,6 +241,7 @@ describe("every shell with a top bar follows the rule", () => {
     navigation.pathname = "/today";
     renderWithApp(<AppShell>content</AppShell>);
     expect(header()).toHaveClass("rail:hidden");
+    expect(header()).toHaveAttribute("data-bar", "top-below-rail");
     resize(header(), { oneRow: 56, height: 101 });
     expect(header()).toHaveAttribute("data-wrapped", "true");
   });
@@ -289,14 +301,86 @@ describe("the hook", () => {
   });
 });
 
-// The scroll padding of the page reserves the room of a sticky bar above a focused control (UI-tokens 7, 2.4.11). A bar that is static
-// covers nothing, so the page must stop reserving that room (checked in the browser by tests/e2e/top-bar.spec.ts).
-describe("the page's scroll padding follows the bar", () => {
-  const css = readFileSync(path.resolve(__dirname, "../../src/app/globals.css"), "utf8");
+// Every sticky bar says it is on the page with data-bar, and the page's scroll padding (globals.css) keeps the room of exactly those bars at
+// the width of the window (checked in the browser by tests/e2e/top-bar.spec.ts and tests/e2e/scroll-padding.spec.ts).
+describe("every sticky bar declares itself to the page's scroll padding", () => {
+  const bars = (): string[] => [...document.querySelectorAll("[data-bar]")].map((element) => `${element.tagName.toLowerCase()}:${element.getAttribute("data-bar")}`);
 
-  it("reserves the room of one bar and the notch by default, and only the notch and 8 px while a wrapped bar is on the page", () => {
-    expect(css).toMatch(/html\s*\{[^}]*scroll-padding-block-start:\s*calc\(var\(--q-size-appbar\)\s*\+\s*env\(safe-area-inset-top, 0px\)\s*\+\s*var\(--q-space-8\)\);/);
-    expect(css).toMatch(/html:has\(header\[data-wrapped="true"\]\)\s*\{\s*scroll-padding-block-start:\s*calc\(env\(safe-area-inset-top, 0px\)\s*\+\s*var\(--q-space-8\)\);\s*\}/);
+  it("the public shell: a top bar of every width, and no bottom bar", () => {
+    renderWithApp(<PublicShell>content</PublicShell>);
+    expect(bars()).toEqual(["header:top"]);
+  });
+
+  it("the focus shell: a top bar of every width, and a bottom bar only when it has an action bar", () => {
+    const plain = renderWithApp(<FocusShell title="t">content</FocusShell>);
+    expect(bars()).toEqual(["header:top"]);
+    plain.unmount();
+    renderWithApp(
+      <FocusShell title="t" actionBar={<button type="button">متابعة</button>}>
+        content
+      </FocusShell>,
+    );
+    expect(bars()).toEqual(["header:top", "div:bottom"]);
+    expect(screen.getByRole("button", { name: "متابعة" }).closest("[data-bar]")).toHaveClass("sticky", "bottom-0");
+  });
+
+  it("the app shell: the top bar and the tab bar are both shown below 1024 px only, and the side rail declares nothing", () => {
+    navigation.pathname = "/today";
+    renderWithApp(<AppShell>content</AppShell>);
+    expect(bars()).toEqual(["header:top-below-rail", "nav:bottom-below-rail"]);
+    expect(document.querySelector('[data-bar="bottom-below-rail"]')).toHaveClass("rail:hidden", "sticky", "bottom-0");
+    expect(document.querySelector('[data-bar="top-below-rail"]')).toHaveClass("rail:hidden");
+  });
+
+  it("a round: a top bar of every width, and an action bar that is sticky below 768 px only", () => {
+    const plain = renderWithApp(<RoundShell title="t" backLabel="رجوع" onBack={() => undefined}>content</RoundShell>);
+    expect(bars()).toEqual(["header:top"]);
+    plain.unmount();
+    renderWithApp(
+      <RoundShell title="t" backLabel="رجوع" onBack={() => undefined} actionBar={<button type="button">تحقق</button>}>
+        content
+      </RoundShell>,
+    );
+    expect(bars()).toEqual(["header:top", "div:bottom-below-tablet"]);
+    expect(document.querySelector('[data-bar="bottom-below-tablet"]')).toHaveClass("sticky", "tablet:static");
+  });
+});
+
+// The scroll padding of the page reserves the room of a sticky bar above a focused control (UI-tokens 7, 2.4.11). jsdom computes no style from
+// a stylesheet, so the rules are read from the source; the browser checks what they do.
+describe("the page's scroll padding follows the bars", () => {
+  const css = readFileSync(path.resolve(__dirname, "../../src/app/globals.css"), "utf8");
+  // The block of a rule, from its selector to the closing brace (the rules are flat, one level, inside the base layer or a media query).
+  const rule = (selector: string): string => {
+    const start = css.indexOf(`${selector} {`);
+    expect(start, selector).toBeGreaterThan(-1);
+    return css.slice(start, css.indexOf("}", start));
+  };
+
+  it("assumes no bar by default: only the notch and 8 px at the top and 8 px at the bottom", () => {
+    expect(rule("html")).toMatch(/scroll-padding-block-start:\s*calc\(env\(safe-area-inset-top, 0px\)\s*\+\s*var\(--q-space-8\)\);/);
+    expect(rule("html")).toMatch(/scroll-padding-block-end:\s*var\(--q-space-8\);/);
+  });
+
+  it("keeps the room of one app bar and the notch for a top bar of every width", () => {
+    expect(rule('html:has([data-bar="top"])')).toMatch(/scroll-padding-block-start:\s*calc\(var\(--q-size-appbar\)\s*\+\s*env\(safe-area-inset-top, 0px\)\s*\+\s*var\(--q-space-8\)\);/);
+  });
+
+  it("keeps only the notch and 8 px while a wrapped bar is on the page, and that rule is the more specific one", () => {
+    expect(rule('html:has(header[data-wrapped="true"])')).toMatch(/scroll-padding-block-start:\s*calc\(env\(safe-area-inset-top, 0px\)\s*\+\s*var\(--q-space-8\)\);/);
+  });
+
+  it("keeps the room of the app shell's bars below 1024 px only, and the room of an action bar where it is sticky", () => {
+    expect(css).toMatch(/@media \(width < 64rem\) \{[^@]*html:has\(\[data-bar="top-below-rail"\]\) \{[^}]*calc\(var\(--q-size-appbar\)/);
+    expect(css).toMatch(/@media \(width < 64rem\) \{[^@]*html:has\(\[data-bar="bottom-below-rail"\]\) \{[^}]*calc\(var\(--q-size-tabbar\)\s*\+\s*env\(safe-area-inset-bottom, 0px\)\s*\+\s*var\(--q-space-8\)\)/);
+    expect(rule('html:has([data-bar="bottom"])')).toContain("var(--q-room-action-bar)");
+    expect(css).toMatch(/@media \(width < 48rem\) \{[^@]*html:has\(\[data-bar="bottom-below-tablet"\]\) \{[^}]*var\(--q-room-action-bar\)/);
+    // A 48 px button between two 12 px paddings, the 1 px divider, the bottom safe area and 8 px.
+    expect(rule("html")).toMatch(/--q-room-action-bar:\s*calc\(var\(--q-size-button\)\s*\+\s*2 \* var\(--q-space-12\)\s*\+\s*var\(--q-border-width\)\s*\+\s*env\(safe-area-inset-bottom, 0px\)\s*\+\s*var\(--q-space-8\)\);/);
+  });
+
+  it("has no rule that drops the room of the bars from 1024 px for every page: the public and focus shells keep their bar there", () => {
+    expect(css).not.toMatch(/@media \(min-width: 64rem\)/);
   });
 
   it("is written with logical properties only", () => {

@@ -103,15 +103,17 @@ def test_the_first_daily_session_is_learn_then_training_then_the_end_test() -> N
     assert snapshot.edition_id == QURAN_EDITION and snapshot.bank_version == 1
     assert snapshot.learning_date == TODAY and snapshot.created_at == NOW
     # 10 minutes: capacity 25 words takes the 12-word first passage (the next one would make 35);
-    # four parts give four drills, then the end test of five questions.
-    assert kinds(snapshot) == ["learn"] + ["training"] * 4 + ["test"] * 5
+    # D92: two training batches (word choice, then word order) over its four parts, then the end
+    # test of five questions.
+    assert kinds(snapshot) == ["learn"] + ["training"] * 8 + ["test"] * 5
 
 
 @pytest.mark.parametrize(
     ("minutes", "passages_learned", "drills", "test_questions"),
-    # 15 minutes: the second passage has six parts but one merged word-order question covers two
-    # of them and serves both, so it gets five or six drills depending on the rotation.
-    [(5, 1, (4, 4), 3), (10, 1, (4, 4), 5), (15, 2, (9, 10), 7)],
+    # D92: 2/2/3 training batches over every part. 15 minutes: the second passage has six parts but
+    # a merged question can cover two of them and serve both, so a batch may be one question
+    # shorter.
+    [(5, 1, (8, 8), 3), (10, 1, (8, 8), 5), (15, 2, (26, 28), 7)],
 )
 def test_capacity_and_end_test_follow_the_session_minutes(
     minutes: int, passages_learned: int, drills: tuple[int, int], test_questions: int
@@ -195,11 +197,13 @@ def test_question_text_comes_from_the_units_and_the_context_surrounds_the_blank(
         before = [tuple(map(int, t["ref"].split(":"))) for t in context["before"]]
         after = [tuple(map(int, t["ref"].split(":"))) for t in context["after"]]
         assert all(ref < min(target) for ref in before) and all(ref > max(target) for ref in after)
-        assert {t["ref"] for t in context["before"] + context["after"]} == set(bank["contextRefs"])
+        # D92: the stored window of six words is inside the whole passage that is shown
+        assert set(bank["contextRefs"]) <= {t["ref"] for t in context["before"] + context["after"]}
         for token in context["before"] + context["after"]:
             assert token["text"] == surface(QURAN, token["ref"])
         if question["type"] == "word_order":
-            assert context == {"before": [], "after": []}
+            # D92: the passage with the part's place as the gap (see test_ss_whole_passage.py)
+            assert context["before"] or context["after"]
             tokens = question["tokens"]
             assert [t["ref"] for t in tokens] != bank["tokenRefs"]  # shuffled, never in order
             assert sorted(t["ref"] for t in tokens) == sorted(bank["tokenRefs"])
@@ -448,7 +452,7 @@ def test_reverse_order_starts_from_the_last_section_keeping_mushaf_order_inside(
 # --- composition from learner state ---------------------------------------------------------------
 
 
-def test_due_reviews_come_first_with_a_round_id_and_new_material_follows() -> None:
+def test_new_material_comes_first_then_due_reviews_with_a_round_id_then_the_end_test() -> None:
     env = Env()
     env.plans.update(PLAN_ID, session_minutes=10)
     first_passage = QURAN_PASSAGES[0]
@@ -460,7 +464,12 @@ def test_due_reviews_come_first_with_a_round_id_and_new_material_follows() -> No
     roles = kinds(snapshot)
     review = [q for q in questions_json(snapshot) if q["role"] == "review"]
     assert len(review) == 2  # a 4-part passage: a round of two questions
-    assert roles[:2] == ["review", "review"]  # reviews before everything else
+    # D92: the lesson and its training batches, then the due round, then the end test
+    assert roles[0] == "learn"
+    first_review = roles.index("review")
+    assert roles[1:first_review] and set(roles[1:first_review]) == {"training"}
+    assert roles[first_review : first_review + 2] == ["review", "review"]
+    assert set(roles[first_review + 2 :]) == {"test"}
     assert {q["reviewRoundId"] for q in review} != {None} and len(
         {q["reviewRoundId"] for q in review}
     ) == 1
@@ -509,11 +518,19 @@ def test_a_passage_known_from_placement_gets_a_quick_drill_instead_of_a_learn_st
     env = Env()
     env.plans.update(PLAN_ID, known_passage_ids=frozenset({QURAN_PASSAGES[0]}), session_minutes=5)
     snapshot, _ = env.daily()
-    roles = kinds(snapshot)
+    steps = steps_json(snapshot)
     first = [q for q in questions_json(snapshot) if q["passageId"] == str(QURAN_PASSAGES[0])]
-    assert roles[:2] == ["training", "training"]  # a 4-part passage: two questions, no learn step
+    assert len(first) >= 2  # a 4-part passage: a drill of two questions, no learn step
     assert all(q["role"] != "review" and q["reviewRoundId"] is None for q in first[:2])
     assert [v["passageId"] for v in learn_json(snapshot)] == [str(QURAN_PASSAGES[1])]
+    # D92: the new passage is taught first; the known passage's quick drill comes after it
+    assert steps[0]["type"] == "learn"
+    drill_at = next(
+        i
+        for i, step in enumerate(steps)
+        if step["type"] == "question" and step["question"]["passageId"] == str(QURAN_PASSAGES[0])
+    )
+    assert drill_at > 1 and steps[drill_at - 1]["question"]["passageId"] == str(QURAN_PASSAGES[1])
 
 
 def test_capacity_already_used_today_leaves_no_new_passage_for_a_second_session() -> None:
@@ -855,6 +872,8 @@ def test_a_grade_question_offers_the_grade_phrases_of_the_edition_and_has_no_con
     grade_passage = next(p for p in HADITH["passages"] if p["path"] == "grade")
     snapshot, _ = env.game(PLAN_B_ID, 2, passageIds=[grade_passage["id"]])
     (question,) = questions_json(snapshot)
-    assert question["type"] == "word_choice" and question["context"] == {"before": [], "after": []}
+    assert question["type"] == "word_choice"
+    # the grade phrase is the whole passage: nothing lies around the blank
+    assert question["context"] == {"before": [], "after": [], "ayahEnds": []}
     phrases = {HADITH_UNITS[o]["canonicalText"] for o in (3, 6, 11)}
     assert {o["text"] for o in question["options"]} <= phrases and len(question["options"]) >= 2

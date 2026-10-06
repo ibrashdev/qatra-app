@@ -27,6 +27,7 @@ from app.contracts_plan_chat import (
     PATH_ORDER,
     SESSION_MINUTES_OPTIONS,
     CatalogEdition,
+    Estimate,
     PlanParameters,
     PlanProposal,
     QuickReplyCode,
@@ -610,6 +611,33 @@ def redact_contact_details(text: str) -> str:
 _DAY_UNIT = re.compile(r"^\s*[-–]?\s*(?:days?\b|يوم|ايام|أيام|يوما|يومًا)")
 _MINUTE_UNIT = re.compile(r"^\s*[-–]?\s*(?:minutes?\b|mins?\b|دقيق|دقائق|دقايق)")
 _WORD_UNIT = re.compile(r"^\s*[-–]?\s*(?:words?\b|كلمة|كلمات)")
+# D92: the daily amount in whole ayat or hadith. "حديث" also begins the dual and accusative forms
+# the Arabic text may use (حديثان, حديثين, حديثًا); "أحاديث" is the plural.
+_AYAH_UNIT = re.compile(r"^\s*[-–]?\s*(?:ayahs?\b|ayat\b|verses?\b|[آأا]ي[ةه]|[آأا]يات)")
+_HADITH_UNIT = re.compile(r"^\s*[-–]?\s*(?:hadiths?\b|ahadith\b|حديث|[أا]حاديث)")
+
+
+def _daily_new_numbers(estimate: Estimate) -> set[int]:
+    """The number of the whole-unit daily amount (D92): ``perDay`` or ``everyDays``."""
+    daily = estimate.daily_new
+    if daily is None:
+        return set()
+    return {value for value in (daily.per_day, daily.every_days) if value is not None}
+
+
+def _every_days(estimate: Estimate) -> set[int]:
+    daily = estimate.daily_new
+    return {daily.every_days} if daily is not None and daily.every_days is not None else set()
+
+
+def _unit_count_matches(value: int, after: str, estimate: Estimate) -> bool:
+    """Does ``value``, followed by ayat or hadith (``after``), match the daily amount (D92)? Only
+    the proposal's own number for its own unit; "1 hadith" is also right when the amount is one
+    hadith every N days."""
+    daily = estimate.daily_new
+    if daily is None or (_AYAH_UNIT.match(after) is not None) != (daily.unit == "ayah"):
+        return False
+    return value == (daily.per_day if daily.per_day is not None else 1)
 
 
 def allowed_numbers(proposal: PlanProposal) -> set[int]:
@@ -619,6 +647,7 @@ def allowed_numbers(proposal: PlanProposal) -> set[int]:
         0,
         estimate.days,
         estimate.new_words_per_day,
+        *_daily_new_numbers(estimate),
         estimate.total_words,
         estimate.known_words,
         estimate.passage_count,
@@ -681,6 +710,7 @@ def guard_reply(text: str, proposal: PlanProposal, language: str) -> GuardedRepl
                 estimate.days,
                 *templates.REVIEW_LADDER_DAYS,
                 *templates.REVIEW_LADDER_CUMULATIVE,
+                *_every_days(estimate),  # "a new hadith every 3 days" is a pace, not the length
             }:
                 replacement = estimate.days
         elif _MINUTE_UNIT.match(after):
@@ -695,6 +725,9 @@ def guard_reply(text: str, proposal: PlanProposal, language: str) -> GuardedRepl
                 25,
                 40,
             }:
+                return GuardedReply(fallback, False, "number_mismatch")
+        elif _AYAH_UNIT.match(after) or _HADITH_UNIT.match(after):
+            if not _unit_count_matches(value, after, estimate):
                 return GuardedReply(fallback, False, "number_mismatch")
         elif value not in allowed:
             return GuardedReply(fallback, False, "number_mismatch")
@@ -726,7 +759,7 @@ ALLOWED_PAYLOAD_KEYS: frozenset[str] = _words(
     "knownWords language learningRecord messages newWordsPerDay order ordinal parameters "
     "passageCount passages passed paths placement preferredDate questionType reference "
     "reviewOutcomes role scope sectionOrdinals sections sessionMinutes state targetScope text "
-    "title totalWords wordCount"
+    "title totalWords wordCount dailyNew everyDays perDay unit"
 )
 
 

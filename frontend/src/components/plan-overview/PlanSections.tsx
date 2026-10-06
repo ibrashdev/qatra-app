@@ -3,6 +3,7 @@
 import { useId, type ReactNode } from "react";
 import { MasteryBadge } from "@/components/progress/MasteryBadge";
 import { addDays, formatLearningDate, upcomingReviewDate } from "@/components/today/today-model";
+import { dailyAmountText } from "@/i18n/daily-amount";
 import { formatInteger } from "@/i18n/format";
 import type { Locale } from "@/i18n/messages";
 import type { PlanOverviewMessages } from "@/i18n/plan-overview-messages";
@@ -56,7 +57,6 @@ export function PlanSections({ locale, t, today, plan, edition, data, progress }
   const rows = stageRows(plan, progress, data);
   const nextReview = upcomingReviewDate(progress, plan.planId, data.learningDate);
   const next = nextStep(data, progress, plan.planId);
-  const words = estimate.newWordsPerDay;
   const pending = typeof plan.pendingSessionMinutes === "number";
 
   return (
@@ -73,7 +73,7 @@ export function PlanSections({ locale, t, today, plan, edition, data, progress }
       </PlanSection>
 
       <PlanSection label={t.sections.dailyTime}>
-        <p>{`${today.daily.text(formatInteger(locale, plan.sessionMinutes), plan.sessionMinutes, formatInteger(locale, words), words)}.`}</p>
+        <p>{`${today.daily.text(formatInteger(locale, plan.sessionMinutes), plan.sessionMinutes, dailyAmountText(locale, estimate))}.`}</p>
         {pending ? <p className="text-small text-ink-secondary">{today.banners.pending(formatLearningDate(locale, addDays(data.learningDate, 1)))}</p> : null}
       </PlanSection>
 

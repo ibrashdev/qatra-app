@@ -22,6 +22,7 @@ import { Icon } from "@/components/ui/Icon";
 import { Notice } from "@/components/ui/Notice";
 import { PageTitle } from "@/components/ui/PageTitle";
 import { TextButton } from "@/components/ui/TextButton";
+import { dailyAmountText } from "@/i18n/daily-amount";
 import { formatInteger } from "@/i18n/format";
 import { useLocale } from "@/i18n/LocaleProvider";
 import { planChatMessages } from "@/i18n/plan-chat-messages";
@@ -134,7 +135,7 @@ export function PlanReviseScreen({ revealForm = false }: { revealForm?: boolean 
           <p className="text-ink-secondary">{lines.detail}</p>
         </PlanSection>
         <PlanSection label={overview.sections.dailyTime}>
-          <p>{`${today.daily.text(formatInteger(locale, plan.sessionMinutes), plan.sessionMinutes, formatInteger(locale, plan.agreedEstimate.newWordsPerDay), plan.agreedEstimate.newWordsPerDay)}.`}</p>
+          <p>{`${today.daily.text(formatInteger(locale, plan.sessionMinutes), plan.sessionMinutes, dailyAmountText(locale, plan.agreedEstimate))}.`}</p>
           {pending ? <p className="text-small text-ink-secondary">{today.banners.pending(formatLearningDate(locale, addDays(ready.today.learningDate, 1)))}</p> : null}
         </PlanSection>
 

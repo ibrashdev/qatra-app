@@ -8,7 +8,7 @@ export interface TodayMessages {
   goal: { label: string; withDate: string }; // c3; withDate has {title} and {date}
   daily: {
     label: string;
-    text: (minutes: string, minutesCount: number, words: string, wordsCount: number) => string; // c4
+    text: (minutes: string, minutesCount: number, amount: string) => string; // c4; amount is the clause of dailyAmountText (whole ayat or hadith, D92)
     barLabel: string;
     unit: (count: number) => string; // the noun after the goal minutes
     percent: (formatted: string) => string;
@@ -46,8 +46,7 @@ const ar: TodayMessages = {
   goal: { label: "الهدف الكلي", withDate: "{title} · الموعد {date}" },
   daily: {
     label: "الزمن اليومي",
-    text: (minutes, minutesCount, words, wordsCount) =>
-      `${minutes} ${arabicNoun(minutesCount, "دقيقة", "دقائق")} يوميًا، وحتى ${words} ${arabicNoun(wordsCount, "كلمة", "كلمات")} جديدة في اليوم`,
+    text: (minutes, minutesCount, amount) => `${minutes} ${arabicNoun(minutesCount, "دقيقة", "دقائق")} يوميًا، ${amount}`,
     barLabel: "الإنجاز اليومي",
     unit: (count) => arabicNoun(count, "دقيقة", "دقائق"),
     percent: (formatted) => `${formatted}٪`,
@@ -94,7 +93,7 @@ const en: TodayMessages = {
   goal: { label: "Overall goal", withDate: "{title} · Target {date}" },
   daily: {
     label: "Daily time",
-    text: (minutes, minutesCount, words, wordsCount) => `${minutes} ${plural(minutesCount, "minute", "minutes")} a day, up to ${words} new ${plural(wordsCount, "word", "words")} a day`,
+    text: (minutes, minutesCount, amount) => `${minutes} ${plural(minutesCount, "minute", "minutes")} a day, ${amount}`,
     barLabel: "Daily progress",
     unit: (count) => plural(count, "minute", "minutes"),
     percent: (formatted) => `${formatted}%`,
