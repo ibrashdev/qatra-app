@@ -62,6 +62,9 @@ def test_settings_names_are_the_contract_names_plus_the_documented_additions() -
         "QATRA_CHAT_MAX_TOKENS",
         "QATRA_CHAT_GUARD_VERSION",
         "QATRA_CHAT_MODEL_FOR_LEARNERS",
+        # content manager web admin (D91, Content-admin.md section 2)
+        "QATRA_CONTENT_MANAGER_USERNAMES",
+        "QATRA_RATE_ADMIN_PER_MIN",
     }
 
 

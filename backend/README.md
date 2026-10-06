@@ -99,9 +99,19 @@ Limits are requests per client address per minute, each at least 1 (a value belo
 | `QATRA_RATE_SESSION_READ_PER_MIN` | 120 | session read (E11, E15) |
 | `QATRA_RATE_SESSION_WRITE_PER_MIN` | 60 | session write (E05, E08-E10, E12, E13, E16, E17, E20, E30) |
 | `QATRA_RATE_CHAT_WRITE_PER_MIN` | 20 | chat write (E31, E32, E34) |
+| `QATRA_RATE_ADMIN_PER_MIN` | 60 | content manager admin (`/api/admin/*`, D91) |
 
 The auth routes and the plan and session routes keep separate windows for the session write and
 session read classes.
+
+## Content manager admin (D91)
+
+`create_app` installs `/api/admin/*` through `app.wiring.install_content_admin`; the contract is
+`docs/Content-admin.md`. Access is fail closed: only usernames listed in
+`QATRA_CONTENT_MANAGER_USERNAMES` (comma separated) pass, never a demo session, and an empty
+setting means nobody. In supabase mode the service uses its own PostgREST client keyed with
+`SUPABASE_SERVICE_ROLE_KEY` (server side only) on the content tables; without that key or
+`SUPABASE_URL` every admin route answers `503 unavailable`. Memory mode starts with an empty store.
 
 ## Plan conversation (E31-E34)
 
