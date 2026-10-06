@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId } from "react";
+import { ContentAdminRow } from "@/components/admin/ContentAdminRow";
 import { useSessionEndedRedirect } from "@/components/plan-overview/use-plan-data";
 import { FailureBanner } from "@/components/today/FailureBanner";
 import { isAlertFailure } from "@/components/today/today-failure";
@@ -66,6 +67,8 @@ function SettingsContent() {
           <PreferencesForm profile={state.profile} hasPlan={state.hasPlan} replaceProfile={data.replaceProfile} online={data.online} inert={logout.loggingOut} />
         ) : null}
         <PrivacySection />
+        {/* AD-00: the row to the content manager screens, in the page only for a content manager (D91). */}
+        <ContentAdminRow />
         <div className="max-w-form">
           <BannerSlot
             alert={

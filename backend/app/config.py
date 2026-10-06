@@ -63,6 +63,7 @@ DEFAULT_RATE_ANONYMOUS_ENTRY_PER_MIN: Final = 10
 DEFAULT_RATE_SESSION_READ_PER_MIN: Final = 120
 DEFAULT_RATE_SESSION_WRITE_PER_MIN: Final = 60
 DEFAULT_RATE_CHAT_WRITE_PER_MIN: Final = 20
+DEFAULT_RATE_ADMIN_PER_MIN: Final = 60
 
 
 def decode_key_material(value: str) -> bytes | None:
@@ -125,6 +126,13 @@ class Settings(BaseSettings):
     QATRA_RATE_SESSION_READ_PER_MIN: int = Field(default=DEFAULT_RATE_SESSION_READ_PER_MIN, ge=1)
     QATRA_RATE_SESSION_WRITE_PER_MIN: int = Field(default=DEFAULT_RATE_SESSION_WRITE_PER_MIN, ge=1)
     QATRA_RATE_CHAT_WRITE_PER_MIN: int = Field(default=DEFAULT_RATE_CHAT_WRITE_PER_MIN, ge=1)
+    # Content manager web admin (D91): requests per client IP per minute (every /api/admin route).
+    QATRA_RATE_ADMIN_PER_MIN: int = Field(default=DEFAULT_RATE_ADMIN_PER_MIN, ge=1)
+
+    # Content manager web admin (D91): comma-separated usernames of the accounts that may use
+    # /api/admin. Each entry is normalized like a username lookup key. Empty or unset means
+    # nobody (fail closed).
+    QATRA_CONTENT_MANAGER_USERNAMES: str | None = None
 
     # Proxies that append to X-Forwarded-For in front of the app: 0 uses the peer address, N >= 1
     # the N-th entry from the right (``client_key``). A depth larger than the real chain lets a

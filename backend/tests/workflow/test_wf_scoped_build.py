@@ -74,8 +74,8 @@ def segment_sample(records: dict[int, HadithRecord], *, sample: bool) -> Any:
     )
 
 
-def bank_report(segment: Any) -> Any:
-    bundle = assemble_bundle(
+def assembled_bundle(segment: Any) -> dict[str, Any]:
+    return assemble_bundle(
         spec=edition_spec(HADITH_ED),
         bank_version=1,
         labels=load_labels(HADITH_ED, LABELS),
@@ -90,6 +90,10 @@ def bank_report(segment: Any) -> Any:
         known_gaps=[],
         suspected=[],
     )
+
+
+def bank_report(segment: Any) -> Any:
+    bundle = assembled_bundle(segment)
     result = build_question_bank(bundle)
     return validate_bank(with_bank(bundle, result.lessons, result.questions))
 
@@ -203,13 +207,59 @@ def load_other_grade() -> str:
     return records[1]["grade"]
 
 
-def test_a_full_build_still_fails_closed_when_a_grade_cannot_be_tested() -> None:
-    """The validation rule is not weakened: a grade passage without a question is refused."""
+def test_a_full_build_still_fails_closed_when_no_distinct_grade_exists() -> None:
     one_phrase = {n: synthetic_record(n) for n in (1, 2)}
-    full_report = bank_report(segment_sample(one_phrase, sample=False))
-    assert {i.code for i in full_report.issues} == {"part_uncovered"}
-    assert all(i.ref.startswith("grade:") for i in full_report.issues)
-    assert bank_report(segment_sample(one_phrase, sample=True)).ok
+    report = bank_report(segment_sample(one_phrase, sample=False))
+    assert {issue.code for issue in report.issues} == {"part_uncovered"}
+    assert all(issue.ref.startswith("grade:") for issue in report.issues)
+
+
+def test_singleton_matn_is_not_ambiguous_with_a_grade_phrase() -> None:
+    """A singleton matn target and a matching grade word use separate question templates."""
+    first = synthetic_record(1).model_copy(update={"narration": "نعم", "grade": "نعم"})
+    second = synthetic_record(2).model_copy(update={"grade": "صحيح"})
+    segment = segment_sample({1: first, 2: second}, sample=False)
+    bundle = assembled_bundle(segment)
+
+    bank = build_question_bank(bundle)
+    report = validate_bank(with_bank(bundle, bank.lessons, bank.questions))
+
+    assert report.ok, report.summary()
+    grade_passage_ids = {p["id"] for p in bundle["passages"] if p["path"] == "grade"}
+    assert grade_passage_ids
+    assert grade_passage_ids <= {
+        question["passageId"]
+        for question in bank.questions
+        if question["type"] == "word_choice"
+    }
+    matn_passage = next(p for p in bundle["passages"] if p["path"] == "matn")
+    assert any(
+        question["passageId"] == matn_passage["id"]
+        for question in bank.questions
+    )
+
+
+def test_different_non_grade_singletons_with_empty_context_remain_ambiguous() -> None:
+    first = synthetic_record(1).model_copy(update={"narration": "نعم", "grade": "جيد"})
+    second = synthetic_record(2).model_copy(update={"narration": "حسن", "grade": "صحيح"})
+    segment = segment_sample({1: first, 2: second}, sample=False)
+    bundle = assembled_bundle(segment)
+
+    from app.workflow.lesson_question_builder import _Builder
+
+    builder = _Builder(bundle)
+    singleton_words = [
+        words[0]
+        for p_index, words in enumerate(builder.words)
+        if builder.index.passages[p_index]["path"] == "matn" and len(words) == 1
+    ]
+    assert len(singleton_words) == 2
+    assert all(not builder._unambiguous(word) for word in singleton_words)
+
+    bank = build_question_bank(bundle)
+    report = validate_bank(with_bank(bundle, bank.lessons, bank.questions))
+    uncovered = {issue.ref for issue in report.issues if issue.code == "part_uncovered"}
+    assert {"matn:1:1", "matn:2:1"} <= uncovered
 
 
 def test_a_full_scope_build_through_the_cli_keeps_every_grade_passage(tmp_path: Path) -> None:

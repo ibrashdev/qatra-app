@@ -184,7 +184,11 @@ class _Builder:
         self._single_targets: dict[tuple[tuple[str, ...], tuple[str, ...]], set[str]] = defaultdict(
             set
         )
-        for words in self.words:
+        for p_index, words in enumerate(self.words):
+            # Grade passages have a dedicated phrase-choice template; they cannot be
+            # competing blank-answer targets for single-word questions.
+            if self.index.passages[p_index]["path"] == "grade":
+                continue
             for word in words:
                 self._single_targets[self._single_key(word)].add(word.n)
         self._segment_targets: dict[int, dict[Any, set[tuple[str, ...]]]] = {}

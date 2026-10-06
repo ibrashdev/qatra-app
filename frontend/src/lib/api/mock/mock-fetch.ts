@@ -1,6 +1,7 @@
 import { sleep } from "../sleep";
 import { errorResponse, mockHandlers, type MockHandler, type MockResponse, type MockScenario } from "./handlers";
 import { accountMockHandlers } from "./account-handlers";
+import { adminMockHandlers } from "./admin-handlers";
 import { withGameMock } from "./game-handlers";
 import { withPlacementMock } from "./placement-handlers";
 import { securityMockHandlers } from "./security-handlers";
@@ -64,11 +65,11 @@ function findHandler(
 // A fetch-compatible function: the real client code (envelope parsing, timeouts) runs unchanged in mock mode.
 export function createMockFetch(options: MockFetchOptions = {}): typeof fetch {
   // The default set also serves S-05, S-06 (account handlers), S-09 (placement sessions, E31 with placementSessionId), S-15..S-18 (game rounds),
-  // S-22 (settings handlers) and S-23, S-24, S-27 (security handlers) over the shared handlers.
+  // S-22 (settings handlers), S-23, S-24, S-27 (security handlers) and AD-00 to AD-06 (content manager handlers, D91) over the shared handlers.
   const {
     latencyMs = 120,
     coldStartMs = 0,
-    handlers = withGameMock(withPlacementMock({ ...mockHandlers, ...accountMockHandlers, ...settingsMockHandlers, ...securityMockHandlers })),
+    handlers = withGameMock(withPlacementMock({ ...mockHandlers, ...accountMockHandlers, ...settingsMockHandlers, ...securityMockHandlers, ...adminMockHandlers })),
     now = Date.now,
   } = options;
   const scenario: MockScenario = { signedIn: true, hasPlan: true, ...options.scenario };

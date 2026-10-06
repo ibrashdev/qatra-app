@@ -577,7 +577,11 @@ def validate_bank(bundle: Mapping[str, Any]) -> ValidationReport:
     words_by_passage = list(index.all_passage_words())
     word_of: dict[str, Word] = {w.ref: w for words in words_by_passage for w in words}
     single_targets: dict[tuple[tuple[str, ...], tuple[str, ...]], set[str]] = defaultdict(set)
-    for words in words_by_passage:
+    for p_index, words in enumerate(words_by_passage):
+        # Grade passages are tested through their dedicated grade-choice question,
+        # not as competing targets for single-word recall/choice contexts.
+        if index.passages[p_index]["path"] == "grade":
+            continue
         for word in words:
             single_targets[window_key(words, word.pos)].add(word.n)
     segment_targets: dict[int, dict[Any, set[tuple[str, ...]]]] = {}

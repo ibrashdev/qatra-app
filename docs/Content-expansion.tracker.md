@@ -1,5 +1,7 @@
 # Content expansion tracker
 
+Latest batch: CONTENT-EXPANSION-03 is recorded below. The expanded hadith draft was imported and structurally validated, but this does not complete or approve either collection: seven Forty records remain gaps and nine standalone mappings await human review. An independent repeat acquisition now confirms byte-identical QuranEnc text across surahs 78–114, but the Hafs v18 oracle remains unobtained and standard Quran verification was not run. No new G6 or publication is recorded for batch 03. D94 is a separate, narrow exception for the earlier AI editions only.
+
 Task: `CONTENT-EXPANSION-01` · Draft content preparation · Updated 2026-10-05 (Asia/Dubai)
 
 ## Scope and authority
@@ -72,3 +74,29 @@ Source-match limitation: the existing ID-map evidence classifies 26 records from
 Rate limiting: Quran acquisition first stopped with HTTP 429 after 23 objects, then the same command resumed after a 60-second backoff and completed (14 new objects). Hadith pass 1 stopped after 23 records and resumed after a 60-second backoff (12 new records); pass 2 stopped after 24 records and resumed after a 60-second backoff (11 new records). No alternate identity or source was used.
 
 No source text was added to this tracker or metadata index. `approve` and `publish` were not run. This batch does not claim publication G6, full collection verification, or public readiness.
+
+
+## CONTENT-EXPANSION-03 — verified hadith draft and partial database import
+
+Status as of 2026-10-06: hadith bank version 4 passed the local structural validator and its 35-record draft was imported as a separate draft edition. This batch remains partial. D68 defines the requested collections and source route; the owner's current authorization allowed work within existing gates. D83 covered Surah 112 and Forty 1. D94 separately approved only the existing AI Quran edition for surahs 78–81 and the existing AI hadith edition for hadith 1; it accepted two-source-pass verification in place of the Hafs v18 comparison for that Quran edition only. Neither decision grants G6 to this bank 4 edition or to the remaining Quran range.
+
+The metadata-only [batch 03 evidence index](../references/source-acquisition/expansion-batch-03-evidence.json) lists acquisition IDs, canonical links, retrieval times and hashes without source text. Raw acquisitions and reports remain under the ignored private directory `backend/.content-build/expansion-20261005/`.
+
+| Collection | Acquisition and pipeline result |
+|---|---|
+| Quran, `quran-hafs-quranenc`, bank 4 | Surahs 78–114 acquired: 37/37 surahs and 564/564 ayahs. A second independent HTTP acquisition through the same MCP source produced identical payload hashes for all 37 surahs and byte-identical, NFC-identical text for all 564 ayahs (zero differences). This is source consistency evidence only; the independent King Fahd Complex Hafs v18 oracle was not obtained, so standard verification, segmentation, bank construction and validation were not run. No synthetic oracle or D83 source-only method was used. D94's accepted two-pass method covers the earlier AI Quran edition for 78–81 only; it does not approve this bank 4 edition or extend to 82–114. |
+| Forty Nawawi, `nawawi40-hadeethenc`, bank 4 | Two independent HTTP passes acquired the 35 mapped records (70 raw objects); canonical payload hashes agree for 35/35 records. Standard verification passed 140/140 units, with seven explicit gaps: 2, 14, 24, 25, 35, 40 and 42. Segmentation produced 35 sections, 105 units, 2,012 words, 107 passages and 373 parts. After the single-target index fix, bank construction produced 107 lessons and 1,598 questions; validation passed with 373/373 parts covered and zero issues. This is a partial draft, not all 42 hadiths. |
+
+The validator failure recorded in batch 02 was corrected in code and regression-tested: grade passages no longer compete with non-grade single-word answer targets because grade passages use a separate phrase-choice template. The regression also confirms that distinct non-grade singleton answers with identical empty contexts remain ambiguous, and that an untestable grade path still fails closed. Backend workflow tests passed (580 total after the final test addition); no source text was changed.
+
+Review limitations remain: six hadith segmentation flags (boundary doubts for 5, 7, 16, 19 and 27, plus the hard-split flag for 29) are unresolved. Nine standalone ID-map matches still await human review and no OpenITI skeleton comparison was run. Two-pass equality demonstrates repeatable retrieval, not exact agreement with a printed Nawawi edition.
+
+Seven candidate records for the gaps were separately acquired in two passes (14 candidate objects). The record and tool-response hashes agree between passes for all seven numbers, but candidates remain excluded from the approved ID map and bank; equality does not establish exact Forty wording. A `get_library_item` request for item 5271 returned upstream HTTP 500 and supplied no source substitute. No Ibn Rajab additions were imported.
+
+The Quran source recheck is recorded separately from standard oracle verification in the evidence index. It may support an owner decision on whether to extend D94's two-pass exception, but no such decision is recorded here. Bank 4 Quran content remains acquired-only and was not imported into the database.
+
+The hadith draft was imported under database edition key `nawawi40-hadeethenc-expanded-20261005`, version 3 / bank 4, with `draft` status. The existing book identity was preserved; a separate source record carries the terms register as recorded, with rights still pending verification. The database read-back evidence records 35 sections, 105 units, 107 passages, 373 parts, 107 lessons and 1,598 draft questions; all 105 unit texts match the local bundle, with zero uncovered parts. `raw_storage_path` remains null because the private Storage upload was deferred. No `approve` or `publish` action was run; `publicationApproved` is false. The database import does not establish publisher reuse, storage or caching rights.
+
+Read-only live-state observation after this batch: the earlier AI Quran edition (surahs 78–81) and AI hadith edition (hadith 1) are now published with D94 approval recorded. Their observed totals are 157 Quran units, 21 lessons and 349 questions; and 3 hadith units, 1 lesson and 23 questions. This reports an external database state observed by the coordinator; it was not changed by this batch. The expanded bank 4 edition remains draft as recorded above.
+
+The private review archive `Qatra-content-expansion-20261005.zip` was saved as version 1 (744,643 bytes) and includes the Quran second-pass evidence. It is not a public release or a substitute for pending oracle, mapping, rights, human-review or publication gates. The evidence index contains metadata and hashes only; this tracker contains no source text.

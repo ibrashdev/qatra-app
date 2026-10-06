@@ -12,6 +12,9 @@ Four kinds of call, all synchronous (``httpx``) and all without automatic retrie
   connection are never used here.
 - ``patch`` updates the rows that match its filters with the learner token; a PATCH without a
   filter is refused before anything is sent.
+- ``delete``, ``upsert`` and ``count`` serve the content manager admin (D91): the same rules with
+  the ``service_role`` key as the token (the caller builds a separate client with that key as its
+  ``apikey``). A DELETE without a filter is refused before anything is sent.
 
 Failures are reduced to application errors and never carry database text: PostgREST messages and
 ``details`` can contain submitted values or ids, so neither the status text nor the body is logged
@@ -35,7 +38,7 @@ from __future__ import annotations
 
 import logging
 import re
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import Any, NoReturn
 from urllib.parse import urlsplit
 
@@ -66,6 +69,7 @@ SIGNAL_CODES = frozenset(
         "P0002",  # no_data_found (unknown or foreign row)
         "23505",  # unique_violation (the one-active-plan index)
         "23503",  # foreign_key_violation
+        "23001",  # restrict_violation (the edition delete guard of migration 0001, D44)
         "23514",  # check_violation
         "22023",  # invalid_parameter_value
     }
@@ -250,6 +254,76 @@ class PostgrestClient:
         )
         return [row for row in body if isinstance(row, dict)] if isinstance(body, list) else []
 
+    def delete(
+        self,
+        table: str,
+        *,
+        filters: Mapping[str, str],
+        token: SecretStr | None,
+    ) -> list[dict[str, Any]]:
+        """Delete the rows that match every filter; the deleted rows come back (an empty list
+        means nothing matched). A DELETE without a filter is refused before anything is sent."""
+        if not _NAME.match(table):
+            raise ValueError("invalid table name")
+        if not filters:
+            raise ValueError("a DELETE needs a filter")
+        body = self._call(
+            "DELETE",
+            f"/{table}",
+            token=require_token(token),
+            params=filters,
+            prefer="return=representation",
+        )
+        return [row for row in body if isinstance(row, dict)] if isinstance(body, list) else []
+
+    def upsert(
+        self,
+        table: str,
+        *,
+        rows: Sequence[Mapping[str, Any]],
+        on_conflict: str,
+        token: SecretStr | None,
+    ) -> list[dict[str, Any]]:
+        """Insert ``rows`` or merge them into the row that has the same ``on_conflict`` columns
+        (comma-separated names); the stored rows come back."""
+        if not _NAME.match(table):
+            raise ValueError("invalid table name")
+        columns = on_conflict.split(",")
+        if not rows or not all(_NAME.match(column) for column in columns):
+            raise ValueError("an upsert needs rows and valid conflict columns")
+        body = self._call(
+            "POST",
+            f"/{table}",
+            token=require_token(token),
+            params={"on_conflict": on_conflict},
+            json=[dict(row) for row in rows],
+            prefer="resolution=merge-duplicates,return=representation",
+        )
+        return [row for row in body if isinstance(row, dict)] if isinstance(body, list) else []
+
+    def count(
+        self,
+        table: str,
+        *,
+        filters: Mapping[str, str] | None = None,
+        token: SecretStr | None,
+    ) -> int:
+        """The number of rows that match the filters (a HEAD request with ``Prefer: count=exact``;
+        the total is the number after the slash of ``Content-Range``)."""
+        if not _NAME.match(table):
+            raise ValueError("invalid table name")
+        response = self._request(
+            "HEAD",
+            f"/{table}",
+            token=require_token(token),
+            params=dict(filters or {}),
+            prefer="count=exact",
+        )
+        total = response.headers.get("content-range", "").rpartition("/")[2]
+        if not total.isdigit():
+            self._unexpected("count", status=response.status_code)
+        return int(total)
+
     # -- plumbing ----------------------------------------------------------------------------
 
     def _page(
@@ -301,6 +375,31 @@ class PostgrestClient:
             log_event(logger, "postgrest_failure", level=logging.WARNING, kind=kind)
             raise AppError(ErrorCode.unavailable) from None
         return self._handle(response, with_token=token is not None)
+
+    def _request(
+        self,
+        method: str,
+        path: str,
+        *,
+        token: SecretStr | None,
+        params: Mapping[str, str] | None = None,
+        prefer: str | None = None,
+    ) -> httpx.Response:
+        """One call whose response headers matter: the status is classified like ``_call`` does,
+        and the successful response itself comes back."""
+        headers = {"apikey": self._key.get_secret_value(), "Accept": "application/json"}
+        if token is not None:
+            headers["Authorization"] = f"Bearer {token.get_secret_value()}"
+        if prefer is not None:
+            headers["Prefer"] = prefer
+        try:
+            response = self._client.request(method, path, params=params, headers=headers)
+        except (httpx.HTTPError, httpx.InvalidURL) as exc:
+            kind = "timeout" if isinstance(exc, httpx.TimeoutException) else "transport"
+            log_event(logger, "postgrest_failure", level=logging.WARNING, kind=kind)
+            raise AppError(ErrorCode.unavailable) from None
+        self._handle(response, with_token=token is not None)
+        return response
 
     def _handle(self, response: httpx.Response, *, with_token: bool) -> Any:
         status = response.status_code
