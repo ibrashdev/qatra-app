@@ -7,50 +7,50 @@ import { questionMessages } from "@/i18n/question-messages";
 import type { SourceRef } from "@/lib/api/types";
 import { Icon } from "@/components/ui/Icon";
 
-// A link is made only for a web address; anything else is shown as plain text, so a value that is not http(s) can never become a script link.
+// A link is made only for a web address; anything else is not a link at all, so a value that is not http(s) can never become a script link.
 function isWebUrl(url: string): boolean {
   return /^https?:\/\//iu.test(url);
 }
 
-// UI-screens P-20: book, edition, reference, then the printed page or the canonical URL, parts joined by « · » in bdi. No publisher name, ruling,
-// takhrij or grade appears in a question. The D50 notice follows only when the screen says the edition gives neither attribution nor grade.
+// D92 (owner approvals of 5 October 2026): the book and its human reference, then the printed page when the edition has one, then a link labelled
+// «المصدر» that opens the canonical page in a new tab. The edition label, the provider name and the technical reference code are never shown, and no
+// ruling, takhrij or grade appears in a question. The D50 notice follows only when the screen says the edition gives neither attribution nor grade.
+// A question shows this line only after it is answered; the learn step shows it with the passage.
 export function QuestionSource({ source, showD50Notice = false }: { source: SourceRef; showD50Notice?: boolean }) {
   const { locale } = useLocale();
   const messages = questionMessages(locale);
+  const referenceAr = source.referenceAr ?? "";
 
   const parts: ReactNode[] = [
     <bdi key="book" lang="ar">
       {source.bookTitleAr}
     </bdi>,
-    <bdi key="edition">{source.editionLabel}</bdi>,
-    <bdi key="reference" lang="ar">
-      {source.reference}
-    </bdi>,
   ];
+  if (referenceAr !== "") {
+    parts.push(
+      <bdi key="reference" lang="ar">
+        {referenceAr}
+      </bdi>,
+    );
+  }
   if (source.pages.length > 0) {
     parts.push(
       <bdi key="pages">{messages.source.page(source.pages.join(locale === "ar" ? "، " : ", "))}</bdi>,
     );
   }
-  if (source.url !== "") {
+  if (isWebUrl(source.url)) {
     parts.push(
-      isWebUrl(source.url) ? (
-        <a
-          key="url"
-          href={source.url}
-          target="_blank"
-          rel="noopener noreferrer"
-          aria-label={messages.source.opensInNewTab(source.reference)}
-          className="inline-flex min-h-target items-center gap-q4 text-link underline [overflow-wrap:anywhere]"
-        >
-          <bdi dir="ltr">{source.url}</bdi>
-          <Icon name="external" size="sm" />
-        </a>
-      ) : (
-        <bdi key="url" dir="ltr" className="[overflow-wrap:anywhere]">
-          {source.url}
-        </bdi>
-      ),
+      <a
+        key="url"
+        href={source.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label={messages.source.opensInNewTab(referenceAr === "" ? source.bookTitleAr : referenceAr)}
+        className="inline-flex min-h-target items-center gap-q4 text-link underline"
+      >
+        {messages.source.link}
+        <Icon name="external" size="sm" />
+      </a>,
     );
   }
 

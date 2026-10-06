@@ -59,7 +59,7 @@ export interface QuestionMessages {
     pending: string;
     updated: string;
   };
-  source: { page: (pages: string) => string; opensInNewTab: (reference: string) => string };
+  source: { page: (pages: string) => string; link: string; opensInNewTab: (reference: string) => string };
   d50Notice: string;
 }
 
@@ -118,7 +118,7 @@ const ar: QuestionMessages = {
     pending: "ما زالت هذه الإجابة قيد التحقق.",
     updated: "تم تحديث نتيجة هذا السؤال.",
   },
-  source: { page: (pages) => `ص ${pages}`, opensInNewTab: (reference) => `${reference}، يفتح في نافذة جديدة` },
+  source: { page: (pages) => `ص ${pages}`, link: "المصدر", opensInNewTab: (reference) => `المصدر: ${reference}، يفتح في نافذة جديدة` },
   d50Notice: "تنبيه: نُقل هذا النص حرفيًا عن الكتاب، ولم يُتحقق من صحة الحديث.",
 };
 
@@ -177,7 +177,7 @@ const en: QuestionMessages = {
     pending: "This answer is still being verified.",
     updated: "The result of this question was updated.",
   },
-  source: { page: (pages) => `p. ${pages}`, opensInNewTab: (reference) => `${reference}, opens in a new tab` },
+  source: { page: (pages) => `p. ${pages}`, link: "Source", opensInNewTab: (reference) => `Source: ${reference}, opens in a new tab` },
   d50Notice: "Note: this text was transcribed verbatim from the book, and the hadith's authenticity has not been verified.",
 };
 

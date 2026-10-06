@@ -1,6 +1,6 @@
 import type { AnswerPayload, AnswerResult, TokenRef } from "@/lib/api/types";
 
-// The edition format decides the original-text font (UI-screens P-20, O-39): Amiri Quran for a Quran edition, Amiri for a hadith edition.
+// The edition format decides the original-text font (UI-screens P-20, O-39); both formats use the original-text font (Scheherazade New, D92) at their own size.
 // The snapshot does not carry it, so the screen passes it from the plan's edition.
 export type TextKind = "quran" | "hadith";
 

@@ -3,6 +3,7 @@ export { errorResponse, mockHandlers, type MockHandler, type MockRequest, type M
 export { planChatHandlers, type MockPlanChatStore } from "./plan-chat";
 export { demoMockHandlers, MOCK_DEMO_ACCOUNTS_PER_DAY, MOCK_DEMO_PLANS_PER_DAY, MOCK_DEMO_SCENARIOS, MOCK_DEMO_SIMULATIONS } from "./demo-handlers";
 export { MOCK_SESSION_ID, mockProgress, todayMockHandlers } from "./today-handlers";
+export { MOCK_LESSON_PASSAGE_IDS, MOCK_LESSON_SECTION_IDS, lessonMockHandlers, mockLessonSection, mockLessons } from "./lesson-handlers";
 export { MOCK_COMPLETED_PLAN_ID, MOCK_PAUSED_PLAN_ID, mockProgressWithOtherPlans, planMockHandlers } from "./plan-handlers";
 export { MOCK_QUESTION_IDS, MOCK_RECALL_WORD, mockSessionSnapshot, sessionMockHandlers } from "./session-handlers";
 export { placementMockHandlers, withPlacementMock } from "./placement-handlers";

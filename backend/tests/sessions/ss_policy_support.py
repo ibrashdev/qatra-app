@@ -30,7 +30,7 @@ _NS = uuid.UUID("5e55a1ab-0000-4000-8000-000000000b05")
 PLAN = uuid.uuid5(_NS, "plan")
 SESSION = uuid.uuid5(_NS, "session")
 TODAY = date(2026, 10, 5)
-SEED = 12345
+SEED = 6  # review_game_type(6) is word_choice: every part of full_bank has one
 
 NAMES: dict[UUID, str] = {}
 

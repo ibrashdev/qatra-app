@@ -10,15 +10,46 @@
     font-size: 100%;
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
-    /* Keeps a focused control clear of the sticky app bar and the bottom tab bar (WCAG 2.4.11). */
+    /* Keeps a focused control and an anchor clear of every sticky bar (WCAG 2.4.11). A page assumes no bar: each sticky bar says it is there
+       with data-bar on its own element (the shells set it, see below), so the room kept is the room of the bars that are on the page at this
+       width. The notch of a phone still covers the top of the screen, so its share is always kept. */
+    scroll-padding-block-start: calc(env(safe-area-inset-top, 0px) + var(--q-space-8));
+    scroll-padding-block-end: var(--q-space-8);
+    --q-room-action-bar: calc(var(--q-size-button) + 2 * var(--q-space-12) + var(--q-border-width) + env(safe-area-inset-bottom, 0px) + var(--q-space-8));
+  }
+
+  /* Top bar: one row of the app bar under the notch. The public, focus and flow shells keep it at every width; the app shell only below
+     1024 px, where the side rail takes over (data-bar="top-below-rail"). */
+  html:has([data-bar="top"]) {
     scroll-padding-block-start: calc(var(--q-size-appbar) + env(safe-area-inset-top, 0px) + var(--q-space-8));
-    scroll-padding-block-end: calc(var(--q-size-tabbar) + env(safe-area-inset-bottom, 0px) + var(--q-space-8));
   }
 
   /* A top bar that has wrapped is static (use-wrapped-bar.ts): it covers nothing, so no room is kept for it above a focused control.
-     The notch of a phone still covers the top of the screen, so its share stays. */
+     More specific than the rules for a bar above and below it, so it wins wherever the bar is. */
   html:has(header[data-wrapped="true"]) {
     scroll-padding-block-start: calc(env(safe-area-inset-top, 0px) + var(--q-space-8));
+  }
+
+  /* Bottom bars. The tab bar of the app shell (below 1024 px): its height and the bottom safe area. The action bar of a focus screen: a
+     48 px button between two 12 px paddings and a 1 px divider, sticky at every width; a round's action bar is static from 768 px. */
+  html:has([data-bar="bottom"]) {
+    scroll-padding-block-end: var(--q-room-action-bar);
+  }
+
+  @media (width < 48rem) {
+    html:has([data-bar="bottom-below-tablet"]) {
+      scroll-padding-block-end: var(--q-room-action-bar);
+    }
+  }
+
+  @media (width < 64rem) {
+    html:has([data-bar="top-below-rail"]) {
+      scroll-padding-block-start: calc(var(--q-size-appbar) + env(safe-area-inset-top, 0px) + var(--q-space-8));
+    }
+
+    html:has([data-bar="bottom-below-rail"]) {
+      scroll-padding-block-end: calc(var(--q-size-tabbar) + env(safe-area-inset-bottom, 0px) + var(--q-space-8));
+    }
   }
 
   html:lang(en) {
@@ -56,14 +87,6 @@
     -webkit-text-fill-color: var(--q-color-text);
     caret-color: var(--q-color-text);
     box-shadow: inset 0 0 0 100rem var(--q-color-surface);
-  }
-
-  /* No top bar and no bottom tab bar from 1024 px: only the side rail remains. */
-  @media (min-width: 64rem) {
-    html {
-      scroll-padding-block-start: var(--q-space-8);
-      scroll-padding-block-end: var(--q-space-8);
-    }
   }
 }
 

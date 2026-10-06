@@ -292,6 +292,22 @@ describe("S-09 question steps", () => {
     expect(button("تجاوز السؤال")).toBeInTheDocument();
   });
 
+  it("shows the whole passage around the blank and no source line or link, before or after an answer (D92)", async () => {
+    renderTest();
+    const user = userEvent.setup();
+    await startTest(user);
+    // The first mock passage has four words; the target is the second one, so the other three are shown around the blank.
+    const blank = screen.getByRole("img", { name: "الكلمة الناقصة" });
+    expect(blank.parentElement).toHaveTextContent("كلمة١ كلمة٣ كلمة٤");
+    expect(document.body.textContent).not.toContain("كتاب اصطناعي");
+    expect(screen.queryByRole("link", { name: /المصدر/ })).toBeNull();
+    await user.click(radio("كلمة٢"));
+    await user.click(nextButton());
+    await screen.findByRole("heading", { level: 2, name: "اكتب الكلمة الناقصة." });
+    expect(document.body.textContent).not.toContain("كتاب اصطناعي");
+    expect(screen.queryByRole("link", { name: /المصدر/ })).toBeNull();
+  });
+
   it("groups the count and the prompt as one header, apart from the question piece, without a fixed height (FC-09)", async () => {
     renderTest();
     await startTest(userEvent.setup());

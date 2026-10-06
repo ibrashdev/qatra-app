@@ -2,6 +2,7 @@
 // coordinator next to the others: { ...mockHandlers, ...todayMockHandlers, ...planMockHandlers }. Only types come from handlers.ts.
 import type { Estimate, ISODate, Path, Plan, PlanOrder, ProgressResponse } from "../types";
 import type { EstimateReason, EstimateResponse } from "../plan-endpoints";
+import { mockDailyNew } from "./daily-new";
 import { MOCK_PLAN_ID, mockCatalog, mockToday } from "./fixtures";
 import type { MockHandler, MockResponse, MockScenario } from "./handlers";
 import { mockProgress } from "./today-handlers";
@@ -81,6 +82,7 @@ function estimateOf(editionId: string, ordinals: number[], paths: Path[], minute
     sessionMinutes: minutes,
     scope: { sectionOrdinals: ordinals },
     paths,
+    dailyNew: mockDailyNew(sections, days, totalWords),
   };
 }
 

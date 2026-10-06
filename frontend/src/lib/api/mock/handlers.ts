@@ -2,6 +2,7 @@ import { passwordViolations, usernameViolations } from "@/lib/auth/account-rules
 import type { HealthResponse, LoginResponse, RegisterResponse } from "../types";
 import { demoMockHandlers } from "./demo-handlers";
 import { MOCK_LOGINS, MOCK_PASSWORD, MOCK_RECOVERY_CODE, MOCK_REGISTRATIONS, MOCK_TERMS_VERSION, mockCatalog, mockProfile, mockToday, mockTodayWithoutPlan } from "./fixtures";
+import { lessonMockHandlers } from "./lesson-handlers";
 import { planChatHandlers, type MockPlanChatStore } from "./plan-chat";
 import { planMockHandlers } from "./plan-handlers";
 import { sessionMockHandlers } from "./session-handlers";
@@ -145,6 +146,7 @@ export const mockHandlers: Readonly<Record<string, MockHandler>> = {
   ...demoMockHandlers, // E26 to E29 (S-28, S-29, S-30)
   ...todayMockHandlers, // E19 and E20 `daily` (S-11)
   ...planMockHandlers, // E15, E17 and E30 (S-12, S-13)
+  ...lessonMockHandlers, // the lessons reader (D92): GET /lessons and GET /lessons/:sectionId
   ...sessionMockHandlers, // E20 daily snapshot, E21, E22 (S-19); after today's handlers so its POST /sessions wins
   "GET /catalog": () => ({ status: 200, body: mockCatalog }),
   "GET /today": (_request, scenario) => {

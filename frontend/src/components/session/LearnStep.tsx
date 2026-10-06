@@ -10,18 +10,22 @@ import { questionMessages } from "@/i18n/question-messages";
 import { sessionMessages } from "@/i18n/session-messages";
 import type { PassageView } from "@/lib/api/types";
 import { cx } from "@/lib/cx";
+import { HadithRecord } from "./HadithRecord";
 import { needsLegend, segmentUnit } from "./session-model";
 
-// The learn step (UI-screens S-19 c7 to c14): the passage as received, in its whole unit, with today's range marked; the source line; for a hadith the
+// The learn step (UI-screens S-19 c7 to c14): the passage as received, in its whole unit, with today's range marked; the clean reference line (D92: the
+// book, the hadith title or the surah and ayat, and the «المصدر» link, never a provider name, an edition label or a technical code); for a hadith the
 // record block and, only when the snapshot says so, the D50 notice; the hide toggle; the instruction. The primary button lives in the action bar.
 // Hidden text is removed from the page and the accessibility tree, not blurred (UI-tokens 6.12).
 export function LearnStep({ passage, textKind, hidden, onToggle }: { passage: PassageView; textKind: TextKind; hidden: boolean; onToggle: () => void }) {
-  const { locale, direction } = useLocale();
+  const { locale } = useLocale();
   const t = sessionMessages(locale).learn;
   const notice = questionMessages(locale).d50Notice;
   const unitSegments = passage.units.map((unit) => ({ unit, segments: segmentUnit(unit, passage.highlight) }));
   const showLegend = needsLegend(unitSegments.map((entry) => entry.segments));
   const hadith = textKind === "hadith";
+  // D92: the learner-facing reference; a server older than D92 has none, and the section title stands in.
+  const referenceAr = passage.referenceAr !== undefined && passage.referenceAr !== "" ? passage.referenceAr : passage.sectionTitleAr;
 
   return (
     <div className="flex flex-col gap-q24">
@@ -30,11 +34,8 @@ export function LearnStep({ passage, textKind, hidden, onToggle }: { passage: Pa
           {t.heading}
         </h2>
         <p className="text-body-compact text-ink-secondary">
-          <bdi lang="ar">{passage.sectionTitleAr}</bdi> {"·"} <bdi lang="ar">{passage.reference}</bdi>
+          <bdi lang="ar">{referenceAr}</bdi>
         </p>
-        {hadith ? (
-          <span className="inline-flex min-h-badge w-fit items-center rounded-sm bg-selection px-q12 text-caption text-primary-deep">{t.paths[passage.path]}</span>
-        ) : null}
       </div>
 
       {hidden ? (
@@ -67,16 +68,7 @@ export function LearnStep({ passage, textKind, hidden, onToggle }: { passage: Pa
 
       <QuestionSource source={passage.source} />
 
-      {hadith ? (
-        <div lang={locale} dir={direction} className="flex flex-col gap-q4 text-small text-ink-secondary">
-          <p>
-            {t.takhrij} <bdi lang="ar">{passage.takhrij ?? t.notStated}</bdi>
-          </p>
-          <p>
-            {t.grade} <bdi lang="ar">{passage.grade ?? t.notStated}</bdi>
-          </p>
-        </div>
-      ) : null}
+      {hadith ? <HadithRecord takhrij={passage.takhrij} grade={passage.grade} /> : null}
       {passage.showD50Notice ? <Notice>{notice}</Notice> : null}
 
       <div>

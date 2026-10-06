@@ -11,11 +11,12 @@ function line() {
 }
 
 describe("word order (S-15, UI-tokens 6.16)", () => {
-  it("shows the helper, the context on both sides and a pool of all tokens in snapshot order", () => {
+  it("shows the helper, the whole passage with a dashed place for the part, and a pool of all tokens in snapshot order (D92)", () => {
     renderInLocale(<Harness question={wordOrderQuestion()} />);
     expect(screen.getByText("Tap a word to place it; tap it in the answer line to remove it.")).toBeInTheDocument();
-    expect(screen.getByText("قبل١")).toBeInTheDocument();
-    expect(screen.getByText("بعد١")).toBeInTheDocument();
+    const place = screen.getByRole("img", { name: "the missing part" });
+    expect(place.className).toContain("border-dashed");
+    expect(place.parentElement).toHaveTextContent("قبل١ بعد١");
     expect(pool().getAllByRole("button").map((button) => button.textContent)).toEqual(["كلمة٢", "كلمة١", "كلمة٣"]);
     expect(line().queryAllByRole("button")).toHaveLength(0);
   });

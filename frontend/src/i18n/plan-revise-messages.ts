@@ -30,7 +30,7 @@ export interface PlanReviseMessages {
   preview: {
     heading: string;
     total: (daysText: string, endDate: string) => string;
-    daily: (formattedMinutes: string, minutes: number, formattedWords: string, words: number) => string;
+    daily: (formattedMinutes: string, minutes: number, amount: string) => string; // amount is the clause of dailyAmountText (D92)
     next: string;
     exceeds: string;
     fits: string;
@@ -71,7 +71,7 @@ const ar: PlanReviseMessages = {
   preview: {
     heading: "التقدير الجديد",
     total: (daysText, endDate) => `نحو ${daysText}، حتى ${endDate}`,
-    daily: (minutes, minutesCount, words, wordsCount) => `${minutes} ${arabicNoun(minutesCount, "دقيقة", "دقائق")} يوميًا، وحتى ${words} ${arabicNoun(wordsCount, "كلمة", "كلمات")} جديدة`,
+    daily: (minutes, minutesCount, amount) => `${minutes} ${arabicNoun(minutesCount, "دقيقة", "دقائق")} يوميًا، ${amount}`,
     next: "عند الاعتماد يسري التعديل من يوم التعلم التالي.",
     exceeds: "يتجاوز هذا التقدير موعدك المفضل. يمكنك اختيار وقت يومي أطول أو موعد أبعد.",
     fits: "يناسب هذا التقدير موعدك المفضل.",
@@ -120,8 +120,7 @@ const en: PlanReviseMessages = {
   preview: {
     heading: "New estimate",
     total: (daysText, endDate) => `about ${daysText}, until ${endDate}`,
-    daily: (minutes, minutesCount, words, wordsCount) =>
-      `${minutes} ${minutesCount === 1 ? "minute" : "minutes"} a day, up to ${words} new ${wordsCount === 1 ? "word" : "words"}`,
+    daily: (minutes, minutesCount, amount) => `${minutes} ${minutesCount === 1 ? "minute" : "minutes"} a day, ${amount}`,
     next: "On confirmation it takes effect from the next learning day.",
     exceeds: "This estimate goes past your preferred date. You can choose more daily time or a later date.",
     fits: "This estimate fits your preferred date.",
