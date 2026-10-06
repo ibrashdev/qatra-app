@@ -1,3 +1,7 @@
+# Current draft-build status — 2026-10-06
+
+Coordinator adjudication for draft preparation adds 14 → 4714 and 40 → 4704 to the working [id map](nawawi40-id-map.json). The map now covers 37/42; unmapped gaps are 2, 24, 25, 35 and 42. The local Dar Alsalam comparison for 14 (PDF p.12) and 40 (PDF p.30, including Ibn Umar’s advice) found the candidate wording present; observed differences were opening/name form, honorific, diacritics and punctuation. This is a coordinator decision for a draft-only build, not a human religious review, owner decision, publication approval or G6. Standalone mapped records still require human review; the OpenITI letter-skeleton comparison remains unavailable/not run. See the private execution note under `backend/.content-build/expansion-20261006-resume/`.
+
 # Nawawi-40 id map: evidence (C1 preparation, D68)
 
 Prepared: 2026-10-04T13:06:00Z (retrieval date 2026-10-04, Asia/Dubai). Worker: content-acquisition, Role 6.
@@ -120,3 +124,8 @@ The earlier uncertain-record notes were based partly on recollection. A bounded 
 - The other five candidates also remain uncertain. All seven are retained privately as evidence with their unchanged source text. The two-pass acquisition equality does not settle the required Forty wording or authorize replacing it from a different edition.
 
 The visual comparison is bounded and does not replace the documented OpenITI letter-skeleton follow-up, human source review or publication approval. The complete hadith collection remains unfinished at 35/42 mapped records.
+
+
+## Coordinator adjudication — 2026-10-06 (draft only)
+
+The coordinator explicitly directed inclusion of hadith 14 → HadeethEnc 4714 and hadith 40 → HadeethEnc 4704 in the D68 working id map for a new bank 5 draft build. This resolves the prior uncertainty for that draft operation only. The map is now 37/42; five gaps remain (2, 24, 25, 35, 42). Existing human-review requirements for standalone records and the OpenITI letter-skeleton follow-up remain open. No owner decision, religious certification, source publication approval or G6 is inferred. The exact coordinator instruction and reasoning are retained privately at `backend/.content-build/expansion-20261006-resume/id-map-adjudication-note.md`.
