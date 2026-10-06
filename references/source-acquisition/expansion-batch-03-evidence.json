@@ -1,0 +1,2840 @@
+{
+  "task": "CONTENT-EXPANSION-03",
+  "status": "partial draft acquisition, validated hadith bank, and draft database import; no publication approval",
+  "asOf": "2026-10-06",
+  "authority": {
+    "sourceDecision": "D68: QuranEnc Arabic Quran and HadeethEnc Forty records through Islamic Content MCP",
+    "preparation": "Current owner authorization covers work that can proceed within existing gates; this record documents draft preparation/import only.",
+    "publicationBoundary": "D83 and D94 have narrowly scoped approvals. D94 covers the existing AI editions for Quran surahs 78-81 and Forty 1, now independently read back as published; this bank 4 edition has no new G6.",
+    "scope": "Juz Amma surahs 78-114 and Nawawi Forty numbers 1-42, excluding Ibn Rajab additions."
+  },
+  "privateBuildRoot": "backend/.content-build/expansion-20261005",
+  "collections": {
+    "quran-hafs-quranenc": {
+      "bankVersion": 4,
+      "requestedSurahs": "78-114",
+      "expectedSurahs": 37,
+      "acquiredSurahs": 37,
+      "expectedAyahs": 564,
+      "acquiredAyahs": 564,
+      "missingSurahs": [],
+      "verification": "not run: independent King Fahd Complex Hafs v18 oracle not obtained; no D83 source-only method used",
+      "segmentation": "not run",
+      "bankBuild": "not run",
+      "validation": "not run",
+      "independentSourceRecheck": {
+        "status": "completed_source_comparison_only",
+        "method": "two_independent_HTTP_acquisitions_source_comparison_only",
+        "surahs": 37,
+        "ayahs": 564,
+        "byteIdenticalVerseTexts": 564,
+        "nfcIdenticalVerseTexts": 564,
+        "equalRawPayloadHashPairs": 37,
+        "differences": 0,
+        "checkedAt": "2026-10-06T01:39:41.484486+00:00",
+        "standardOracleVerification": "not_run_KFGQPC_Hafs_v18_not_obtained",
+        "fullJuzSourceOnlyException": "not_approved_D94_covers_existing78-81_only",
+        "publicationOfBank4": "not_approved",
+        "meaning": "Independent repeat acquisition from the same approved MCP source; this supports source consistency only and is not the contract’s independent King Fahd Hafs v18 oracle comparison or a verification, segmentation, bank-build, approval, or publication result."
+      }
+    },
+    "nawawi40-hadeethenc": {
+      "bankVersion": 4,
+      "requestedFortyNumbers": "1-42",
+      "mappedNumbers": 35,
+      "recordsPerPass": 35,
+      "passes": 2,
+      "rawObjects": 70,
+      "payloadHashEqualityRecords": 35,
+      "exactGaps": [
+        2,
+        14,
+        24,
+        25,
+        35,
+        40,
+        42
+      ],
+      "verification": {
+        "method": "two_pass_nfc_equality",
+        "status": "passed",
+        "unitsPassed": 140,
+        "unitsFailed": 0,
+        "flagged": 0,
+        "gaps": 7
+      },
+      "segmentation": {
+        "status": "succeeded",
+        "sections": 35,
+        "units": 105,
+        "words": 2012,
+        "passages": 107,
+        "gradePassages": 35,
+        "matnPassages": 42,
+        "sanadPassages": 30,
+        "parts": 373
+      },
+      "bankBuild": {
+        "status": "succeeded",
+        "lessons": 107,
+        "questions": 1598,
+        "skipped": 0
+      },
+      "validation": {
+        "status": "passed",
+        "issueCount": 0,
+        "parts": 373,
+        "partsCovered": 373
+      },
+      "reviewFlags": {
+        "boundaryDoubts": [
+          5,
+          7,
+          16,
+          19,
+          27
+        ],
+        "hardSplitReview": [
+          29
+        ],
+        "count": 6
+      },
+      "sourceMatchReview": {
+        "dedicatedFortyRunRecords": 26,
+        "standaloneSearchRecordsPendingHumanReview": 9,
+        "uncertainUnmappedNumbers": [
+          2,
+          14,
+          24,
+          25,
+          35,
+          40,
+          42
+        ],
+        "openitiSkeletonComparison": "not run",
+        "twoPassEqualityLimit": "establishes consistent retrieval, not exact matching to a printed edition"
+      }
+    }
+  },
+  "candidateFollowup": {
+    "scope": "Seven candidate numbers were fetched in two separate passes for comparison only.",
+    "numbers": [
+      2,
+      14,
+      24,
+      25,
+      35,
+      40,
+      42
+    ],
+    "objects": 14,
+    "recordAndRawToolResponseHashEquality": 7,
+    "equalNumbers": [
+      2,
+      14,
+      24,
+      25,
+      35,
+      40,
+      42
+    ],
+    "includedInApprovedIdMap": false,
+    "includedInDraftBank": false,
+    "approvedAsExactWording": false,
+    "libraryItem5271": {
+      "toolName": "get_library_item",
+      "status": "upstream_http_500",
+      "usedAsSource": false
+    },
+    "sourceSubstitution": "none"
+  },
+  "databaseImport": {
+    "databaseEditionKey": "nawawi40-hadeethenc-expanded-20261005",
+    "version": 3,
+    "bankVersion": 4,
+    "status": "draft",
+    "publicationApproved": false,
+    "approveOrPublishRun": false,
+    "bookIdentity": "existing Nawawi book row preserved",
+    "editionIdentity": "separate draft edition row",
+    "sourceRightsState": "owner-accepted pending verification; publisher reuse/storage terms remain unverified",
+    "rawStoragePath": null,
+    "reason": "private bucket upload deferred; no service-role key in build environment",
+    "sections": 35,
+    "units": 105,
+    "passages": 107,
+    "parts": 373,
+    "lessons": 107,
+    "questions": 1598,
+    "nonDraftQuestions": 0,
+    "uncoveredParts": 0,
+    "canonicalUnitTextIntegrity": {
+      "matched": 105,
+      "total": 105,
+      "checkedAt": "2026-10-06T01:27:30.045Z"
+    },
+    "contentHash": "64312aa354ac90848beecde0e3261f29e375c83d265acd04b1f8760476cdc670",
+    "sqlSha256": "f15c353e287dc52f92355ed7477c646ca9cafbae5b5412009fe9523d1f2f798c"
+  },
+  "oracleStatus": {
+    "hafsV18": "not obtained; official reference pages attempted but inaccessible or returned errors/timeouts; no alternate edition, fabricated oracle, or D83 reuse",
+    "library5271": "MCP returned HTTP 500; no source-text fallback used"
+  },
+  "publisherRights": "Publisher-specific reuse and caching terms remain unverified; no right inferred from MCP access or database import.",
+  "publication": "No approve/publish action and no new G6. Imported hadith edition remains draft.",
+  "objectMetadata": [
+    {
+      "collection": "quran-hafs-quranenc",
+      "bankVersion": 4,
+      "toolName": "get_quran_verses",
+      "acquisition": "http",
+      "passNumber": null,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/quran-hafs-quranenc/bank4-surah-078.json",
+      "retrievedAt": "2026-10-05T20:01:06.180897Z",
+      "canonicalUrl": "https://islamenc.com/ar/quran/78",
+      "surah": 78,
+      "recordCount": 40,
+      "rawSha256": "8acb4c5b6f897a783b0ae15d6258b774d7353fb4de9129e3a379fb7cd49a4e3c",
+      "fileSha256": "1720294df503e662331a7e235c1c017e78fc49a819d57731be49dd0772ff6d74"
+    },
+    {
+      "collection": "quran-hafs-quranenc",
+      "bankVersion": 4,
+      "toolName": "get_quran_verses",
+      "acquisition": "http",
+      "passNumber": null,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/quran-hafs-quranenc/bank4-surah-079.json",
+      "retrievedAt": "2026-10-05T20:01:14.652978Z",
+      "canonicalUrl": "https://islamenc.com/ar/quran/79",
+      "surah": 79,
+      "recordCount": 46,
+      "rawSha256": "667c5e721523f3f0a855784944db2e48fc2fd264014edd7c493fe196fada5bfa",
+      "fileSha256": "909d2926d59099b4757561ec3c2804d0f66a5a93f363230584989408312d9f44"
+    },
+    {
+      "collection": "quran-hafs-quranenc",
+      "bankVersion": 4,
+      "toolName": "get_quran_verses",
+      "acquisition": "http",
+      "passNumber": null,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/quran-hafs-quranenc/bank4-surah-080.json",
+      "retrievedAt": "2026-10-05T20:01:14.990528Z",
+      "canonicalUrl": "https://islamenc.com/ar/quran/80",
+      "surah": 80,
+      "recordCount": 42,
+      "rawSha256": "916e18d11678f57d574cf4950573f64209b53551271505904956419a7ab93982",
+      "fileSha256": "c88989c8ca68acf9775323777bb655f320730608a6cbda16b09c59f0e297d61c"
+    },
+    {
+      "collection": "quran-hafs-quranenc",
+      "bankVersion": 4,
+      "toolName": "get_quran_verses",
+      "acquisition": "http",
+      "passNumber": null,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/quran-hafs-quranenc/bank4-surah-081.json",
+      "retrievedAt": "2026-10-05T20:01:15.354362Z",
+      "canonicalUrl": "https://islamenc.com/ar/quran/81",
+      "surah": 81,
+      "recordCount": 29,
+      "rawSha256": "58d02a38186b03769899cd0c0297bd10170a4ad8fca80fc7f1107496f756c1fc",
+      "fileSha256": "465516437322ac788da45a14725ba143ec6820aeeed2f186a09b87dc58210cbf"
+    },
+    {
+      "collection": "quran-hafs-quranenc",
+      "bankVersion": 4,
+      "toolName": "get_quran_verses",
+      "acquisition": "http",
+      "passNumber": null,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/quran-hafs-quranenc/bank4-surah-082.json",
+      "retrievedAt": "2026-10-05T20:01:15.684726Z",
+      "canonicalUrl": "https://islamenc.com/ar/quran/82",
+      "surah": 82,
+      "recordCount": 19,
+      "rawSha256": "643bd96caa9eac81275e7e4ad09c6a522f392bbb55861dcc6137fb06a6e4138c",
+      "fileSha256": "596c51948f119a46dad05b8ce5e91259e44a62daf7f28e59d94353962f84b256"
+    },
+    {
+      "collection": "quran-hafs-quranenc",
+      "bankVersion": 4,
+      "toolName": "get_quran_verses",
+      "acquisition": "http",
+      "passNumber": null,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/quran-hafs-quranenc/bank4-surah-083.json",
+      "retrievedAt": "2026-10-05T20:01:16.006022Z",
+      "canonicalUrl": "https://islamenc.com/ar/quran/83",
+      "surah": 83,
+      "recordCount": 36,
+      "rawSha256": "39d3c551b8344530f3ddda3315c745c333d49f4c7d9ba55e157b2ba10c1300d3",
+      "fileSha256": "e160353e86c1f70654b4446b1509fd38e03e212905701ce75a4af5e3f0ec5f73"
+    },
+    {
+      "collection": "quran-hafs-quranenc",
+      "bankVersion": 4,
+      "toolName": "get_quran_verses",
+      "acquisition": "http",
+      "passNumber": null,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/quran-hafs-quranenc/bank4-surah-084.json",
+      "retrievedAt": "2026-10-05T20:01:16.358201Z",
+      "canonicalUrl": "https://islamenc.com/ar/quran/84",
+      "surah": 84,
+      "recordCount": 25,
+      "rawSha256": "bceef2dd3e49211889bef69e97dc9215cf140cc50459a90b4422feea91bbaaa5",
+      "fileSha256": "f957209cfe238f3344e2dd7c69a851f50792c02e952261c91cd946159316f6d2"
+    },
+    {
+      "collection": "quran-hafs-quranenc",
+      "bankVersion": 4,
+      "toolName": "get_quran_verses",
+      "acquisition": "http",
+      "passNumber": null,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/quran-hafs-quranenc/bank4-surah-085.json",
+      "retrievedAt": "2026-10-05T20:01:16.689163Z",
+      "canonicalUrl": "https://islamenc.com/ar/quran/85",
+      "surah": 85,
+      "recordCount": 22,
+      "rawSha256": "6d1ae9f9e73605a175922110608800a2d4cb10e8173116c4ed57ac3b42b422d2",
+      "fileSha256": "6eb63038936da72d9b71ba71c5c3a19e4cdfdc449dfb7b1a27058d2aa475accc"
+    },
+    {
+      "collection": "quran-hafs-quranenc",
+      "bankVersion": 4,
+      "toolName": "get_quran_verses",
+      "acquisition": "http",
+      "passNumber": null,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/quran-hafs-quranenc/bank4-surah-086.json",
+      "retrievedAt": "2026-10-05T20:01:17.015023Z",
+      "canonicalUrl": "https://islamenc.com/ar/quran/86",
+      "surah": 86,
+      "recordCount": 17,
+      "rawSha256": "11a5033310dd2575fa2387eb825fe98183c63061862080711bbfa1619aeb401e",
+      "fileSha256": "7b931b026a47ea833b0d60551b5cf932559d115805d19c5680da0b0625177987"
+    },
+    {
+      "collection": "quran-hafs-quranenc",
+      "bankVersion": 4,
+      "toolName": "get_quran_verses",
+      "acquisition": "http",
+      "passNumber": null,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/quran-hafs-quranenc/bank4-surah-087.json",
+      "retrievedAt": "2026-10-05T20:01:17.344405Z",
+      "canonicalUrl": "https://islamenc.com/ar/quran/87",
+      "surah": 87,
+      "recordCount": 19,
+      "rawSha256": "123a06f58d3a6f4374f12cd82d56a4f3c375e514f3307e4a671e5ffb65d85402",
+      "fileSha256": "6d0918192be3482e423f10e31535fa79b7e54289c73791df124e956dfdc1faf5"
+    },
+    {
+      "collection": "quran-hafs-quranenc",
+      "bankVersion": 4,
+      "toolName": "get_quran_verses",
+      "acquisition": "http",
+      "passNumber": null,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/quran-hafs-quranenc/bank4-surah-088.json",
+      "retrievedAt": "2026-10-05T20:01:17.713171Z",
+      "canonicalUrl": "https://islamenc.com/ar/quran/88",
+      "surah": 88,
+      "recordCount": 26,
+      "rawSha256": "d9c6c2c289576aebad87e96f3c012236ec9fce075828d45f16c752060eac2a50",
+      "fileSha256": "ace9c1b13c26707f34a72a2aa39a7b2b3fd338756fa2a39dde8a81e360fd8f2a"
+    },
+    {
+      "collection": "quran-hafs-quranenc",
+      "bankVersion": 4,
+      "toolName": "get_quran_verses",
+      "acquisition": "http",
+      "passNumber": null,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/quran-hafs-quranenc/bank4-surah-089.json",
+      "retrievedAt": "2026-10-05T20:01:18.078592Z",
+      "canonicalUrl": "https://islamenc.com/ar/quran/89",
+      "surah": 89,
+      "recordCount": 30,
+      "rawSha256": "6cc6390defa6de5cdfc447068678b96547c906ed23a3c003fd0fc817e192251c",
+      "fileSha256": "f4f1cef1de35c5af69ab6b142c1d030bd8647cbae3aed96ba869340a382b6db1"
+    },
+    {
+      "collection": "quran-hafs-quranenc",
+      "bankVersion": 4,
+      "toolName": "get_quran_verses",
+      "acquisition": "http",
+      "passNumber": null,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/quran-hafs-quranenc/bank4-surah-090.json",
+      "retrievedAt": "2026-10-05T20:01:18.438531Z",
+      "canonicalUrl": "https://islamenc.com/ar/quran/90",
+      "surah": 90,
+      "recordCount": 20,
+      "rawSha256": "b797107a739f59e14a8cef5ae646c7f0d7b6c2a427fe118068fea1be11178f87",
+      "fileSha256": "b8169eed0e73196ef34491a15117eaaa39d0e30054000292f0037323c2771150"
+    },
+    {
+      "collection": "quran-hafs-quranenc",
+      "bankVersion": 4,
+      "toolName": "get_quran_verses",
+      "acquisition": "http",
+      "passNumber": null,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/quran-hafs-quranenc/bank4-surah-091.json",
+      "retrievedAt": "2026-10-05T20:01:18.759736Z",
+      "canonicalUrl": "https://islamenc.com/ar/quran/91",
+      "surah": 91,
+      "recordCount": 15,
+      "rawSha256": "cb9df6dd689de223a2e3fd313beb895d771bf43a5832a200739c1de0984821d8",
+      "fileSha256": "a6e537c709822db4984a875041dea3c88dd9f6fab779656cbe8b7710e18a82ae"
+    },
+    {
+      "collection": "quran-hafs-quranenc",
+      "bankVersion": 4,
+      "toolName": "get_quran_verses",
+      "acquisition": "http",
+      "passNumber": null,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/quran-hafs-quranenc/bank4-surah-092.json",
+      "retrievedAt": "2026-10-05T20:01:19.082661Z",
+      "canonicalUrl": "https://islamenc.com/ar/quran/92",
+      "surah": 92,
+      "recordCount": 21,
+      "rawSha256": "d1e552e4b0d769a0f1bb33c547bb26465a9dc2be4b4d0b3058f9e3c997bbb0ba",
+      "fileSha256": "4bab5d5971ba11cb2e3f3a7bf096af09b2de2b545bfb2b7b9abf9ddce157b516"
+    },
+    {
+      "collection": "quran-hafs-quranenc",
+      "bankVersion": 4,
+      "toolName": "get_quran_verses",
+      "acquisition": "http",
+      "passNumber": null,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/quran-hafs-quranenc/bank4-surah-093.json",
+      "retrievedAt": "2026-10-05T20:01:19.445665Z",
+      "canonicalUrl": "https://islamenc.com/ar/quran/93",
+      "surah": 93,
+      "recordCount": 11,
+      "rawSha256": "006707f13e041df6888ca63c71c5f94046415105fd4571664239745df0fc507d",
+      "fileSha256": "4b0ae5f167da94f1182f40f07765613e3202f0fb6f0ac7af6a30f5da7ca9caa9"
+    },
+    {
+      "collection": "quran-hafs-quranenc",
+      "bankVersion": 4,
+      "toolName": "get_quran_verses",
+      "acquisition": "http",
+      "passNumber": null,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/quran-hafs-quranenc/bank4-surah-094.json",
+      "retrievedAt": "2026-10-05T20:01:19.799440Z",
+      "canonicalUrl": "https://islamenc.com/ar/quran/94",
+      "surah": 94,
+      "recordCount": 8,
+      "rawSha256": "73ce5f933cd6525c2474927a82664dc406df41ed6f21d004ac98a124d3b96bdf",
+      "fileSha256": "99b3f4dbf968b1d712cf8e66999469a6cbf21b19a023e16834a3e7797f9088c9"
+    },
+    {
+      "collection": "quran-hafs-quranenc",
+      "bankVersion": 4,
+      "toolName": "get_quran_verses",
+      "acquisition": "http",
+      "passNumber": null,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/quran-hafs-quranenc/bank4-surah-095.json",
+      "retrievedAt": "2026-10-05T20:01:20.146627Z",
+      "canonicalUrl": "https://islamenc.com/ar/quran/95",
+      "surah": 95,
+      "recordCount": 8,
+      "rawSha256": "f16556f05018518cb0fc40972ffd583efc981175b9235344e466abe4552b2bbf",
+      "fileSha256": "d208983d7aaf79541645f95ea70b7f4a52b7761722d398ca3dadbe228275836d"
+    },
+    {
+      "collection": "quran-hafs-quranenc",
+      "bankVersion": 4,
+      "toolName": "get_quran_verses",
+      "acquisition": "http",
+      "passNumber": null,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/quran-hafs-quranenc/bank4-surah-096.json",
+      "retrievedAt": "2026-10-05T20:01:20.501084Z",
+      "canonicalUrl": "https://islamenc.com/ar/quran/96",
+      "surah": 96,
+      "recordCount": 19,
+      "rawSha256": "fec313b3337a6d558a2e472387b9493cd01868cc6cdbf687782450f2f746b2e0",
+      "fileSha256": "f4a359e59a3bea3163f0ede1794111c1b723fa23d4058d4c0f18b71a0f4d7d87"
+    },
+    {
+      "collection": "quran-hafs-quranenc",
+      "bankVersion": 4,
+      "toolName": "get_quran_verses",
+      "acquisition": "http",
+      "passNumber": null,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/quran-hafs-quranenc/bank4-surah-097.json",
+      "retrievedAt": "2026-10-05T20:01:20.884509Z",
+      "canonicalUrl": "https://islamenc.com/ar/quran/97",
+      "surah": 97,
+      "recordCount": 5,
+      "rawSha256": "e8b4706ccbb7b1adf56897e8865fabffe16159643d24420ef3610110d71f083c",
+      "fileSha256": "d4e2f140362ef4259797cbc910ea61fded18030bc34206e7c16d7510fa30fccf"
+    },
+    {
+      "collection": "quran-hafs-quranenc",
+      "bankVersion": 4,
+      "toolName": "get_quran_verses",
+      "acquisition": "http",
+      "passNumber": null,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/quran-hafs-quranenc/bank4-surah-098.json",
+      "retrievedAt": "2026-10-05T20:01:21.198031Z",
+      "canonicalUrl": "https://islamenc.com/ar/quran/98",
+      "surah": 98,
+      "recordCount": 8,
+      "rawSha256": "a9c588592bcc5668887fc6019b188a385461f1ccf9c47d554618967b01e004cd",
+      "fileSha256": "aa7e4f681b5ada4cbd56ade573163b06a9c2b21967a1d4cfe886e924386321b5"
+    },
+    {
+      "collection": "quran-hafs-quranenc",
+      "bankVersion": 4,
+      "toolName": "get_quran_verses",
+      "acquisition": "http",
+      "passNumber": null,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/quran-hafs-quranenc/bank4-surah-099.json",
+      "retrievedAt": "2026-10-05T20:01:21.530686Z",
+      "canonicalUrl": "https://islamenc.com/ar/quran/99",
+      "surah": 99,
+      "recordCount": 8,
+      "rawSha256": "a69747446afbaf33f3d16320ddea7db4442f9d4a05c5c1a53c196a9f71e59e94",
+      "fileSha256": "628b7a25e2e184668a1dc35abc915d95e156b20db939883722ea9a41bed3ad42"
+    },
+    {
+      "collection": "quran-hafs-quranenc",
+      "bankVersion": 4,
+      "toolName": "get_quran_verses",
+      "acquisition": "http",
+      "passNumber": null,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/quran-hafs-quranenc/bank4-surah-100.json",
+      "retrievedAt": "2026-10-05T20:01:21.896827Z",
+      "canonicalUrl": "https://islamenc.com/ar/quran/100",
+      "surah": 100,
+      "recordCount": 11,
+      "rawSha256": "6f71b9a31a2bcf857b2e0b035a6e31a68e251f5a14cb54c666f8d1a4ddeb4c14",
+      "fileSha256": "1fffdc11f0419341ed64186ca69b4f6f9e387d9b867d85748f4f0eaf26531905"
+    },
+    {
+      "collection": "quran-hafs-quranenc",
+      "bankVersion": 4,
+      "toolName": "get_quran_verses",
+      "acquisition": "http",
+      "passNumber": null,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/quran-hafs-quranenc/bank4-surah-101.json",
+      "retrievedAt": "2026-10-05T20:03:11.048781Z",
+      "canonicalUrl": "https://islamenc.com/ar/quran/101",
+      "surah": 101,
+      "recordCount": 11,
+      "rawSha256": "308abc5cd9db79c0dead0a90c0c44ed8dfbf042465a623e977765d53449cc1cd",
+      "fileSha256": "48d19e05f2ca1dda0e24e80028020abc32550b4c2824e38493aceb2d0f00b47b"
+    },
+    {
+      "collection": "quran-hafs-quranenc",
+      "bankVersion": 4,
+      "toolName": "get_quran_verses",
+      "acquisition": "http",
+      "passNumber": null,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/quran-hafs-quranenc/bank4-surah-102.json",
+      "retrievedAt": "2026-10-05T20:03:21.052744Z",
+      "canonicalUrl": "https://islamenc.com/ar/quran/102",
+      "surah": 102,
+      "recordCount": 8,
+      "rawSha256": "81b0f88da4364877ac1a866946d4c01c4bb94d20f9bfec5f95c92f3bb7d50fcf",
+      "fileSha256": "532693caa8324dc0ed7f0180c1d46fa464274ea7762b137a1c66897dc55e4e84"
+    },
+    {
+      "collection": "quran-hafs-quranenc",
+      "bankVersion": 4,
+      "toolName": "get_quran_verses",
+      "acquisition": "http",
+      "passNumber": null,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/quran-hafs-quranenc/bank4-surah-103.json",
+      "retrievedAt": "2026-10-05T20:03:21.366495Z",
+      "canonicalUrl": "https://islamenc.com/ar/quran/103",
+      "surah": 103,
+      "recordCount": 3,
+      "rawSha256": "d0503d1005fbd7edadd18d001487c3cc9f9e7cd316db1799871471542f3e08e1",
+      "fileSha256": "4483d199da0ab3f2348f151cf62165ca8c12ffb9815b2d3cb0edf1e913b685e0"
+    },
+    {
+      "collection": "quran-hafs-quranenc",
+      "bankVersion": 4,
+      "toolName": "get_quran_verses",
+      "acquisition": "http",
+      "passNumber": null,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/quran-hafs-quranenc/bank4-surah-104.json",
+      "retrievedAt": "2026-10-05T20:03:21.711474Z",
+      "canonicalUrl": "https://islamenc.com/ar/quran/104",
+      "surah": 104,
+      "recordCount": 9,
+      "rawSha256": "01c7ca2d47e81d821331bf8d938d469b3a7f0fd01836b6f68c1853775898cd86",
+      "fileSha256": "be2e408f96210240c10c29f2ad9fa846e1009887187a7690b536851c74ed1153"
+    },
+    {
+      "collection": "quran-hafs-quranenc",
+      "bankVersion": 4,
+      "toolName": "get_quran_verses",
+      "acquisition": "http",
+      "passNumber": null,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/quran-hafs-quranenc/bank4-surah-105.json",
+      "retrievedAt": "2026-10-05T20:03:22.060320Z",
+      "canonicalUrl": "https://islamenc.com/ar/quran/105",
+      "surah": 105,
+      "recordCount": 5,
+      "rawSha256": "209c5490b269da1b960f823ddf5e5c838f28e9183a0a28d089a1ea5fe27e6df7",
+      "fileSha256": "7529f5f831e02e4925b7a54036b3c39899495191b8aa588a914333773acb45bf"
+    },
+    {
+      "collection": "quran-hafs-quranenc",
+      "bankVersion": 4,
+      "toolName": "get_quran_verses",
+      "acquisition": "http",
+      "passNumber": null,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/quran-hafs-quranenc/bank4-surah-106.json",
+      "retrievedAt": "2026-10-05T20:03:22.371424Z",
+      "canonicalUrl": "https://islamenc.com/ar/quran/106",
+      "surah": 106,
+      "recordCount": 4,
+      "rawSha256": "bf0777d01e153e136ce819dda79ae9062e897aef6e70e89351aa4256613c4e02",
+      "fileSha256": "d1953a0915099fbaac5ca31c5318c8bc50f8933fb3641851e1e61d86cb7c312a"
+    },
+    {
+      "collection": "quran-hafs-quranenc",
+      "bankVersion": 4,
+      "toolName": "get_quran_verses",
+      "acquisition": "http",
+      "passNumber": null,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/quran-hafs-quranenc/bank4-surah-107.json",
+      "retrievedAt": "2026-10-05T20:03:22.698069Z",
+      "canonicalUrl": "https://islamenc.com/ar/quran/107",
+      "surah": 107,
+      "recordCount": 7,
+      "rawSha256": "a014dd6ce646cb5377111846ea6d90333b997fa94c6f897b95081d126c09bcc7",
+      "fileSha256": "8ef5805469098faec9a6875a5553fcec17a517b54785b3aa6fab49fe8582fa86"
+    },
+    {
+      "collection": "quran-hafs-quranenc",
+      "bankVersion": 4,
+      "toolName": "get_quran_verses",
+      "acquisition": "http",
+      "passNumber": null,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/quran-hafs-quranenc/bank4-surah-108.json",
+      "retrievedAt": "2026-10-05T20:03:23.012103Z",
+      "canonicalUrl": "https://islamenc.com/ar/quran/108",
+      "surah": 108,
+      "recordCount": 3,
+      "rawSha256": "fbde63bd782e4919de521f0001cc603fd57512ece712f88f8497fe370cc591d4",
+      "fileSha256": "03e6352698abe11392b655463951ac6d1a133aba7ac8d72b2484db2238931a3e"
+    },
+    {
+      "collection": "quran-hafs-quranenc",
+      "bankVersion": 4,
+      "toolName": "get_quran_verses",
+      "acquisition": "http",
+      "passNumber": null,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/quran-hafs-quranenc/bank4-surah-109.json",
+      "retrievedAt": "2026-10-05T20:03:23.337408Z",
+      "canonicalUrl": "https://islamenc.com/ar/quran/109",
+      "surah": 109,
+      "recordCount": 6,
+      "rawSha256": "1508940199993fc1a81fd97c37150af6b02da6f4823908729e053778949786b4",
+      "fileSha256": "44cdabf131e316b52b9124626041516cd94bcc4ccd45966c027748bd4d963908"
+    },
+    {
+      "collection": "quran-hafs-quranenc",
+      "bankVersion": 4,
+      "toolName": "get_quran_verses",
+      "acquisition": "http",
+      "passNumber": null,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/quran-hafs-quranenc/bank4-surah-110.json",
+      "retrievedAt": "2026-10-05T20:03:23.659082Z",
+      "canonicalUrl": "https://islamenc.com/ar/quran/110",
+      "surah": 110,
+      "recordCount": 3,
+      "rawSha256": "7752965943bebf6a89378cb14e1bf2261a3af526fa4fe6a027c59f4d8614b73f",
+      "fileSha256": "62f827ce0bf048601542e44c50a1dde59143040ae15e2db6455eef98efade725"
+    },
+    {
+      "collection": "quran-hafs-quranenc",
+      "bankVersion": 4,
+      "toolName": "get_quran_verses",
+      "acquisition": "http",
+      "passNumber": null,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/quran-hafs-quranenc/bank4-surah-111.json",
+      "retrievedAt": "2026-10-05T20:03:23.995390Z",
+      "canonicalUrl": "https://islamenc.com/ar/quran/111",
+      "surah": 111,
+      "recordCount": 5,
+      "rawSha256": "cda30874c1e0f2551f9c966b69f655a5656b89d69122a70cbf2e0efef4919b97",
+      "fileSha256": "98d2e21fe00bc8ccec24478d2479d1f09830009e5ea5d5fd2b5f30a505f07e73"
+    },
+    {
+      "collection": "quran-hafs-quranenc",
+      "bankVersion": 4,
+      "toolName": "get_quran_verses",
+      "acquisition": "http",
+      "passNumber": null,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/quran-hafs-quranenc/bank4-surah-112.json",
+      "retrievedAt": "2026-10-05T20:03:24.316981Z",
+      "canonicalUrl": "https://islamenc.com/ar/quran/112",
+      "surah": 112,
+      "recordCount": 4,
+      "rawSha256": "d0c31ed93a1e87726a87bd241604d7a13d358086dc4a9469db45f965416c5e41",
+      "fileSha256": "b10372ed9e3d4d5416c6185fe122daa5f3baf0373e5e062af5c260bb6efa020b"
+    },
+    {
+      "collection": "quran-hafs-quranenc",
+      "bankVersion": 4,
+      "toolName": "get_quran_verses",
+      "acquisition": "http",
+      "passNumber": null,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/quran-hafs-quranenc/bank4-surah-113.json",
+      "retrievedAt": "2026-10-05T20:03:24.642607Z",
+      "canonicalUrl": "https://islamenc.com/ar/quran/113",
+      "surah": 113,
+      "recordCount": 5,
+      "rawSha256": "8fdda0509301250fac6d16daedaae7f5fe6a5f7b8ba84f189eb6e36a99b1bb02",
+      "fileSha256": "da619f5392d72447c079667ae3da6d1a5b50d1268981fe1a37706764274076a4"
+    },
+    {
+      "collection": "quran-hafs-quranenc",
+      "bankVersion": 4,
+      "toolName": "get_quran_verses",
+      "acquisition": "http",
+      "passNumber": null,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/quran-hafs-quranenc/bank4-surah-114.json",
+      "retrievedAt": "2026-10-05T20:03:24.960222Z",
+      "canonicalUrl": "https://islamenc.com/ar/quran/114",
+      "surah": 114,
+      "recordCount": 6,
+      "rawSha256": "88e1b213f07c2c09018520eea091fadcb05c8bc80872470a746dd1bc2e96855e",
+      "fileSha256": "9468b67ac7e32bba202b1721d54cdda237911a326cf6fb9915690340d765a540"
+    },
+    {
+      "collection": "nawawi40-hadeethenc",
+      "bankVersion": 4,
+      "toolName": "get_hadith",
+      "acquisition": "http",
+      "passNumber": 1,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/nawawi40-hadeethenc/bank4-pass1-forty-01.json",
+      "retrievedAt": "2026-10-05T20:04:20.973592Z",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/66511",
+      "recordCount": 1,
+      "recordIds": [
+        {
+          "fortyNumber": 1,
+          "hadeethencId": 66511
+        }
+      ],
+      "rawSha256": "6b99cd101ba0840ed62710d6c29efc6df78089131b6e04d21fc3e9b2073a8ef7",
+      "fileSha256": "241366a25e9e20e2e42f0686389caddd5da135e55fe4fbc0537354eb129483db"
+    },
+    {
+      "collection": "nawawi40-hadeethenc",
+      "bankVersion": 4,
+      "toolName": "get_hadith",
+      "acquisition": "http",
+      "passNumber": 1,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/nawawi40-hadeethenc/bank4-pass1-forty-03.json",
+      "retrievedAt": "2026-10-05T20:04:29.260967Z",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/66512",
+      "recordCount": 1,
+      "recordIds": [
+        {
+          "fortyNumber": 3,
+          "hadeethencId": 66512
+        }
+      ],
+      "rawSha256": "9c27743dbab0d74719036712c8cdd69a0eae65167bcf98b1a42a4176c75d8bdd",
+      "fileSha256": "3ba49620c16c5e8e44673e97189ce8961a487f4bc9c7d2fb8c035de0815413f3"
+    },
+    {
+      "collection": "nawawi40-hadeethenc",
+      "bankVersion": 4,
+      "toolName": "get_hadith",
+      "acquisition": "http",
+      "passNumber": 1,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/nawawi40-hadeethenc/bank4-pass1-forty-04.json",
+      "retrievedAt": "2026-10-05T20:04:29.608355Z",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/66513",
+      "recordCount": 1,
+      "recordIds": [
+        {
+          "fortyNumber": 4,
+          "hadeethencId": 66513
+        }
+      ],
+      "rawSha256": "dab4948c5b1c35ff845a8249ee89fcb5840e076c2e8859fcf44a2e33028a6e3f",
+      "fileSha256": "2f921239f34c69516765fda4f9d0027e2e7642085bcce4d5804d60bc24d9cc00"
+    },
+    {
+      "collection": "nawawi40-hadeethenc",
+      "bankVersion": 4,
+      "toolName": "get_hadith",
+      "acquisition": "http",
+      "passNumber": 1,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/nawawi40-hadeethenc/bank4-pass1-forty-05.json",
+      "retrievedAt": "2026-10-05T20:04:29.945264Z",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/66514",
+      "recordCount": 1,
+      "recordIds": [
+        {
+          "fortyNumber": 5,
+          "hadeethencId": 66514
+        }
+      ],
+      "rawSha256": "79a34a72a772d4a45fdc61127e05fec15cc9cb6d6a8a89f90d625f74f5cd96a5",
+      "fileSha256": "ab07d6aab7d9755066046258f6de5ad193941f0eb2d6ae805d46c9a800d0ce2a"
+    },
+    {
+      "collection": "nawawi40-hadeethenc",
+      "bankVersion": 4,
+      "toolName": "get_hadith",
+      "acquisition": "http",
+      "passNumber": 1,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/nawawi40-hadeethenc/bank4-pass1-forty-06.json",
+      "retrievedAt": "2026-10-05T20:04:30.289599Z",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/66515",
+      "recordCount": 1,
+      "recordIds": [
+        {
+          "fortyNumber": 6,
+          "hadeethencId": 66515
+        }
+      ],
+      "rawSha256": "9c6214b11dc41264ddc1d0dcd9037f8879d5899afaf1516911707039594055df",
+      "fileSha256": "87ab712dc7a2776420bc6c8915fef22cb6f429d287543a3634d9b8fe54b0b614"
+    },
+    {
+      "collection": "nawawi40-hadeethenc",
+      "bankVersion": 4,
+      "toolName": "get_hadith",
+      "acquisition": "http",
+      "passNumber": 1,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/nawawi40-hadeethenc/bank4-pass1-forty-07.json",
+      "retrievedAt": "2026-10-05T20:04:30.612551Z",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/66516",
+      "recordCount": 1,
+      "recordIds": [
+        {
+          "fortyNumber": 7,
+          "hadeethencId": 66516
+        }
+      ],
+      "rawSha256": "6942bc1c25cc3e3512b76c478747bb64c5ff43d323901b29218d5a455694772b",
+      "fileSha256": "788e8542f38e210672885e8e70527796372d01d757031cad7553f9b8b5444623"
+    },
+    {
+      "collection": "nawawi40-hadeethenc",
+      "bankVersion": 4,
+      "toolName": "get_hadith",
+      "acquisition": "http",
+      "passNumber": 1,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/nawawi40-hadeethenc/bank4-pass1-forty-08.json",
+      "retrievedAt": "2026-10-05T20:04:30.951604Z",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/4211",
+      "recordCount": 1,
+      "recordIds": [
+        {
+          "fortyNumber": 8,
+          "hadeethencId": 4211
+        }
+      ],
+      "rawSha256": "14cc70bced8906ca387b2032b562428184ffaff2f942372a042edb0cbdd30854",
+      "fileSha256": "77cc04d2490144c9bcc0e18fdf8f92e80cc101abf0e2ebad7f362d7c7b1b80f6"
+    },
+    {
+      "collection": "nawawi40-hadeethenc",
+      "bankVersion": 4,
+      "toolName": "get_hadith",
+      "acquisition": "http",
+      "passNumber": 1,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/nawawi40-hadeethenc/bank4-pass1-forty-09.json",
+      "retrievedAt": "2026-10-05T20:04:31.281904Z",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/66517",
+      "recordCount": 1,
+      "recordIds": [
+        {
+          "fortyNumber": 9,
+          "hadeethencId": 66517
+        }
+      ],
+      "rawSha256": "d37c4e9d1ced163592a7ce4047060a29b48c0eb2eef372886272423c8401fe71",
+      "fileSha256": "a5e5056d10d8e5abfd307e79b074b93d59c046bcf9d1fff8f2baf44bf6f1d99b"
+    },
+    {
+      "collection": "nawawi40-hadeethenc",
+      "bankVersion": 4,
+      "toolName": "get_hadith",
+      "acquisition": "http",
+      "passNumber": 1,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/nawawi40-hadeethenc/bank4-pass1-forty-10.json",
+      "retrievedAt": "2026-10-05T20:04:31.627885Z",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/66518",
+      "recordCount": 1,
+      "recordIds": [
+        {
+          "fortyNumber": 10,
+          "hadeethencId": 66518
+        }
+      ],
+      "rawSha256": "a2cec5cc552b4ee12155707dec58fc49d9aa4e831878a14b99bc6acf5417a9de",
+      "fileSha256": "7141288ef878efa4f2881001e568609fd5f3eadfcdc2c409493039d05be3b3e7"
+    },
+    {
+      "collection": "nawawi40-hadeethenc",
+      "bankVersion": 4,
+      "toolName": "get_hadith",
+      "acquisition": "http",
+      "passNumber": 1,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/nawawi40-hadeethenc/bank4-pass1-forty-11.json",
+      "retrievedAt": "2026-10-05T20:04:31.936354Z",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/66519",
+      "recordCount": 1,
+      "recordIds": [
+        {
+          "fortyNumber": 11,
+          "hadeethencId": 66519
+        }
+      ],
+      "rawSha256": "0b5660ef1e53679ef16e5213c2ccd02ec3c5b9929aeb9c5d0b700294680fea04",
+      "fileSha256": "319ef466fc73709d0e0e740a2dfddb79d449b677f096105543e7c66d532e3925"
+    },
+    {
+      "collection": "nawawi40-hadeethenc",
+      "bankVersion": 4,
+      "toolName": "get_hadith",
+      "acquisition": "http",
+      "passNumber": 1,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/nawawi40-hadeethenc/bank4-pass1-forty-12.json",
+      "retrievedAt": "2026-10-05T20:04:32.254024Z",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/65255",
+      "recordCount": 1,
+      "recordIds": [
+        {
+          "fortyNumber": 12,
+          "hadeethencId": 65255
+        }
+      ],
+      "rawSha256": "d124a2762bcbd57a36e516252f4fc282262732d1ee668e5b9d57332e722dd2cc",
+      "fileSha256": "ff9dd721075dfa3013faa4b2f47a9f79099d279a5e60f8dd861b7fecb34cde75"
+    },
+    {
+      "collection": "nawawi40-hadeethenc",
+      "bankVersion": 4,
+      "toolName": "get_hadith",
+      "acquisition": "http",
+      "passNumber": 1,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/nawawi40-hadeethenc/bank4-pass1-forty-13.json",
+      "retrievedAt": "2026-10-05T20:04:32.591587Z",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/66520",
+      "recordCount": 1,
+      "recordIds": [
+        {
+          "fortyNumber": 13,
+          "hadeethencId": 66520
+        }
+      ],
+      "rawSha256": "f25f953829a34dd19c7e49e2291f46572dfd947822917a3f6ad10d99058f1dfd",
+      "fileSha256": "2266073bcb429df36315a9a1f0e7652fae16eb6821f2b4aa705f9e2dbdba2db8"
+    },
+    {
+      "collection": "nawawi40-hadeethenc",
+      "bankVersion": 4,
+      "toolName": "get_hadith",
+      "acquisition": "http",
+      "passNumber": 1,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/nawawi40-hadeethenc/bank4-pass1-forty-15.json",
+      "retrievedAt": "2026-10-05T20:04:32.904218Z",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/5437",
+      "recordCount": 1,
+      "recordIds": [
+        {
+          "fortyNumber": 15,
+          "hadeethencId": 5437
+        }
+      ],
+      "rawSha256": "da3365bc56cfb2d27839c14464c5cfc3e0c81eeda85f37d30109003de2c517f6",
+      "fileSha256": "e669a19ab9343aaf7b9094643781b112390ef75f9d8313a35bf9844941e62940"
+    },
+    {
+      "collection": "nawawi40-hadeethenc",
+      "bankVersion": 4,
+      "toolName": "get_hadith",
+      "acquisition": "http",
+      "passNumber": 1,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/nawawi40-hadeethenc/bank4-pass1-forty-16.json",
+      "retrievedAt": "2026-10-05T20:04:33.216339Z",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/4709",
+      "recordCount": 1,
+      "recordIds": [
+        {
+          "fortyNumber": 16,
+          "hadeethencId": 4709
+        }
+      ],
+      "rawSha256": "c3522fb8b5020434f3987a69a244f89ae5776a2224cde9785bda9f1c1e458f62",
+      "fileSha256": "ead1f2820cb6a9e9dcd0fd92bf90dbedfd95a56b0808653684879ca62a283ac7"
+    },
+    {
+      "collection": "nawawi40-hadeethenc",
+      "bankVersion": 4,
+      "toolName": "get_hadith",
+      "acquisition": "http",
+      "passNumber": 1,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/nawawi40-hadeethenc/bank4-pass1-forty-17.json",
+      "retrievedAt": "2026-10-05T20:04:33.522590Z",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/66521",
+      "recordCount": 1,
+      "recordIds": [
+        {
+          "fortyNumber": 17,
+          "hadeethencId": 66521
+        }
+      ],
+      "rawSha256": "87929e0366d4beecc14d47fce74bd24e7bf02f696ecaf1a45070a696e9e72fb9",
+      "fileSha256": "c8b556888c943ef22b6e50930b0cc4c026fc06f6ca7456043b0e0229352ebfba"
+    },
+    {
+      "collection": "nawawi40-hadeethenc",
+      "bankVersion": 4,
+      "toolName": "get_hadith",
+      "acquisition": "http",
+      "passNumber": 1,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/nawawi40-hadeethenc/bank4-pass1-forty-18.json",
+      "retrievedAt": "2026-10-05T20:04:33.839631Z",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/4302",
+      "recordCount": 1,
+      "recordIds": [
+        {
+          "fortyNumber": 18,
+          "hadeethencId": 4302
+        }
+      ],
+      "rawSha256": "3b1e4b39a503e577c5a2bb6b8f1a131ed6e80432435bea85263084fc569beaf0",
+      "fileSha256": "cb2cc816a736e55bc7c05aa0b7525cd5af4d17c98c55d193870d01f505ef0fa5"
+    },
+    {
+      "collection": "nawawi40-hadeethenc",
+      "bankVersion": 4,
+      "toolName": "get_hadith",
+      "acquisition": "http",
+      "passNumber": 1,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/nawawi40-hadeethenc/bank4-pass1-forty-19.json",
+      "retrievedAt": "2026-10-05T20:04:34.152356Z",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/66522",
+      "recordCount": 1,
+      "recordIds": [
+        {
+          "fortyNumber": 19,
+          "hadeethencId": 66522
+        }
+      ],
+      "rawSha256": "1d9a4941edbaa8a70602bb27d9e163fab7b699b8c474134dcf57755ec2d9f64e",
+      "fileSha256": "335d4aca0551a541f4b12640c85681d66d5c3cfd51320be3d8bc9752f1bda85e"
+    },
+    {
+      "collection": "nawawi40-hadeethenc",
+      "bankVersion": 4,
+      "toolName": "get_hadith",
+      "acquisition": "http",
+      "passNumber": 1,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/nawawi40-hadeethenc/bank4-pass1-forty-20.json",
+      "retrievedAt": "2026-10-05T20:04:34.509053Z",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/66523",
+      "recordCount": 1,
+      "recordIds": [
+        {
+          "fortyNumber": 20,
+          "hadeethencId": 66523
+        }
+      ],
+      "rawSha256": "73cf4e4f7638a9412026ce16d2b8922d6d62b3da7255f62e0fba87f1c3476ade",
+      "fileSha256": "d2c8ba9cf75a2bc731f6512c873569c9bba9930aeeea9f6568d79b1ca63be802"
+    },
+    {
+      "collection": "nawawi40-hadeethenc",
+      "bankVersion": 4,
+      "toolName": "get_hadith",
+      "acquisition": "http",
+      "passNumber": 1,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/nawawi40-hadeethenc/bank4-pass1-forty-21.json",
+      "retrievedAt": "2026-10-05T20:04:34.838420Z",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/66524",
+      "recordCount": 1,
+      "recordIds": [
+        {
+          "fortyNumber": 21,
+          "hadeethencId": 66524
+        }
+      ],
+      "rawSha256": "8d8c3b69234cccd6f926fec1fa4be0592b3bce10ebd8ac79fe73252192760152",
+      "fileSha256": "5d688be6fb91c8906da8b6e06594ebadd235419a9428a6b7e80a9fbfcba27a92"
+    },
+    {
+      "collection": "nawawi40-hadeethenc",
+      "bankVersion": 4,
+      "toolName": "get_hadith",
+      "acquisition": "http",
+      "passNumber": 1,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/nawawi40-hadeethenc/bank4-pass1-forty-22.json",
+      "retrievedAt": "2026-10-05T20:04:35.186495Z",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/66525",
+      "recordCount": 1,
+      "recordIds": [
+        {
+          "fortyNumber": 22,
+          "hadeethencId": 66525
+        }
+      ],
+      "rawSha256": "39244cb636b1326fc60edf22e9ccaf714b9b7c9e3a37d89ad332e0c11a4c1547",
+      "fileSha256": "4ab56d1872804177c239c30d87dfb67a23b2eb31bfd09a0b823c4a79450b6bfb"
+    },
+    {
+      "collection": "nawawi40-hadeethenc",
+      "bankVersion": 4,
+      "toolName": "get_hadith",
+      "acquisition": "http",
+      "passNumber": 1,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/nawawi40-hadeethenc/bank4-pass1-forty-23.json",
+      "retrievedAt": "2026-10-05T20:04:35.535951Z",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/66526",
+      "recordCount": 1,
+      "recordIds": [
+        {
+          "fortyNumber": 23,
+          "hadeethencId": 66526
+        }
+      ],
+      "rawSha256": "734a3b241aed180b8204e0be2f3d0e11d68651e2c40df0c0d9e1c89b47ca8ac1",
+      "fileSha256": "652968511c37d5d8c08695f29f5deee4cc8b4a17f6c44c383e6136b1bdfb48c3"
+    },
+    {
+      "collection": "nawawi40-hadeethenc",
+      "bankVersion": 4,
+      "toolName": "get_hadith",
+      "acquisition": "http",
+      "passNumber": 1,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/nawawi40-hadeethenc/bank4-pass1-forty-26.json",
+      "retrievedAt": "2026-10-05T20:04:35.845177Z",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/66527",
+      "recordCount": 1,
+      "recordIds": [
+        {
+          "fortyNumber": 26,
+          "hadeethencId": 66527
+        }
+      ],
+      "rawSha256": "54b627895341e474548a17e72b8e68db462025b026104cbdb05b6881b3fff14a",
+      "fileSha256": "8713f5bdf6fbc73448d9f00dbed5fbee7997de1b649565993ae450612fe77d7d"
+    },
+    {
+      "collection": "nawawi40-hadeethenc",
+      "bankVersion": 4,
+      "toolName": "get_hadith",
+      "acquisition": "http",
+      "passNumber": 1,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/nawawi40-hadeethenc/bank4-pass1-forty-27.json",
+      "retrievedAt": "2026-10-05T20:07:49.181089Z",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/66540",
+      "recordCount": 1,
+      "recordIds": [
+        {
+          "fortyNumber": 27,
+          "hadeethencId": 66540
+        }
+      ],
+      "rawSha256": "fd0893e6df5d31f7db95480e8899afe3394bf1197f381c78361fa09aafe265d6",
+      "fileSha256": "a9ee410f9608c283fbc1914f2a3abb946e4c2dc4d89bdfdbd73fd2b28b450c9b"
+    },
+    {
+      "collection": "nawawi40-hadeethenc",
+      "bankVersion": 4,
+      "toolName": "get_hadith",
+      "acquisition": "http",
+      "passNumber": 1,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/nawawi40-hadeethenc/bank4-pass1-forty-28.json",
+      "retrievedAt": "2026-10-05T20:07:59.687084Z",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/66529",
+      "recordCount": 1,
+      "recordIds": [
+        {
+          "fortyNumber": 28,
+          "hadeethencId": 66529
+        }
+      ],
+      "rawSha256": "cc38120ff831e83a949117d285f1c59e595ae2e0fd103ab0124341a64b4c9f89",
+      "fileSha256": "e8d20f8cbe9958c2b7ec81d20e29fa6812942eb959f22f56b0d6ad8d72950c49"
+    },
+    {
+      "collection": "nawawi40-hadeethenc",
+      "bankVersion": 4,
+      "toolName": "get_hadith",
+      "acquisition": "http",
+      "passNumber": 1,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/nawawi40-hadeethenc/bank4-pass1-forty-29.json",
+      "retrievedAt": "2026-10-05T20:08:00.046092Z",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/66530",
+      "recordCount": 1,
+      "recordIds": [
+        {
+          "fortyNumber": 29,
+          "hadeethencId": 66530
+        }
+      ],
+      "rawSha256": "7aee0f4d4b359f76479950cd83117280b06a31c8f47f3d0614dda8860326db90",
+      "fileSha256": "b6be5b5224fdfac36ef7eeae471a994b172b1002d8aeb6f00767719fefd0ecbf"
+    },
+    {
+      "collection": "nawawi40-hadeethenc",
+      "bankVersion": 4,
+      "toolName": "get_hadith",
+      "acquisition": "http",
+      "passNumber": 1,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/nawawi40-hadeethenc/bank4-pass1-forty-30.json",
+      "retrievedAt": "2026-10-05T20:08:00.388467Z",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/66510",
+      "recordCount": 1,
+      "recordIds": [
+        {
+          "fortyNumber": 30,
+          "hadeethencId": 66510
+        }
+      ],
+      "rawSha256": "5f5dca9694781bb23b3a8e63eca8e4d6587b23c49f319d122670502efd41a44f",
+      "fileSha256": "b7fca4d637fc6f3c81cc0e6b5eb3c2014f2dba5b3d80a31782cfbee1315d8d8a"
+    },
+    {
+      "collection": "nawawi40-hadeethenc",
+      "bankVersion": 4,
+      "toolName": "get_hadith",
+      "acquisition": "http",
+      "passNumber": 1,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/nawawi40-hadeethenc/bank4-pass1-forty-31.json",
+      "retrievedAt": "2026-10-05T20:08:00.711271Z",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/4307",
+      "recordCount": 1,
+      "recordIds": [
+        {
+          "fortyNumber": 31,
+          "hadeethencId": 4307
+        }
+      ],
+      "rawSha256": "a01a06c085c1754696f9588f2d138e21a2d5537994c44eba7649d940f61786be",
+      "fileSha256": "52ae0a3a45f7e76564190b9d946bdc46474998d5783c3367d22c698136364c96"
+    },
+    {
+      "collection": "nawawi40-hadeethenc",
+      "bankVersion": 4,
+      "toolName": "get_hadith",
+      "acquisition": "http",
+      "passNumber": 1,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/nawawi40-hadeethenc/bank4-pass1-forty-32.json",
+      "retrievedAt": "2026-10-05T20:08:01.063643Z",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/66531",
+      "recordCount": 1,
+      "recordIds": [
+        {
+          "fortyNumber": 32,
+          "hadeethencId": 66531
+        }
+      ],
+      "rawSha256": "2ce12308732b140b11ed7125167707e00cba63dae1a4c512e3255b1fa59f0fd2",
+      "fileSha256": "605731c137881968f9495927863b960d6a478133c674679ea809da31de8224ec"
+    },
+    {
+      "collection": "nawawi40-hadeethenc",
+      "bankVersion": 4,
+      "toolName": "get_hadith",
+      "acquisition": "http",
+      "passNumber": 1,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/nawawi40-hadeethenc/bank4-pass1-forty-33.json",
+      "retrievedAt": "2026-10-05T20:08:01.399894Z",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/66532",
+      "recordCount": 1,
+      "recordIds": [
+        {
+          "fortyNumber": 33,
+          "hadeethencId": 66532
+        }
+      ],
+      "rawSha256": "03e96bd5b54177695e7b5253c70e99a661a461313c3eb9ea55e3ceafe680ae34",
+      "fileSha256": "fb760956e2335a777408df6c36573abc08cafbade0ef47900ed7a0c39b57b38d"
+    },
+    {
+      "collection": "nawawi40-hadeethenc",
+      "bankVersion": 4,
+      "toolName": "get_hadith",
+      "acquisition": "http",
+      "passNumber": 1,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/nawawi40-hadeethenc/bank4-pass1-forty-34.json",
+      "retrievedAt": "2026-10-05T20:08:01.741503Z",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/65001",
+      "recordCount": 1,
+      "recordIds": [
+        {
+          "fortyNumber": 34,
+          "hadeethencId": 65001
+        }
+      ],
+      "rawSha256": "654898c6d69c3b8fa2e7fba6d1397f0fa20bf22baaafe937b2bfd693649d51c3",
+      "fileSha256": "1c51ce07f99c496d86ae5a46266ce64daaddd79b7a99ae63e14fbad26a655613"
+    },
+    {
+      "collection": "nawawi40-hadeethenc",
+      "bankVersion": 4,
+      "toolName": "get_hadith",
+      "acquisition": "http",
+      "passNumber": 1,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/nawawi40-hadeethenc/bank4-pass1-forty-36.json",
+      "retrievedAt": "2026-10-05T20:08:02.070709Z",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/4801",
+      "recordCount": 1,
+      "recordIds": [
+        {
+          "fortyNumber": 36,
+          "hadeethencId": 4801
+        }
+      ],
+      "rawSha256": "30795a3e800292c162f93f03a39135aa967cbb90b27e7314dc248bccc93d60aa",
+      "fileSha256": "936661acc96e814f837e5e20dd6d1c6301d5d84dcc978912d60640dd6c27f7f8"
+    },
+    {
+      "collection": "nawawi40-hadeethenc",
+      "bankVersion": 4,
+      "toolName": "get_hadith",
+      "acquisition": "http",
+      "passNumber": 1,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/nawawi40-hadeethenc/bank4-pass1-forty-37.json",
+      "retrievedAt": "2026-10-05T20:08:02.430335Z",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/66533",
+      "recordCount": 1,
+      "recordIds": [
+        {
+          "fortyNumber": 37,
+          "hadeethencId": 66533
+        }
+      ],
+      "rawSha256": "7362a3904df9249c5fd2e554bcf6ac0366945167a762e6ba45276a9168a1094e",
+      "fileSha256": "1c41f5b497192ea75d911f71156974b599fe8213a119fa8365f00d8ed5d8a6fc"
+    },
+    {
+      "collection": "nawawi40-hadeethenc",
+      "bankVersion": 4,
+      "toolName": "get_hadith",
+      "acquisition": "http",
+      "passNumber": 1,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/nawawi40-hadeethenc/bank4-pass1-forty-38.json",
+      "retrievedAt": "2026-10-05T20:08:02.802593Z",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/66534",
+      "recordCount": 1,
+      "recordIds": [
+        {
+          "fortyNumber": 38,
+          "hadeethencId": 66534
+        }
+      ],
+      "rawSha256": "f5da3174ce26e996d185b563836f111e8d3f5e121b06c97ace7819a73f99b256",
+      "fileSha256": "da9e713775ecc14ce8b515f3d7e64ef4ae5e59db856e3c46b28576588a057f07"
+    },
+    {
+      "collection": "nawawi40-hadeethenc",
+      "bankVersion": 4,
+      "toolName": "get_hadith",
+      "acquisition": "http",
+      "passNumber": 1,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/nawawi40-hadeethenc/bank4-pass1-forty-39.json",
+      "retrievedAt": "2026-10-05T20:08:03.121305Z",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/4216",
+      "recordCount": 1,
+      "recordIds": [
+        {
+          "fortyNumber": 39,
+          "hadeethencId": 4216
+        }
+      ],
+      "rawSha256": "91151a4bc9e714fbed0d938fa05f3af3e884728fdc3a0637370c8153051b4c39",
+      "fileSha256": "203098fe906d20177f3080c5e080093202f72ec7f46529e6052655c474208c26"
+    },
+    {
+      "collection": "nawawi40-hadeethenc",
+      "bankVersion": 4,
+      "toolName": "get_hadith",
+      "acquisition": "http",
+      "passNumber": 1,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/nawawi40-hadeethenc/bank4-pass1-forty-41.json",
+      "retrievedAt": "2026-10-05T20:08:03.455584Z",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/66535",
+      "recordCount": 1,
+      "recordIds": [
+        {
+          "fortyNumber": 41,
+          "hadeethencId": 66535
+        }
+      ],
+      "rawSha256": "2256f98d8dc865e00ad39f1e1d5485644419f0c83afa67c6407683f467be705c",
+      "fileSha256": "177107202b47a5672d9f6bac5c295b0d71e208d4c5c2676f5abb2c0a7b3b8aa6"
+    },
+    {
+      "collection": "nawawi40-hadeethenc",
+      "bankVersion": 4,
+      "toolName": "get_hadith",
+      "acquisition": "http",
+      "passNumber": 2,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/nawawi40-hadeethenc/bank4-pass2-forty-01.json",
+      "retrievedAt": "2026-10-05T20:08:22.147943Z",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/66511",
+      "recordCount": 1,
+      "recordIds": [
+        {
+          "fortyNumber": 1,
+          "hadeethencId": 66511
+        }
+      ],
+      "rawSha256": "6b99cd101ba0840ed62710d6c29efc6df78089131b6e04d21fc3e9b2073a8ef7",
+      "fileSha256": "fb387968bd0e60f4b4c04926713274df7bc2c50ffb877c998b94dc8dd43842c9"
+    },
+    {
+      "collection": "nawawi40-hadeethenc",
+      "bankVersion": 4,
+      "toolName": "get_hadith",
+      "acquisition": "http",
+      "passNumber": 2,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/nawawi40-hadeethenc/bank4-pass2-forty-03.json",
+      "retrievedAt": "2026-10-05T20:08:28.721524Z",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/66512",
+      "recordCount": 1,
+      "recordIds": [
+        {
+          "fortyNumber": 3,
+          "hadeethencId": 66512
+        }
+      ],
+      "rawSha256": "9c27743dbab0d74719036712c8cdd69a0eae65167bcf98b1a42a4176c75d8bdd",
+      "fileSha256": "f5cab1d7b46b0bd6218706fa1cc37a237637b600a8b19be58cb03f4d8ba27a08"
+    },
+    {
+      "collection": "nawawi40-hadeethenc",
+      "bankVersion": 4,
+      "toolName": "get_hadith",
+      "acquisition": "http",
+      "passNumber": 2,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/nawawi40-hadeethenc/bank4-pass2-forty-04.json",
+      "retrievedAt": "2026-10-05T20:08:29.061964Z",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/66513",
+      "recordCount": 1,
+      "recordIds": [
+        {
+          "fortyNumber": 4,
+          "hadeethencId": 66513
+        }
+      ],
+      "rawSha256": "dab4948c5b1c35ff845a8249ee89fcb5840e076c2e8859fcf44a2e33028a6e3f",
+      "fileSha256": "20b41c37824eb4526351c936e8f384f2e329743bc4af916b82a7d71d2e6bb295"
+    },
+    {
+      "collection": "nawawi40-hadeethenc",
+      "bankVersion": 4,
+      "toolName": "get_hadith",
+      "acquisition": "http",
+      "passNumber": 2,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/nawawi40-hadeethenc/bank4-pass2-forty-05.json",
+      "retrievedAt": "2026-10-05T20:08:29.440691Z",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/66514",
+      "recordCount": 1,
+      "recordIds": [
+        {
+          "fortyNumber": 5,
+          "hadeethencId": 66514
+        }
+      ],
+      "rawSha256": "79a34a72a772d4a45fdc61127e05fec15cc9cb6d6a8a89f90d625f74f5cd96a5",
+      "fileSha256": "7c780deaff48f6cbef0470676a58db7c1262362bc8e0df1a2a33953a7c3af302"
+    },
+    {
+      "collection": "nawawi40-hadeethenc",
+      "bankVersion": 4,
+      "toolName": "get_hadith",
+      "acquisition": "http",
+      "passNumber": 2,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/nawawi40-hadeethenc/bank4-pass2-forty-06.json",
+      "retrievedAt": "2026-10-05T20:08:29.793768Z",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/66515",
+      "recordCount": 1,
+      "recordIds": [
+        {
+          "fortyNumber": 6,
+          "hadeethencId": 66515
+        }
+      ],
+      "rawSha256": "9c6214b11dc41264ddc1d0dcd9037f8879d5899afaf1516911707039594055df",
+      "fileSha256": "601bd7792b67570ea233cf599d454ea4a4e9e8e94e8d7830def83038bd42d9fc"
+    },
+    {
+      "collection": "nawawi40-hadeethenc",
+      "bankVersion": 4,
+      "toolName": "get_hadith",
+      "acquisition": "http",
+      "passNumber": 2,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/nawawi40-hadeethenc/bank4-pass2-forty-07.json",
+      "retrievedAt": "2026-10-05T20:08:30.129777Z",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/66516",
+      "recordCount": 1,
+      "recordIds": [
+        {
+          "fortyNumber": 7,
+          "hadeethencId": 66516
+        }
+      ],
+      "rawSha256": "6942bc1c25cc3e3512b76c478747bb64c5ff43d323901b29218d5a455694772b",
+      "fileSha256": "1c81eb27980af4be161250ea3a16510450eb43c757706e4724345d2147a07c44"
+    },
+    {
+      "collection": "nawawi40-hadeethenc",
+      "bankVersion": 4,
+      "toolName": "get_hadith",
+      "acquisition": "http",
+      "passNumber": 2,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/nawawi40-hadeethenc/bank4-pass2-forty-08.json",
+      "retrievedAt": "2026-10-05T20:08:30.476876Z",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/4211",
+      "recordCount": 1,
+      "recordIds": [
+        {
+          "fortyNumber": 8,
+          "hadeethencId": 4211
+        }
+      ],
+      "rawSha256": "14cc70bced8906ca387b2032b562428184ffaff2f942372a042edb0cbdd30854",
+      "fileSha256": "057141c34ded2eba0c58e831548f88ce9b1cfc24ec8270b797ed71f49d326882"
+    },
+    {
+      "collection": "nawawi40-hadeethenc",
+      "bankVersion": 4,
+      "toolName": "get_hadith",
+      "acquisition": "http",
+      "passNumber": 2,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/nawawi40-hadeethenc/bank4-pass2-forty-09.json",
+      "retrievedAt": "2026-10-05T20:08:31.240672Z",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/66517",
+      "recordCount": 1,
+      "recordIds": [
+        {
+          "fortyNumber": 9,
+          "hadeethencId": 66517
+        }
+      ],
+      "rawSha256": "d37c4e9d1ced163592a7ce4047060a29b48c0eb2eef372886272423c8401fe71",
+      "fileSha256": "7910bb56365886e33d57ecaa997eb424187c14d86d18d6d541a2c5af4aef2b67"
+    },
+    {
+      "collection": "nawawi40-hadeethenc",
+      "bankVersion": 4,
+      "toolName": "get_hadith",
+      "acquisition": "http",
+      "passNumber": 2,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/nawawi40-hadeethenc/bank4-pass2-forty-10.json",
+      "retrievedAt": "2026-10-05T20:08:31.674770Z",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/66518",
+      "recordCount": 1,
+      "recordIds": [
+        {
+          "fortyNumber": 10,
+          "hadeethencId": 66518
+        }
+      ],
+      "rawSha256": "a2cec5cc552b4ee12155707dec58fc49d9aa4e831878a14b99bc6acf5417a9de",
+      "fileSha256": "cf1c8d66d38a71cd0875f7bc03791dd5db38195f68d852bc3efe7cb6c3decc95"
+    },
+    {
+      "collection": "nawawi40-hadeethenc",
+      "bankVersion": 4,
+      "toolName": "get_hadith",
+      "acquisition": "http",
+      "passNumber": 2,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/nawawi40-hadeethenc/bank4-pass2-forty-11.json",
+      "retrievedAt": "2026-10-05T20:08:32.114860Z",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/66519",
+      "recordCount": 1,
+      "recordIds": [
+        {
+          "fortyNumber": 11,
+          "hadeethencId": 66519
+        }
+      ],
+      "rawSha256": "0b5660ef1e53679ef16e5213c2ccd02ec3c5b9929aeb9c5d0b700294680fea04",
+      "fileSha256": "b85c4013f7f8520f69f9bb33e588b6427532ab4fa2c52cc18138abeb4f896b0f"
+    },
+    {
+      "collection": "nawawi40-hadeethenc",
+      "bankVersion": 4,
+      "toolName": "get_hadith",
+      "acquisition": "http",
+      "passNumber": 2,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/nawawi40-hadeethenc/bank4-pass2-forty-12.json",
+      "retrievedAt": "2026-10-05T20:08:32.442757Z",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/65255",
+      "recordCount": 1,
+      "recordIds": [
+        {
+          "fortyNumber": 12,
+          "hadeethencId": 65255
+        }
+      ],
+      "rawSha256": "d124a2762bcbd57a36e516252f4fc282262732d1ee668e5b9d57332e722dd2cc",
+      "fileSha256": "57077cf552fc0cd1b55eefe9681ff210ff61c8d77ee511dfdc8e688a8e05f763"
+    },
+    {
+      "collection": "nawawi40-hadeethenc",
+      "bankVersion": 4,
+      "toolName": "get_hadith",
+      "acquisition": "http",
+      "passNumber": 2,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/nawawi40-hadeethenc/bank4-pass2-forty-13.json",
+      "retrievedAt": "2026-10-05T20:08:32.765984Z",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/66520",
+      "recordCount": 1,
+      "recordIds": [
+        {
+          "fortyNumber": 13,
+          "hadeethencId": 66520
+        }
+      ],
+      "rawSha256": "f25f953829a34dd19c7e49e2291f46572dfd947822917a3f6ad10d99058f1dfd",
+      "fileSha256": "661aea9f2d7d855deb98ccaa28f3f395644c2db56e5daf32bcde58932e271777"
+    },
+    {
+      "collection": "nawawi40-hadeethenc",
+      "bankVersion": 4,
+      "toolName": "get_hadith",
+      "acquisition": "http",
+      "passNumber": 2,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/nawawi40-hadeethenc/bank4-pass2-forty-15.json",
+      "retrievedAt": "2026-10-05T20:08:33.103874Z",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/5437",
+      "recordCount": 1,
+      "recordIds": [
+        {
+          "fortyNumber": 15,
+          "hadeethencId": 5437
+        }
+      ],
+      "rawSha256": "da3365bc56cfb2d27839c14464c5cfc3e0c81eeda85f37d30109003de2c517f6",
+      "fileSha256": "57b75bde2a64a0a5c7a1c036f1f3a1badc7c4348ad72d2cc43054b3a3b8e2be6"
+    },
+    {
+      "collection": "nawawi40-hadeethenc",
+      "bankVersion": 4,
+      "toolName": "get_hadith",
+      "acquisition": "http",
+      "passNumber": 2,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/nawawi40-hadeethenc/bank4-pass2-forty-16.json",
+      "retrievedAt": "2026-10-05T20:08:33.455524Z",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/4709",
+      "recordCount": 1,
+      "recordIds": [
+        {
+          "fortyNumber": 16,
+          "hadeethencId": 4709
+        }
+      ],
+      "rawSha256": "c3522fb8b5020434f3987a69a244f89ae5776a2224cde9785bda9f1c1e458f62",
+      "fileSha256": "c8c12a077f3ef88b44f4fd06c7095ede4c7452853b59c894724ddc9403c47cf5"
+    },
+    {
+      "collection": "nawawi40-hadeethenc",
+      "bankVersion": 4,
+      "toolName": "get_hadith",
+      "acquisition": "http",
+      "passNumber": 2,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/nawawi40-hadeethenc/bank4-pass2-forty-17.json",
+      "retrievedAt": "2026-10-05T20:08:33.811291Z",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/66521",
+      "recordCount": 1,
+      "recordIds": [
+        {
+          "fortyNumber": 17,
+          "hadeethencId": 66521
+        }
+      ],
+      "rawSha256": "87929e0366d4beecc14d47fce74bd24e7bf02f696ecaf1a45070a696e9e72fb9",
+      "fileSha256": "380ca9b24eb81c55eac153b4e8dfde3e42e4a1cb06ab8ac875929a67314ae47d"
+    },
+    {
+      "collection": "nawawi40-hadeethenc",
+      "bankVersion": 4,
+      "toolName": "get_hadith",
+      "acquisition": "http",
+      "passNumber": 2,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/nawawi40-hadeethenc/bank4-pass2-forty-18.json",
+      "retrievedAt": "2026-10-05T20:08:34.148786Z",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/4302",
+      "recordCount": 1,
+      "recordIds": [
+        {
+          "fortyNumber": 18,
+          "hadeethencId": 4302
+        }
+      ],
+      "rawSha256": "3b1e4b39a503e577c5a2bb6b8f1a131ed6e80432435bea85263084fc569beaf0",
+      "fileSha256": "7e6ff0f29e07ceeb9376a87426795f2790b31dcde1657015e4427d891c9c97de"
+    },
+    {
+      "collection": "nawawi40-hadeethenc",
+      "bankVersion": 4,
+      "toolName": "get_hadith",
+      "acquisition": "http",
+      "passNumber": 2,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/nawawi40-hadeethenc/bank4-pass2-forty-19.json",
+      "retrievedAt": "2026-10-05T20:08:34.494444Z",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/66522",
+      "recordCount": 1,
+      "recordIds": [
+        {
+          "fortyNumber": 19,
+          "hadeethencId": 66522
+        }
+      ],
+      "rawSha256": "1d9a4941edbaa8a70602bb27d9e163fab7b699b8c474134dcf57755ec2d9f64e",
+      "fileSha256": "8ca1eff1951cc903601c95ba987df06216571db734e87e1f194a1f903ab7cb12"
+    },
+    {
+      "collection": "nawawi40-hadeethenc",
+      "bankVersion": 4,
+      "toolName": "get_hadith",
+      "acquisition": "http",
+      "passNumber": 2,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/nawawi40-hadeethenc/bank4-pass2-forty-20.json",
+      "retrievedAt": "2026-10-05T20:08:34.834282Z",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/66523",
+      "recordCount": 1,
+      "recordIds": [
+        {
+          "fortyNumber": 20,
+          "hadeethencId": 66523
+        }
+      ],
+      "rawSha256": "73cf4e4f7638a9412026ce16d2b8922d6d62b3da7255f62e0fba87f1c3476ade",
+      "fileSha256": "6960df924cebad6b5cd1814d83ec36f152c3ca1744d377a7b6a860c74db25b9f"
+    },
+    {
+      "collection": "nawawi40-hadeethenc",
+      "bankVersion": 4,
+      "toolName": "get_hadith",
+      "acquisition": "http",
+      "passNumber": 2,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/nawawi40-hadeethenc/bank4-pass2-forty-21.json",
+      "retrievedAt": "2026-10-05T20:08:35.157558Z",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/66524",
+      "recordCount": 1,
+      "recordIds": [
+        {
+          "fortyNumber": 21,
+          "hadeethencId": 66524
+        }
+      ],
+      "rawSha256": "8d8c3b69234cccd6f926fec1fa4be0592b3bce10ebd8ac79fe73252192760152",
+      "fileSha256": "e45107931d8467add9b7424d5dc56a0bdc11cc763e527efb13776559d0bf6945"
+    },
+    {
+      "collection": "nawawi40-hadeethenc",
+      "bankVersion": 4,
+      "toolName": "get_hadith",
+      "acquisition": "http",
+      "passNumber": 2,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/nawawi40-hadeethenc/bank4-pass2-forty-22.json",
+      "retrievedAt": "2026-10-05T20:08:35.482182Z",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/66525",
+      "recordCount": 1,
+      "recordIds": [
+        {
+          "fortyNumber": 22,
+          "hadeethencId": 66525
+        }
+      ],
+      "rawSha256": "39244cb636b1326fc60edf22e9ccaf714b9b7c9e3a37d89ad332e0c11a4c1547",
+      "fileSha256": "0ca1c0ec1c7277a49b7873d3613cce4b309b4ac6c994b3ad3b78993f5529ab26"
+    },
+    {
+      "collection": "nawawi40-hadeethenc",
+      "bankVersion": 4,
+      "toolName": "get_hadith",
+      "acquisition": "http",
+      "passNumber": 2,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/nawawi40-hadeethenc/bank4-pass2-forty-23.json",
+      "retrievedAt": "2026-10-05T20:08:35.831726Z",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/66526",
+      "recordCount": 1,
+      "recordIds": [
+        {
+          "fortyNumber": 23,
+          "hadeethencId": 66526
+        }
+      ],
+      "rawSha256": "734a3b241aed180b8204e0be2f3d0e11d68651e2c40df0c0d9e1c89b47ca8ac1",
+      "fileSha256": "abdc57298bcd0051cdf6b43558ccf010e9a46e37de271e9c34fb45f2d3de76db"
+    },
+    {
+      "collection": "nawawi40-hadeethenc",
+      "bankVersion": 4,
+      "toolName": "get_hadith",
+      "acquisition": "http",
+      "passNumber": 2,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/nawawi40-hadeethenc/bank4-pass2-forty-26.json",
+      "retrievedAt": "2026-10-05T20:08:36.190940Z",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/66527",
+      "recordCount": 1,
+      "recordIds": [
+        {
+          "fortyNumber": 26,
+          "hadeethencId": 66527
+        }
+      ],
+      "rawSha256": "54b627895341e474548a17e72b8e68db462025b026104cbdb05b6881b3fff14a",
+      "fileSha256": "789c37b77bde180f79e5c247a36fca63eb19304bdf38957d1ee7ed26cafd771b"
+    },
+    {
+      "collection": "nawawi40-hadeethenc",
+      "bankVersion": 4,
+      "toolName": "get_hadith",
+      "acquisition": "http",
+      "passNumber": 2,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/nawawi40-hadeethenc/bank4-pass2-forty-27.json",
+      "retrievedAt": "2026-10-05T20:09:36.260959Z",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/66540",
+      "recordCount": 1,
+      "recordIds": [
+        {
+          "fortyNumber": 27,
+          "hadeethencId": 66540
+        }
+      ],
+      "rawSha256": "fd0893e6df5d31f7db95480e8899afe3394bf1197f381c78361fa09aafe265d6",
+      "fileSha256": "ce47bab1a683c73aad66e9b8e359c36e1f87fd7547429793053d3821aa05f47c"
+    },
+    {
+      "collection": "nawawi40-hadeethenc",
+      "bankVersion": 4,
+      "toolName": "get_hadith",
+      "acquisition": "http",
+      "passNumber": 2,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/nawawi40-hadeethenc/bank4-pass2-forty-28.json",
+      "retrievedAt": "2026-10-05T20:09:43.717444Z",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/66529",
+      "recordCount": 1,
+      "recordIds": [
+        {
+          "fortyNumber": 28,
+          "hadeethencId": 66529
+        }
+      ],
+      "rawSha256": "cc38120ff831e83a949117d285f1c59e595ae2e0fd103ab0124341a64b4c9f89",
+      "fileSha256": "905eb07f241df97f8c9d7408f51ff4f0023e8ae54eb8d9901d0c046453f0f889"
+    },
+    {
+      "collection": "nawawi40-hadeethenc",
+      "bankVersion": 4,
+      "toolName": "get_hadith",
+      "acquisition": "http",
+      "passNumber": 2,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/nawawi40-hadeethenc/bank4-pass2-forty-29.json",
+      "retrievedAt": "2026-10-05T20:09:44.069990Z",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/66530",
+      "recordCount": 1,
+      "recordIds": [
+        {
+          "fortyNumber": 29,
+          "hadeethencId": 66530
+        }
+      ],
+      "rawSha256": "7aee0f4d4b359f76479950cd83117280b06a31c8f47f3d0614dda8860326db90",
+      "fileSha256": "f1e9e8721efbb06f3acedcd5e232b8d6bc63a8c08348b53ba2edfefed06de54d"
+    },
+    {
+      "collection": "nawawi40-hadeethenc",
+      "bankVersion": 4,
+      "toolName": "get_hadith",
+      "acquisition": "http",
+      "passNumber": 2,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/nawawi40-hadeethenc/bank4-pass2-forty-30.json",
+      "retrievedAt": "2026-10-05T20:09:44.397480Z",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/66510",
+      "recordCount": 1,
+      "recordIds": [
+        {
+          "fortyNumber": 30,
+          "hadeethencId": 66510
+        }
+      ],
+      "rawSha256": "5f5dca9694781bb23b3a8e63eca8e4d6587b23c49f319d122670502efd41a44f",
+      "fileSha256": "b7011cb8cb0508ad3387d97b5e29873ae413bbd8647a11a6f2ef8d3ff38cd31e"
+    },
+    {
+      "collection": "nawawi40-hadeethenc",
+      "bankVersion": 4,
+      "toolName": "get_hadith",
+      "acquisition": "http",
+      "passNumber": 2,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/nawawi40-hadeethenc/bank4-pass2-forty-31.json",
+      "retrievedAt": "2026-10-05T20:09:44.713889Z",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/4307",
+      "recordCount": 1,
+      "recordIds": [
+        {
+          "fortyNumber": 31,
+          "hadeethencId": 4307
+        }
+      ],
+      "rawSha256": "a01a06c085c1754696f9588f2d138e21a2d5537994c44eba7649d940f61786be",
+      "fileSha256": "12a7d60c4f34c5633b704922178ed8d47fdbe63659a15fac725a0e97709b089c"
+    },
+    {
+      "collection": "nawawi40-hadeethenc",
+      "bankVersion": 4,
+      "toolName": "get_hadith",
+      "acquisition": "http",
+      "passNumber": 2,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/nawawi40-hadeethenc/bank4-pass2-forty-32.json",
+      "retrievedAt": "2026-10-05T20:09:45.036913Z",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/66531",
+      "recordCount": 1,
+      "recordIds": [
+        {
+          "fortyNumber": 32,
+          "hadeethencId": 66531
+        }
+      ],
+      "rawSha256": "2ce12308732b140b11ed7125167707e00cba63dae1a4c512e3255b1fa59f0fd2",
+      "fileSha256": "fe2c642ab150c1332beff233725acfeb7bf5224d6ce49af659c55e960ed1c316"
+    },
+    {
+      "collection": "nawawi40-hadeethenc",
+      "bankVersion": 4,
+      "toolName": "get_hadith",
+      "acquisition": "http",
+      "passNumber": 2,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/nawawi40-hadeethenc/bank4-pass2-forty-33.json",
+      "retrievedAt": "2026-10-05T20:09:45.357167Z",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/66532",
+      "recordCount": 1,
+      "recordIds": [
+        {
+          "fortyNumber": 33,
+          "hadeethencId": 66532
+        }
+      ],
+      "rawSha256": "03e96bd5b54177695e7b5253c70e99a661a461313c3eb9ea55e3ceafe680ae34",
+      "fileSha256": "1f27b8e07725d25a4f875b6bb1b12dfb32a585a1f08b166a2b2e0f3f0d39fe4d"
+    },
+    {
+      "collection": "nawawi40-hadeethenc",
+      "bankVersion": 4,
+      "toolName": "get_hadith",
+      "acquisition": "http",
+      "passNumber": 2,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/nawawi40-hadeethenc/bank4-pass2-forty-34.json",
+      "retrievedAt": "2026-10-05T20:09:45.687872Z",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/65001",
+      "recordCount": 1,
+      "recordIds": [
+        {
+          "fortyNumber": 34,
+          "hadeethencId": 65001
+        }
+      ],
+      "rawSha256": "654898c6d69c3b8fa2e7fba6d1397f0fa20bf22baaafe937b2bfd693649d51c3",
+      "fileSha256": "3f90fcb643d05586268361d45c36aac4bc9ffe16a4b6c363a11fc013a204a71d"
+    },
+    {
+      "collection": "nawawi40-hadeethenc",
+      "bankVersion": 4,
+      "toolName": "get_hadith",
+      "acquisition": "http",
+      "passNumber": 2,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/nawawi40-hadeethenc/bank4-pass2-forty-36.json",
+      "retrievedAt": "2026-10-05T20:09:46.011195Z",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/4801",
+      "recordCount": 1,
+      "recordIds": [
+        {
+          "fortyNumber": 36,
+          "hadeethencId": 4801
+        }
+      ],
+      "rawSha256": "30795a3e800292c162f93f03a39135aa967cbb90b27e7314dc248bccc93d60aa",
+      "fileSha256": "1d099331c0056316ce4095d68ed13c9b8d85b6b8111463d7571104f47ca071fa"
+    },
+    {
+      "collection": "nawawi40-hadeethenc",
+      "bankVersion": 4,
+      "toolName": "get_hadith",
+      "acquisition": "http",
+      "passNumber": 2,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/nawawi40-hadeethenc/bank4-pass2-forty-37.json",
+      "retrievedAt": "2026-10-05T20:09:46.343513Z",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/66533",
+      "recordCount": 1,
+      "recordIds": [
+        {
+          "fortyNumber": 37,
+          "hadeethencId": 66533
+        }
+      ],
+      "rawSha256": "7362a3904df9249c5fd2e554bcf6ac0366945167a762e6ba45276a9168a1094e",
+      "fileSha256": "03cb113150cd8ceeb0addb2a205f0e8436234a08c2e0ce74da02f6847be46194"
+    },
+    {
+      "collection": "nawawi40-hadeethenc",
+      "bankVersion": 4,
+      "toolName": "get_hadith",
+      "acquisition": "http",
+      "passNumber": 2,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/nawawi40-hadeethenc/bank4-pass2-forty-38.json",
+      "retrievedAt": "2026-10-05T20:09:46.666535Z",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/66534",
+      "recordCount": 1,
+      "recordIds": [
+        {
+          "fortyNumber": 38,
+          "hadeethencId": 66534
+        }
+      ],
+      "rawSha256": "f5da3174ce26e996d185b563836f111e8d3f5e121b06c97ace7819a73f99b256",
+      "fileSha256": "2b8e899ef3d428bd59bf504e7c151a356f5cc4fb7d3dd9c9448e0fa8bb6b66a7"
+    },
+    {
+      "collection": "nawawi40-hadeethenc",
+      "bankVersion": 4,
+      "toolName": "get_hadith",
+      "acquisition": "http",
+      "passNumber": 2,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/nawawi40-hadeethenc/bank4-pass2-forty-39.json",
+      "retrievedAt": "2026-10-05T20:09:46.997000Z",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/4216",
+      "recordCount": 1,
+      "recordIds": [
+        {
+          "fortyNumber": 39,
+          "hadeethencId": 4216
+        }
+      ],
+      "rawSha256": "91151a4bc9e714fbed0d938fa05f3af3e884728fdc3a0637370c8153051b4c39",
+      "fileSha256": "99ccc82d5e6d9951436cdbc3f2b5ecbc6abc420fe5b10c162bd07338288e3ebb"
+    },
+    {
+      "collection": "nawawi40-hadeethenc",
+      "bankVersion": 4,
+      "toolName": "get_hadith",
+      "acquisition": "http",
+      "passNumber": 2,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/raw/nawawi40-hadeethenc/bank4-pass2-forty-41.json",
+      "retrievedAt": "2026-10-05T20:09:47.316596Z",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/66535",
+      "recordCount": 1,
+      "recordIds": [
+        {
+          "fortyNumber": 41,
+          "hadeethencId": 66535
+        }
+      ],
+      "rawSha256": "2256f98d8dc865e00ad39f1e1d5485644419f0c83afa67c6407683f467be705c",
+      "fileSha256": "8cee6b0c0ab4fa54ef16311847480abc960cc86012764a52a39b6bdd29b8a240"
+    },
+    {
+      "collection": "nawawi40-candidate-only",
+      "bankVersion": 4,
+      "fortyNumber": 2,
+      "candidateId": 4563,
+      "passNumber": 1,
+      "toolName": "get_hadith",
+      "acquisition": "http",
+      "privateObjectPath": "backend/.content-build/expansion-20261005/candidates/candidate-pass1-forty-02.json",
+      "retrievedAt": "2026-10-05T20:12:18.133137+00:00",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/4563",
+      "fileSha256": "d679135ecf2444d54fbb9a9fc0f07d8b227fb0e326463e55aee0ca93bfbfbc04",
+      "recordSha256": "6caf4de23cd528021121cf2c0c1c8310261d01d8f31c30b393c8ff9021e61307",
+      "toolResponseSha256": "ade071a85f9aae0ea28db75ed2955b8f28a236a8df15a43de8fb576f332abd6c",
+      "status": "candidate_only_not_approved_map"
+    },
+    {
+      "collection": "nawawi40-candidate-only",
+      "bankVersion": 4,
+      "fortyNumber": 14,
+      "candidateId": 4714,
+      "passNumber": 1,
+      "toolName": "get_hadith",
+      "acquisition": "http",
+      "privateObjectPath": "backend/.content-build/expansion-20261005/candidates/candidate-pass1-forty-14.json",
+      "retrievedAt": "2026-10-05T20:12:18.453073+00:00",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/4714",
+      "fileSha256": "6d5fccb50e354a35b07b6a0a2a20e5d19e91122272864e337504f4a51fb5b6ea",
+      "recordSha256": "b2f334bae09f8c7d63c4ae86c47a584d4f62c89289d4bbf96814c5d7d4b7e1c2",
+      "toolResponseSha256": "5d01f9eb50f042c1293f81611a5b520398d656a41020b6b3f88308359c3c072f",
+      "status": "candidate_only_not_approved_map"
+    },
+    {
+      "collection": "nawawi40-candidate-only",
+      "bankVersion": 4,
+      "fortyNumber": 24,
+      "candidateId": 4810,
+      "passNumber": 1,
+      "toolName": "get_hadith",
+      "acquisition": "http",
+      "privateObjectPath": "backend/.content-build/expansion-20261005/candidates/candidate-pass1-forty-24.json",
+      "retrievedAt": "2026-10-05T20:12:18.769651+00:00",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/4810",
+      "fileSha256": "150e21d47184573b430d003f0c0b22e83841f7c9ef2b9a85f32e4c9820f3c2e1",
+      "recordSha256": "50528f8e3d6da7ce79d875a346bcb97e1da0a3594cad97aca0d1da926f7a6f64",
+      "toolResponseSha256": "cd6b9c10b8f77ac318962b4b98d509fdf3f8669c013aba94b165c45a64e7f3de",
+      "status": "candidate_only_not_approved_map"
+    },
+    {
+      "collection": "nawawi40-candidate-only",
+      "bankVersion": 4,
+      "fortyNumber": 25,
+      "candidateId": 4558,
+      "passNumber": 1,
+      "toolName": "get_hadith",
+      "acquisition": "http",
+      "privateObjectPath": "backend/.content-build/expansion-20261005/candidates/candidate-pass1-forty-25.json",
+      "retrievedAt": "2026-10-05T20:12:19.119783+00:00",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/4558",
+      "fileSha256": "b0add08002068cac47a3872410ff7964a543f079db5eab379a343a58c854a228",
+      "recordSha256": "fc8f58071095564c4d4f7b29a7bb59702e05b5a86c92f16cfffb997540b05158",
+      "toolResponseSha256": "6ca95b4105f7f063bae80c433b8445130c3845a09cc8691f5d9b351b9bdffb4d",
+      "status": "candidate_only_not_approved_map"
+    },
+    {
+      "collection": "nawawi40-candidate-only",
+      "bankVersion": 4,
+      "fortyNumber": 35,
+      "candidateId": 4706,
+      "passNumber": 1,
+      "toolName": "get_hadith",
+      "acquisition": "http",
+      "privateObjectPath": "backend/.content-build/expansion-20261005/candidates/candidate-pass1-forty-35.json",
+      "retrievedAt": "2026-10-05T20:12:19.442128+00:00",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/4706",
+      "fileSha256": "b0e8c80769d166910cd8a4e09b06fd8f403c56280214b9b0a3f4eb4837737f43",
+      "recordSha256": "9bbae18e3b673df4c018b8878822859285065a407e374b42f041c8cc7b5bbccb",
+      "toolResponseSha256": "e63d827672fcb787acd897796a649e863282878edcbc8de040877f6eb49f222f",
+      "status": "candidate_only_not_approved_map"
+    },
+    {
+      "collection": "nawawi40-candidate-only",
+      "bankVersion": 4,
+      "fortyNumber": 40,
+      "candidateId": 4704,
+      "passNumber": 1,
+      "toolName": "get_hadith",
+      "acquisition": "http",
+      "privateObjectPath": "backend/.content-build/expansion-20261005/candidates/candidate-pass1-forty-40.json",
+      "retrievedAt": "2026-10-05T20:12:19.752421+00:00",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/4704",
+      "fileSha256": "d2cb64a9cd8777409d866bb2deea477951546f2b83963c69aae0092b4c5b87dd",
+      "recordSha256": "62adc9b1ce9487b13397f25b01c2fefc0e182ed91762fc67dea1a923212abe8b",
+      "toolResponseSha256": "b5519b1d2357dc1231397076ef713876b0c1f10cac72416a312011abeed99f3c",
+      "status": "candidate_only_not_approved_map"
+    },
+    {
+      "collection": "nawawi40-candidate-only",
+      "bankVersion": 4,
+      "fortyNumber": 42,
+      "candidateId": 5456,
+      "passNumber": 1,
+      "toolName": "get_hadith",
+      "acquisition": "http",
+      "privateObjectPath": "backend/.content-build/expansion-20261005/candidates/candidate-pass1-forty-42.json",
+      "retrievedAt": "2026-10-05T20:12:20.081729+00:00",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/5456",
+      "fileSha256": "23d5a8a783db9bdf71835bdfa1c8da1bfad42adb6e0fa2cc93194fa8b467297d",
+      "recordSha256": "42bd317c60c714391914c6a0d0a73c72169b8d0cf842f78a16d48dea82d09d67",
+      "toolResponseSha256": "ac7a3676665a3bb28a0f7b3def11cced920bcdc2d04cf4beb06862ebc63e8a2e",
+      "status": "candidate_only_not_approved_map"
+    },
+    {
+      "collection": "nawawi40-candidate-only",
+      "bankVersion": 4,
+      "fortyNumber": 2,
+      "candidateId": 4563,
+      "passNumber": 2,
+      "toolName": "get_hadith",
+      "acquisition": "http",
+      "privateObjectPath": "backend/.content-build/expansion-20261005/candidates/candidate-pass2-forty-02.json",
+      "retrievedAt": "2026-10-05T20:12:20.426627+00:00",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/4563",
+      "fileSha256": "b84d3be28ecfaa4401478c833021fe363fc6ade3fd56a9090b18d7751ab4e13b",
+      "recordSha256": "6caf4de23cd528021121cf2c0c1c8310261d01d8f31c30b393c8ff9021e61307",
+      "toolResponseSha256": "ade071a85f9aae0ea28db75ed2955b8f28a236a8df15a43de8fb576f332abd6c",
+      "status": "candidate_only_not_approved_map"
+    },
+    {
+      "collection": "nawawi40-candidate-only",
+      "bankVersion": 4,
+      "fortyNumber": 14,
+      "candidateId": 4714,
+      "passNumber": 2,
+      "toolName": "get_hadith",
+      "acquisition": "http",
+      "privateObjectPath": "backend/.content-build/expansion-20261005/candidates/candidate-pass2-forty-14.json",
+      "retrievedAt": "2026-10-05T20:12:20.774585+00:00",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/4714",
+      "fileSha256": "1384cf47898b27de54c8794d407e6d166521f06af2d005085cd6a7fa3b2ac654",
+      "recordSha256": "b2f334bae09f8c7d63c4ae86c47a584d4f62c89289d4bbf96814c5d7d4b7e1c2",
+      "toolResponseSha256": "5d01f9eb50f042c1293f81611a5b520398d656a41020b6b3f88308359c3c072f",
+      "status": "candidate_only_not_approved_map"
+    },
+    {
+      "collection": "nawawi40-candidate-only",
+      "bankVersion": 4,
+      "fortyNumber": 24,
+      "candidateId": 4810,
+      "passNumber": 2,
+      "toolName": "get_hadith",
+      "acquisition": "http",
+      "privateObjectPath": "backend/.content-build/expansion-20261005/candidates/candidate-pass2-forty-24.json",
+      "retrievedAt": "2026-10-05T20:12:21.084793+00:00",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/4810",
+      "fileSha256": "74636d9f9382d603550220f250c090a5cc09b451323a2b6b55892b918804d3f1",
+      "recordSha256": "50528f8e3d6da7ce79d875a346bcb97e1da0a3594cad97aca0d1da926f7a6f64",
+      "toolResponseSha256": "cd6b9c10b8f77ac318962b4b98d509fdf3f8669c013aba94b165c45a64e7f3de",
+      "status": "candidate_only_not_approved_map"
+    },
+    {
+      "collection": "nawawi40-candidate-only",
+      "bankVersion": 4,
+      "fortyNumber": 25,
+      "candidateId": 4558,
+      "passNumber": 2,
+      "toolName": "get_hadith",
+      "acquisition": "http",
+      "privateObjectPath": "backend/.content-build/expansion-20261005/candidates/candidate-pass2-forty-25.json",
+      "retrievedAt": "2026-10-05T20:12:21.402003+00:00",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/4558",
+      "fileSha256": "0360341e47b905d3d12478ea71669c8832d0a2e238351a4d35d4f7f64e79fcef",
+      "recordSha256": "fc8f58071095564c4d4f7b29a7bb59702e05b5a86c92f16cfffb997540b05158",
+      "toolResponseSha256": "6ca95b4105f7f063bae80c433b8445130c3845a09cc8691f5d9b351b9bdffb4d",
+      "status": "candidate_only_not_approved_map"
+    },
+    {
+      "collection": "nawawi40-candidate-only",
+      "bankVersion": 4,
+      "fortyNumber": 35,
+      "candidateId": 4706,
+      "passNumber": 2,
+      "toolName": "get_hadith",
+      "acquisition": "http",
+      "privateObjectPath": "backend/.content-build/expansion-20261005/candidates/candidate-pass2-forty-35.json",
+      "retrievedAt": "2026-10-05T20:12:21.751391+00:00",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/4706",
+      "fileSha256": "baf3040a8c0e2cb1d9930e6524f2065e1f00b8a3a7746d860c27aca051b0da5a",
+      "recordSha256": "9bbae18e3b673df4c018b8878822859285065a407e374b42f041c8cc7b5bbccb",
+      "toolResponseSha256": "e63d827672fcb787acd897796a649e863282878edcbc8de040877f6eb49f222f",
+      "status": "candidate_only_not_approved_map"
+    },
+    {
+      "collection": "nawawi40-candidate-only",
+      "bankVersion": 4,
+      "fortyNumber": 40,
+      "candidateId": 4704,
+      "passNumber": 2,
+      "toolName": "get_hadith",
+      "acquisition": "http",
+      "privateObjectPath": "backend/.content-build/expansion-20261005/candidates/candidate-pass2-forty-40.json",
+      "retrievedAt": "2026-10-05T20:12:22.061605+00:00",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/4704",
+      "fileSha256": "2c548bd994372c095f574b35b1d80909fe0b8f3cbd5b750c2e7245b9ec65eb26",
+      "recordSha256": "62adc9b1ce9487b13397f25b01c2fefc0e182ed91762fc67dea1a923212abe8b",
+      "toolResponseSha256": "b5519b1d2357dc1231397076ef713876b0c1f10cac72416a312011abeed99f3c",
+      "status": "candidate_only_not_approved_map"
+    },
+    {
+      "collection": "nawawi40-candidate-only",
+      "bankVersion": 4,
+      "fortyNumber": 42,
+      "candidateId": 5456,
+      "passNumber": 2,
+      "toolName": "get_hadith",
+      "acquisition": "http",
+      "privateObjectPath": "backend/.content-build/expansion-20261005/candidates/candidate-pass2-forty-42.json",
+      "retrievedAt": "2026-10-05T20:12:22.394337+00:00",
+      "canonicalUrl": "https://hadeethenc.com/ar/browse/hadith/5456",
+      "fileSha256": "7a9d24041fde3a970e3d743873fb5809a3d00caa90ce5307a365e28350958cea",
+      "recordSha256": "42bd317c60c714391914c6a0d0a73c72169b8d0cf842f78a16d48dea82d09d67",
+      "toolResponseSha256": "ac7a3676665a3bb28a0f7b3def11cced920bcdc2d04cf4beb06862ebc63e8a2e",
+      "status": "candidate_only_not_approved_map"
+    },
+    {
+      "collection": "quran-hafs-quranenc-source-recheck",
+      "bankVersion": 4,
+      "toolName": "get_quran_verses",
+      "acquisition": "http",
+      "passNumber": 2,
+      "sourceEnvelopePassNumber": null,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/quran-second-pass/surah-078.json",
+      "retrievedAt": "2026-10-06T01:37:19.893031Z",
+      "canonicalUrl": "https://islamenc.com/ar/quran/78",
+      "surah": 78,
+      "recordCount": 40,
+      "rawSha256": "8acb4c5b6f897a783b0ae15d6258b774d7353fb4de9129e3a379fb7cd49a4e3c",
+      "fileSha256": "4789ddfbc39125b43e7b4345bc2c4b4449c2c1d8dff1061575af7aa27403f10c"
+    },
+    {
+      "collection": "quran-hafs-quranenc-source-recheck",
+      "bankVersion": 4,
+      "toolName": "get_quran_verses",
+      "acquisition": "http",
+      "passNumber": 2,
+      "sourceEnvelopePassNumber": null,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/quran-second-pass/surah-079.json",
+      "retrievedAt": "2026-10-06T01:37:20.375764Z",
+      "canonicalUrl": "https://islamenc.com/ar/quran/79",
+      "surah": 79,
+      "recordCount": 46,
+      "rawSha256": "667c5e721523f3f0a855784944db2e48fc2fd264014edd7c493fe196fada5bfa",
+      "fileSha256": "f907691de6c72881a6f1008fa394c7e7cf9f6064382804fdcc14cce93004280c"
+    },
+    {
+      "collection": "quran-hafs-quranenc-source-recheck",
+      "bankVersion": 4,
+      "toolName": "get_quran_verses",
+      "acquisition": "http",
+      "passNumber": 2,
+      "sourceEnvelopePassNumber": null,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/quran-second-pass/surah-080.json",
+      "retrievedAt": "2026-10-06T01:37:21.159884Z",
+      "canonicalUrl": "https://islamenc.com/ar/quran/80",
+      "surah": 80,
+      "recordCount": 42,
+      "rawSha256": "916e18d11678f57d574cf4950573f64209b53551271505904956419a7ab93982",
+      "fileSha256": "71b536c23034793449ccd83d7ae0496e6afe4f457100ce2ec88037518bfecb8e"
+    },
+    {
+      "collection": "quran-hafs-quranenc-source-recheck",
+      "bankVersion": 4,
+      "toolName": "get_quran_verses",
+      "acquisition": "http",
+      "passNumber": 2,
+      "sourceEnvelopePassNumber": null,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/quran-second-pass/surah-081.json",
+      "retrievedAt": "2026-10-06T01:37:21.764409Z",
+      "canonicalUrl": "https://islamenc.com/ar/quran/81",
+      "surah": 81,
+      "recordCount": 29,
+      "rawSha256": "58d02a38186b03769899cd0c0297bd10170a4ad8fca80fc7f1107496f756c1fc",
+      "fileSha256": "cd718da9c31c0bc4b69b6284d72a09bee923cd39547db135f39f0cd5cac3c015"
+    },
+    {
+      "collection": "quran-hafs-quranenc-source-recheck",
+      "bankVersion": 4,
+      "toolName": "get_quran_verses",
+      "acquisition": "http",
+      "passNumber": 2,
+      "sourceEnvelopePassNumber": null,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/quran-second-pass/surah-082.json",
+      "retrievedAt": "2026-10-06T01:37:22.324959Z",
+      "canonicalUrl": "https://islamenc.com/ar/quran/82",
+      "surah": 82,
+      "recordCount": 19,
+      "rawSha256": "643bd96caa9eac81275e7e4ad09c6a522f392bbb55861dcc6137fb06a6e4138c",
+      "fileSha256": "6e2569da618b54105f286a1c3303d04cf2c08712732aa5e5bb835bb61cecc3fe"
+    },
+    {
+      "collection": "quran-hafs-quranenc-source-recheck",
+      "bankVersion": 4,
+      "toolName": "get_quran_verses",
+      "acquisition": "http",
+      "passNumber": 2,
+      "sourceEnvelopePassNumber": null,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/quran-second-pass/surah-083.json",
+      "retrievedAt": "2026-10-06T01:37:23.074505Z",
+      "canonicalUrl": "https://islamenc.com/ar/quran/83",
+      "surah": 83,
+      "recordCount": 36,
+      "rawSha256": "39d3c551b8344530f3ddda3315c745c333d49f4c7d9ba55e157b2ba10c1300d3",
+      "fileSha256": "3cda571524c4d8a9c4202214801007a135a85c878f0439c9ae2cf6d76a541cb5"
+    },
+    {
+      "collection": "quran-hafs-quranenc-source-recheck",
+      "bankVersion": 4,
+      "toolName": "get_quran_verses",
+      "acquisition": "http",
+      "passNumber": 2,
+      "sourceEnvelopePassNumber": null,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/quran-second-pass/surah-084.json",
+      "retrievedAt": "2026-10-06T01:37:23.675773Z",
+      "canonicalUrl": "https://islamenc.com/ar/quran/84",
+      "surah": 84,
+      "recordCount": 25,
+      "rawSha256": "bceef2dd3e49211889bef69e97dc9215cf140cc50459a90b4422feea91bbaaa5",
+      "fileSha256": "de9310047047158c29c129686e05643a86f3543888a1dd567f7f55e603ee452c"
+    },
+    {
+      "collection": "quran-hafs-quranenc-source-recheck",
+      "bankVersion": 4,
+      "toolName": "get_quran_verses",
+      "acquisition": "http",
+      "passNumber": 2,
+      "sourceEnvelopePassNumber": null,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/quran-second-pass/surah-085.json",
+      "retrievedAt": "2026-10-06T01:37:24.418218Z",
+      "canonicalUrl": "https://islamenc.com/ar/quran/85",
+      "surah": 85,
+      "recordCount": 22,
+      "rawSha256": "6d1ae9f9e73605a175922110608800a2d4cb10e8173116c4ed57ac3b42b422d2",
+      "fileSha256": "c66b6eec9e6069b85329ae842d45e1c33e5aab97c56a0fa86ced22f34967a44c"
+    },
+    {
+      "collection": "quran-hafs-quranenc-source-recheck",
+      "bankVersion": 4,
+      "toolName": "get_quran_verses",
+      "acquisition": "http",
+      "passNumber": 2,
+      "sourceEnvelopePassNumber": null,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/quran-second-pass/surah-086.json",
+      "retrievedAt": "2026-10-06T01:37:24.875129Z",
+      "canonicalUrl": "https://islamenc.com/ar/quran/86",
+      "surah": 86,
+      "recordCount": 17,
+      "rawSha256": "11a5033310dd2575fa2387eb825fe98183c63061862080711bbfa1619aeb401e",
+      "fileSha256": "4a60cb6af0cee0f60b0f9bda9cb7a52dee418124e1998c1ca2516af9192c0ada"
+    },
+    {
+      "collection": "quran-hafs-quranenc-source-recheck",
+      "bankVersion": 4,
+      "toolName": "get_quran_verses",
+      "acquisition": "http",
+      "passNumber": 2,
+      "sourceEnvelopePassNumber": null,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/quran-second-pass/surah-087.json",
+      "retrievedAt": "2026-10-06T01:37:25.454550Z",
+      "canonicalUrl": "https://islamenc.com/ar/quran/87",
+      "surah": 87,
+      "recordCount": 19,
+      "rawSha256": "123a06f58d3a6f4374f12cd82d56a4f3c375e514f3307e4a671e5ffb65d85402",
+      "fileSha256": "1dc58f0ab8d089014e067535125e65e877f421ed704a2cc0a542e74da363b11f"
+    },
+    {
+      "collection": "quran-hafs-quranenc-source-recheck",
+      "bankVersion": 4,
+      "toolName": "get_quran_verses",
+      "acquisition": "http",
+      "passNumber": 2,
+      "sourceEnvelopePassNumber": null,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/quran-second-pass/surah-088.json",
+      "retrievedAt": "2026-10-06T01:37:25.915956Z",
+      "canonicalUrl": "https://islamenc.com/ar/quran/88",
+      "surah": 88,
+      "recordCount": 26,
+      "rawSha256": "d9c6c2c289576aebad87e96f3c012236ec9fce075828d45f16c752060eac2a50",
+      "fileSha256": "f25b623ad6dcd8eacb0c3bd6dc4aa9a059372bbcc28c457817d91219b8836800"
+    },
+    {
+      "collection": "quran-hafs-quranenc-source-recheck",
+      "bankVersion": 4,
+      "toolName": "get_quran_verses",
+      "acquisition": "http",
+      "passNumber": 2,
+      "sourceEnvelopePassNumber": null,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/quran-second-pass/surah-089.json",
+      "retrievedAt": "2026-10-06T01:37:26.503984Z",
+      "canonicalUrl": "https://islamenc.com/ar/quran/89",
+      "surah": 89,
+      "recordCount": 30,
+      "rawSha256": "6cc6390defa6de5cdfc447068678b96547c906ed23a3c003fd0fc817e192251c",
+      "fileSha256": "c7e806cc287dba524c599ca500f9e56792a9d5aea6bd78be2210623dbf92e943"
+    },
+    {
+      "collection": "quran-hafs-quranenc-source-recheck",
+      "bankVersion": 4,
+      "toolName": "get_quran_verses",
+      "acquisition": "http",
+      "passNumber": 2,
+      "sourceEnvelopePassNumber": null,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/quran-second-pass/surah-090.json",
+      "retrievedAt": "2026-10-06T01:37:27.086286Z",
+      "canonicalUrl": "https://islamenc.com/ar/quran/90",
+      "surah": 90,
+      "recordCount": 20,
+      "rawSha256": "b797107a739f59e14a8cef5ae646c7f0d7b6c2a427fe118068fea1be11178f87",
+      "fileSha256": "842e98f143d24fe9696039a2b0f9bdbb2682d2c6eb8e3187e19937c2c9f0f8dd"
+    },
+    {
+      "collection": "quran-hafs-quranenc-source-recheck",
+      "bankVersion": 4,
+      "toolName": "get_quran_verses",
+      "acquisition": "http",
+      "passNumber": 2,
+      "sourceEnvelopePassNumber": null,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/quran-second-pass/surah-091.json",
+      "retrievedAt": "2026-10-06T01:37:27.551560Z",
+      "canonicalUrl": "https://islamenc.com/ar/quran/91",
+      "surah": 91,
+      "recordCount": 15,
+      "rawSha256": "cb9df6dd689de223a2e3fd313beb895d771bf43a5832a200739c1de0984821d8",
+      "fileSha256": "d864f4e87b3e5c965c61cc1326da9c9410c0a8928ad65753c314a05198e3cd4a"
+    },
+    {
+      "collection": "quran-hafs-quranenc-source-recheck",
+      "bankVersion": 4,
+      "toolName": "get_quran_verses",
+      "acquisition": "http",
+      "passNumber": 2,
+      "sourceEnvelopePassNumber": null,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/quran-second-pass/surah-092.json",
+      "retrievedAt": "2026-10-06T01:37:28.128305Z",
+      "canonicalUrl": "https://islamenc.com/ar/quran/92",
+      "surah": 92,
+      "recordCount": 21,
+      "rawSha256": "d1e552e4b0d769a0f1bb33c547bb26465a9dc2be4b4d0b3058f9e3c997bbb0ba",
+      "fileSha256": "81a65d4ec72157b9c4b3b97a18217eac8d71ce58a97d039688c0ce2c8e0f796b"
+    },
+    {
+      "collection": "quran-hafs-quranenc-source-recheck",
+      "bankVersion": 4,
+      "toolName": "get_quran_verses",
+      "acquisition": "http",
+      "passNumber": 2,
+      "sourceEnvelopePassNumber": null,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/quran-second-pass/surah-093.json",
+      "retrievedAt": "2026-10-06T01:37:28.709819Z",
+      "canonicalUrl": "https://islamenc.com/ar/quran/93",
+      "surah": 93,
+      "recordCount": 11,
+      "rawSha256": "006707f13e041df6888ca63c71c5f94046415105fd4571664239745df0fc507d",
+      "fileSha256": "71db79b7a1f290dcfa98f5bce4d9c87773f6978d337bc3560ee23502cf99d1e9"
+    },
+    {
+      "collection": "quran-hafs-quranenc-source-recheck",
+      "bankVersion": 4,
+      "toolName": "get_quran_verses",
+      "acquisition": "http",
+      "passNumber": 2,
+      "sourceEnvelopePassNumber": null,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/quran-second-pass/surah-094.json",
+      "retrievedAt": "2026-10-06T01:37:29.168703Z",
+      "canonicalUrl": "https://islamenc.com/ar/quran/94",
+      "surah": 94,
+      "recordCount": 8,
+      "rawSha256": "73ce5f933cd6525c2474927a82664dc406df41ed6f21d004ac98a124d3b96bdf",
+      "fileSha256": "9dceb5ec444544300eaa17c2a955102d7d124a826d7a3353d6b66f499949db4d"
+    },
+    {
+      "collection": "quran-hafs-quranenc-source-recheck",
+      "bankVersion": 4,
+      "toolName": "get_quran_verses",
+      "acquisition": "http",
+      "passNumber": 2,
+      "sourceEnvelopePassNumber": null,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/quran-second-pass/surah-095.json",
+      "retrievedAt": "2026-10-06T01:37:29.741096Z",
+      "canonicalUrl": "https://islamenc.com/ar/quran/95",
+      "surah": 95,
+      "recordCount": 8,
+      "rawSha256": "f16556f05018518cb0fc40972ffd583efc981175b9235344e466abe4552b2bbf",
+      "fileSha256": "e66e5198195e8f39342e0a316985c73ee9b9aa39fd7df9564c256ca400a78200"
+    },
+    {
+      "collection": "quran-hafs-quranenc-source-recheck",
+      "bankVersion": 4,
+      "toolName": "get_quran_verses",
+      "acquisition": "http",
+      "passNumber": 2,
+      "sourceEnvelopePassNumber": null,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/quran-second-pass/surah-096.json",
+      "retrievedAt": "2026-10-06T01:37:30.495062Z",
+      "canonicalUrl": "https://islamenc.com/ar/quran/96",
+      "surah": 96,
+      "recordCount": 19,
+      "rawSha256": "fec313b3337a6d558a2e472387b9493cd01868cc6cdbf687782450f2f746b2e0",
+      "fileSha256": "55163dbbcc809662d2952c34bd0b17e989998cd15942c441a7164202781a65a9"
+    },
+    {
+      "collection": "quran-hafs-quranenc-source-recheck",
+      "bankVersion": 4,
+      "toolName": "get_quran_verses",
+      "acquisition": "http",
+      "passNumber": 2,
+      "sourceEnvelopePassNumber": null,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/quran-second-pass/surah-097.json",
+      "retrievedAt": "2026-10-06T01:37:31.058935Z",
+      "canonicalUrl": "https://islamenc.com/ar/quran/97",
+      "surah": 97,
+      "recordCount": 5,
+      "rawSha256": "e8b4706ccbb7b1adf56897e8865fabffe16159643d24420ef3610110d71f083c",
+      "fileSha256": "1d3564a037ea694cad88955f664903865ba923ddbf1d493c052a819a12232a5f"
+    },
+    {
+      "collection": "quran-hafs-quranenc-source-recheck",
+      "bankVersion": 4,
+      "toolName": "get_quran_verses",
+      "acquisition": "http",
+      "passNumber": 2,
+      "sourceEnvelopePassNumber": null,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/quran-second-pass/surah-098.json",
+      "retrievedAt": "2026-10-06T01:37:31.641828Z",
+      "canonicalUrl": "https://islamenc.com/ar/quran/98",
+      "surah": 98,
+      "recordCount": 8,
+      "rawSha256": "a9c588592bcc5668887fc6019b188a385461f1ccf9c47d554618967b01e004cd",
+      "fileSha256": "4efab3dd0ab33f9228815e241ca8ff0f5347e30627267204655e6a3481b36346"
+    },
+    {
+      "collection": "quran-hafs-quranenc-source-recheck",
+      "bankVersion": 4,
+      "toolName": "get_quran_verses",
+      "acquisition": "http",
+      "passNumber": 2,
+      "sourceEnvelopePassNumber": null,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/quran-second-pass/surah-099.json",
+      "retrievedAt": "2026-10-06T01:37:32.106075Z",
+      "canonicalUrl": "https://islamenc.com/ar/quran/99",
+      "surah": 99,
+      "recordCount": 8,
+      "rawSha256": "a69747446afbaf33f3d16320ddea7db4442f9d4a05c5c1a53c196a9f71e59e94",
+      "fileSha256": "aa36364a9cdcf8a84fef251026d9dc4cdcd79c0a3fac3b046eabaaba3fa5c2da"
+    },
+    {
+      "collection": "quran-hafs-quranenc-source-recheck",
+      "bankVersion": 4,
+      "toolName": "get_quran_verses",
+      "acquisition": "http",
+      "passNumber": 2,
+      "sourceEnvelopePassNumber": null,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/quran-second-pass/surah-100.json",
+      "retrievedAt": "2026-10-06T01:37:34.581858Z",
+      "canonicalUrl": "https://islamenc.com/ar/quran/100",
+      "surah": 100,
+      "recordCount": 11,
+      "rawSha256": "6f71b9a31a2bcf857b2e0b035a6e31a68e251f5a14cb54c666f8d1a4ddeb4c14",
+      "fileSha256": "f14a24663d6266ed0e36bbb76a9265972cb45f09156c9265e809dacbb51261c2"
+    },
+    {
+      "collection": "quran-hafs-quranenc-source-recheck",
+      "bankVersion": 4,
+      "toolName": "get_quran_verses",
+      "acquisition": "http",
+      "passNumber": 2,
+      "sourceEnvelopePassNumber": null,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/quran-second-pass/surah-101.json",
+      "retrievedAt": "2026-10-06T01:37:35.183219Z",
+      "canonicalUrl": "https://islamenc.com/ar/quran/101",
+      "surah": 101,
+      "recordCount": 11,
+      "rawSha256": "308abc5cd9db79c0dead0a90c0c44ed8dfbf042465a623e977765d53449cc1cd",
+      "fileSha256": "5cdfcb345f4db5d2e3a8d82e76bdbfb4dcc5e9b40c4f9b97fc546c3d1bf15cdd"
+    },
+    {
+      "collection": "quran-hafs-quranenc-source-recheck",
+      "bankVersion": 4,
+      "toolName": "get_quran_verses",
+      "acquisition": "http",
+      "passNumber": 2,
+      "sourceEnvelopePassNumber": null,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/quran-second-pass/surah-102.json",
+      "retrievedAt": "2026-10-06T01:37:35.633733Z",
+      "canonicalUrl": "https://islamenc.com/ar/quran/102",
+      "surah": 102,
+      "recordCount": 8,
+      "rawSha256": "81b0f88da4364877ac1a866946d4c01c4bb94d20f9bfec5f95c92f3bb7d50fcf",
+      "fileSha256": "04f85f34f7eeb94c9b89d94eef4a1e2784e6243181464c9043b2b51748a12337"
+    },
+    {
+      "collection": "quran-hafs-quranenc-source-recheck",
+      "bankVersion": 4,
+      "toolName": "get_quran_verses",
+      "acquisition": "http",
+      "passNumber": 2,
+      "sourceEnvelopePassNumber": null,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/quran-second-pass/surah-103.json",
+      "retrievedAt": "2026-10-06T01:37:36.210031Z",
+      "canonicalUrl": "https://islamenc.com/ar/quran/103",
+      "surah": 103,
+      "recordCount": 3,
+      "rawSha256": "d0503d1005fbd7edadd18d001487c3cc9f9e7cd316db1799871471542f3e08e1",
+      "fileSha256": "7a2076965bd62e2e1747f7d58665713e34774d46e1ff15e4cae06cc707c1218d"
+    },
+    {
+      "collection": "quran-hafs-quranenc-source-recheck",
+      "bankVersion": 4,
+      "toolName": "get_quran_verses",
+      "acquisition": "http",
+      "passNumber": 2,
+      "sourceEnvelopePassNumber": null,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/quran-second-pass/surah-104.json",
+      "retrievedAt": "2026-10-06T01:37:36.798632Z",
+      "canonicalUrl": "https://islamenc.com/ar/quran/104",
+      "surah": 104,
+      "recordCount": 9,
+      "rawSha256": "01c7ca2d47e81d821331bf8d938d469b3a7f0fd01836b6f68c1853775898cd86",
+      "fileSha256": "ea1e2ad3ef9af3e74083cc4bc874fc610f75774693b2747df639fef98f5fe576"
+    },
+    {
+      "collection": "quran-hafs-quranenc-source-recheck",
+      "bankVersion": 4,
+      "toolName": "get_quran_verses",
+      "acquisition": "http",
+      "passNumber": 2,
+      "sourceEnvelopePassNumber": null,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/quran-second-pass/surah-105.json",
+      "retrievedAt": "2026-10-06T01:37:37.367321Z",
+      "canonicalUrl": "https://islamenc.com/ar/quran/105",
+      "surah": 105,
+      "recordCount": 5,
+      "rawSha256": "209c5490b269da1b960f823ddf5e5c838f28e9183a0a28d089a1ea5fe27e6df7",
+      "fileSha256": "c33418b0aca155be92e403b51366eb4a9820f14c9cc0057505c6bc5732f07b2d"
+    },
+    {
+      "collection": "quran-hafs-quranenc-source-recheck",
+      "bankVersion": 4,
+      "toolName": "get_quran_verses",
+      "acquisition": "http",
+      "passNumber": 2,
+      "sourceEnvelopePassNumber": null,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/quran-second-pass/surah-106.json",
+      "retrievedAt": "2026-10-06T01:37:37.974441Z",
+      "canonicalUrl": "https://islamenc.com/ar/quran/106",
+      "surah": 106,
+      "recordCount": 4,
+      "rawSha256": "bf0777d01e153e136ce819dda79ae9062e897aef6e70e89351aa4256613c4e02",
+      "fileSha256": "5b82a5fd064135526ca16b0b28709b707cc3749394edbfbeef75159a23db0e28"
+    },
+    {
+      "collection": "quran-hafs-quranenc-source-recheck",
+      "bankVersion": 4,
+      "toolName": "get_quran_verses",
+      "acquisition": "http",
+      "passNumber": 2,
+      "sourceEnvelopePassNumber": null,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/quran-second-pass/surah-107.json",
+      "retrievedAt": "2026-10-06T01:37:38.599522Z",
+      "canonicalUrl": "https://islamenc.com/ar/quran/107",
+      "surah": 107,
+      "recordCount": 7,
+      "rawSha256": "a014dd6ce646cb5377111846ea6d90333b997fa94c6f897b95081d126c09bcc7",
+      "fileSha256": "62b83cbcf04283507ec10b8eca0c9479d320dc1c2c73b033676e953e7859dc6e"
+    },
+    {
+      "collection": "quran-hafs-quranenc-source-recheck",
+      "bankVersion": 4,
+      "toolName": "get_quran_verses",
+      "acquisition": "http",
+      "passNumber": 2,
+      "sourceEnvelopePassNumber": null,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/quran-second-pass/surah-108.json",
+      "retrievedAt": "2026-10-06T01:37:39.203262Z",
+      "canonicalUrl": "https://islamenc.com/ar/quran/108",
+      "surah": 108,
+      "recordCount": 3,
+      "rawSha256": "fbde63bd782e4919de521f0001cc603fd57512ece712f88f8497fe370cc591d4",
+      "fileSha256": "604353b809baecba30808f20a47f6dff289c0b8f02d6d01bcf89cec53900d0b4"
+    },
+    {
+      "collection": "quran-hafs-quranenc-source-recheck",
+      "bankVersion": 4,
+      "toolName": "get_quran_verses",
+      "acquisition": "http",
+      "passNumber": 2,
+      "sourceEnvelopePassNumber": null,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/quran-second-pass/surah-109.json",
+      "retrievedAt": "2026-10-06T01:37:39.670488Z",
+      "canonicalUrl": "https://islamenc.com/ar/quran/109",
+      "surah": 109,
+      "recordCount": 6,
+      "rawSha256": "1508940199993fc1a81fd97c37150af6b02da6f4823908729e053778949786b4",
+      "fileSha256": "37d75fbaefedcb12665f87e54099a8e12931e77cfabeb687e97a164d4aef8d97"
+    },
+    {
+      "collection": "quran-hafs-quranenc-source-recheck",
+      "bankVersion": 4,
+      "toolName": "get_quran_verses",
+      "acquisition": "http",
+      "passNumber": 2,
+      "sourceEnvelopePassNumber": null,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/quran-second-pass/surah-110.json",
+      "retrievedAt": "2026-10-06T01:37:40.242151Z",
+      "canonicalUrl": "https://islamenc.com/ar/quran/110",
+      "surah": 110,
+      "recordCount": 3,
+      "rawSha256": "7752965943bebf6a89378cb14e1bf2261a3af526fa4fe6a027c59f4d8614b73f",
+      "fileSha256": "813c4b33343bb011264525f877cb53d4cba9155c7d2d7b3726c078914a1a8d71"
+    },
+    {
+      "collection": "quran-hafs-quranenc-source-recheck",
+      "bankVersion": 4,
+      "toolName": "get_quran_verses",
+      "acquisition": "http",
+      "passNumber": 2,
+      "sourceEnvelopePassNumber": null,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/quran-second-pass/surah-111.json",
+      "retrievedAt": "2026-10-06T01:38:47.116031Z",
+      "canonicalUrl": "https://islamenc.com/ar/quran/111",
+      "surah": 111,
+      "recordCount": 5,
+      "rawSha256": "cda30874c1e0f2551f9c966b69f655a5656b89d69122a70cbf2e0efef4919b97",
+      "fileSha256": "c9e58b5f3fc10237b7c7304cca78c3d5d4d2c03a14a2abc120e2c0f769228c5d"
+    },
+    {
+      "collection": "quran-hafs-quranenc-source-recheck",
+      "bankVersion": 4,
+      "toolName": "get_quran_verses",
+      "acquisition": "http",
+      "passNumber": 2,
+      "sourceEnvelopePassNumber": null,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/quran-second-pass/surah-112.json",
+      "retrievedAt": "2026-10-06T01:38:47.714678Z",
+      "canonicalUrl": "https://islamenc.com/ar/quran/112",
+      "surah": 112,
+      "recordCount": 4,
+      "rawSha256": "d0c31ed93a1e87726a87bd241604d7a13d358086dc4a9469db45f965416c5e41",
+      "fileSha256": "e533b1b0580949f17fff45f11fdd9535c56bdaa60966ba62e367da7c440fa4bd"
+    },
+    {
+      "collection": "quran-hafs-quranenc-source-recheck",
+      "bankVersion": 4,
+      "toolName": "get_quran_verses",
+      "acquisition": "http",
+      "passNumber": 2,
+      "sourceEnvelopePassNumber": null,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/quran-second-pass/surah-113.json",
+      "retrievedAt": "2026-10-06T01:38:48.302670Z",
+      "canonicalUrl": "https://islamenc.com/ar/quran/113",
+      "surah": 113,
+      "recordCount": 5,
+      "rawSha256": "8fdda0509301250fac6d16daedaae7f5fe6a5f7b8ba84f189eb6e36a99b1bb02",
+      "fileSha256": "d339e4b0c18fa0d3dd4d60f8ce62de30c2f87f2231ef110358ec18e465dbe03f"
+    },
+    {
+      "collection": "quran-hafs-quranenc-source-recheck",
+      "bankVersion": 4,
+      "toolName": "get_quran_verses",
+      "acquisition": "http",
+      "passNumber": 2,
+      "sourceEnvelopePassNumber": null,
+      "privateObjectPath": "backend/.content-build/expansion-20261005/quran-second-pass/surah-114.json",
+      "retrievedAt": "2026-10-06T01:38:48.881032Z",
+      "canonicalUrl": "https://islamenc.com/ar/quran/114",
+      "surah": 114,
+      "recordCount": 6,
+      "rawSha256": "88e1b213f07c2c09018520eea091fadcb05c8bc80872470a746dd1bc2e96855e",
+      "fileSha256": "de0e71cf82696cd755e2debbce3a4afd9a25b084e2241c15524952d3125ff188"
+    }
+  ],
+  "archive": {
+    "filename": "Qatra-content-expansion-20261005.zip",
+    "saved": true,
+    "bytes": 744643,
+    "version": 1,
+    "sameFileIdentity": true,
+    "includesQuranSecondPass": true
+  },
+  "laterReadOnlyLiveState": {
+    "observedBy": "coordinator; read-only database observation after batch 03",
+    "approval": "D94, limited to existing AI editions for Quran surahs 78-81 and Forty 1",
+    "published": true,
+    "quran": {
+      "scope": "78-81",
+      "units": 157,
+      "lessons": 21,
+      "questions": 349
+    },
+    "hadith": {
+      "scope": "Forty 1",
+      "units": 3,
+      "lessons": 1,
+      "questions": 23
+    },
+    "batch03Bank4ChangedByObservation": false
+  }
+}
