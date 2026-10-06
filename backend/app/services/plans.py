@@ -10,6 +10,8 @@ Server authority only: the user id, the demo flag and the learner's access token
 resolved ``SessionContext``; nothing is read from the request body (S-1). No endpoint here calls a
 model: the plan is computed by the rules engine and ``planner.source`` is ``rules`` unless the
 plan conversation reports that a model turn supplied the parameters (B13, ``create_plan`` port).
+``create_demo_plan`` (E28, B10) receives the restricted planner as a callback and never calls a
+model itself.
 """
 
 from __future__ import annotations
@@ -17,7 +19,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, date, datetime, timedelta
 from typing import TYPE_CHECKING, Literal
 from uuid import UUID
@@ -33,6 +35,7 @@ from app.contracts_plan_chat import (
 )
 from app.contracts_plans import CreatePlanRequest, EstimateRequest, RevisePlanRequest
 from app.dependencies import SessionContext
+from app.domain.demo_policy import PassageFact, PlannerBasis, PlannerOutcome
 from app.domain.plan_chat_policy import FieldError
 from app.domain.plan_policy import (
     REASON_CREATED,
@@ -46,12 +49,14 @@ from app.domain.plan_policy import (
     PlanValues,
     build_plan_commit,
     canonical_paths,
+    daily_new_amount,
     edition_dto,
     estimate_with_alternatives,
     estimates_equal,
     known_from_policy,
     learning_date,
     planner_from_policy,
+    review_buffered_days,
     validate_plan_input,
 )
 from app.domain.planning_port import (
@@ -82,6 +87,7 @@ from app.repositories.plans import (
     MemoryPlacementReader,
     MemoryPlanRepository,
     MemoryProfileReader,
+    PlacementOutcomes,
     PlacementReader,
     PlanInForce,
     PlanRepository,
@@ -278,9 +284,11 @@ class PlanService:
         placement_session_id: UUID | None,
         check_date: bool = True,
         with_passages: bool = False,
+        today: date | None = None,
     ) -> _Resolved:
-        """Validate the shared rules and compute the estimate (the E15 function)."""
-        today = self.learning_date(ctx)
+        """Validate the shared rules and compute the estimate (the E15 function). ``today`` is the
+        learning date when the caller already has it."""
+        today = today if today is not None else self.learning_date(ctx)
         edition = self._catalog.get_edition(edition_id)
         if edition is None:
             raise PlanInputError([FieldError("editionId", "edition_not_available")])
@@ -597,6 +605,142 @@ class PlanService:
                 planner_source="rules",
                 planner_model=None,
             )
+
+    def create_demo_plan(
+        self,
+        ctx: SessionContext,
+        *,
+        scenario_id: str,
+        edition_id: UUID,
+        ordinals: Sequence[int],
+        paths: Sequence[str],
+        order: str,
+        session_minutes: int,
+        preferred_offset_days: int | None,
+        placement_session_id: UUID | None,
+        fallback_placement: tuple[int, int],
+        planner: Callable[[PlannerBasis], PlannerOutcome],
+    ) -> Plan:
+        """E28: a demo account's plan from a trusted scenario, with no estimate-confirmation step.
+
+        The rules engine computes the plan exactly as E16 would. ``planner`` (the restricted
+        Teaching Agent with its rules fallback, ``services/planner.py``) then sees only the
+        ``PlannerBasis`` and answers with the rules outcome or validated advice. Advice changes the
+        pace only: ``agreedEstimate.newWordsPerDay`` takes the advised value and ``days``,
+        ``endDate`` and ``dailyNew`` (D92) follow from it; the order of the new passages and the
+        passages themselves never change. The advised review offsets and priority ids are
+        recorded in ``policy_json.planner.advice`` (G-6). The commit pauses the previous active
+        plan. ``fallback_placement`` is the scenario's synthetic placement summary, used as the
+        agent's input when no placement session is sent.
+        """
+        if not ctx.is_demo:
+            raise AppError(ErrorCode.forbidden)
+        with _http_errors():
+            today = self.learning_date(ctx)
+            preferred = (
+                None
+                if preferred_offset_days is None
+                else today + timedelta(days=preferred_offset_days)
+            )
+            resolved = self._resolve(
+                ctx,
+                edition_id=edition_id,
+                ordinals=ordinals,
+                paths=paths,
+                session_minutes=session_minutes,
+                preferred_date=preferred,
+                order=order,
+                placement_session_id=placement_session_id,
+                with_passages=True,
+                today=today,
+            )
+            base = resolved.result.estimate
+            commit = self._commit(
+                resolved,
+                agreed=base,
+                session_minutes=session_minutes,
+                preferred_date=preferred,
+                order=order,
+                reason_code=REASON_CREATED,
+                planner_source="rules",
+                planner_model=None,
+                effective_date=today,
+            )
+            basis = self._demo_basis(
+                ctx, resolved, commit, scenario_id, session_minutes, fallback_placement
+            )
+            outcome = planner(basis)
+            if outcome.source == "teaching_agent" and outcome.advice is not None:
+                advice = outcome.advice
+                days = review_buffered_days(
+                    base.total_words - base.known_words, advice.new_words_per_day
+                )
+                paced = base.model_copy(
+                    update={
+                        "days": days,
+                        "end_date": today + timedelta(days=days),
+                        "new_words_per_day": advice.new_words_per_day,
+                        # D92: the learner-facing daily amount follows the advised days.
+                        "daily_new": daily_new_amount(
+                            resolved.edition,
+                            ordinals=resolved.scope,
+                            paths=resolved.paths,
+                            days=days,
+                            total_words=base.total_words,
+                            known_words=base.known_words,
+                        ),
+                    }
+                )
+                advised = replace(
+                    resolved, result=resolved.result.model_copy(update={"estimate": paced})
+                )
+                commit = self._commit(
+                    advised,
+                    agreed=paced,
+                    session_minutes=session_minutes,
+                    preferred_date=preferred,
+                    order=order,
+                    reason_code=REASON_CREATED,
+                    planner_source="teaching_agent",
+                    planner_model=outcome.model,
+                    effective_date=today,
+                )
+                policy = dict(commit.policy_json)
+                policy["planner"] = {**policy["planner"], "advice": advice.as_json()}
+                commit = replace(commit, policy_json=policy)
+            return self._read_back(ctx, self._plans.create_plan(ctx, commit))
+
+    def _demo_basis(
+        self,
+        ctx: SessionContext,
+        resolved: _Resolved,
+        commit: PlanCommit,
+        scenario_id: str,
+        session_minutes: int,
+        fallback_placement: tuple[int, int],
+    ) -> PlannerBasis:
+        """The planner's whole view: the passages of the plan in plan order with their word counts,
+        and the placement counts (passages of the plan's scope only)."""
+        words = {row.passage_id: row.words for row in resolved.passages}
+        facts = tuple(
+            PassageFact(UUID(str(item["id"])), words[UUID(str(item["id"]))])
+            for phase in commit.phases
+            for item in phase.unit_range["passages"]
+        )
+        in_scope = {fact.passage_id for fact in facts}
+        placement_id = resolved.placement_session_id
+        if placement_id is None:
+            correct, incorrect = fallback_placement
+        else:
+            reader = getattr(self._placements, "placement_outcomes", None)
+            outcomes = (
+                PlacementOutcomes(resolved.known_ids, frozenset())
+                if reader is None
+                else reader(ctx, placement_id, resolved.edition.edition_id)
+            )
+            correct = len(outcomes.correct_ids & in_scope)
+            incorrect = len(outcomes.incorrect_ids & in_scope)
+        return PlannerBasis(scenario_id, facts, correct, incorrect, session_minutes)
 
     def revise_plan(self, ctx: SessionContext, plan_id: UUID, body: RevisePlanRequest) -> Plan:
         """E17: demo accounts may revise (D71)."""

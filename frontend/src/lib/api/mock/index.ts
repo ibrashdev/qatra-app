@@ -1,6 +1,7 @@
 export { createMockFetch, type MockFetchOptions } from "./mock-fetch";
 export { errorResponse, mockHandlers, type MockHandler, type MockRequest, type MockResponse, type MockScenario } from "./handlers";
 export { planChatHandlers, type MockPlanChatStore } from "./plan-chat";
+export { demoMockHandlers, MOCK_DEMO_ACCOUNTS_PER_DAY, MOCK_DEMO_PLANS_PER_DAY, MOCK_DEMO_SCENARIOS, MOCK_DEMO_SIMULATIONS } from "./demo-handlers";
 export { MOCK_SESSION_ID, mockProgress, todayMockHandlers } from "./today-handlers";
 export { MOCK_LESSON_PASSAGE_IDS, MOCK_LESSON_SECTION_IDS, lessonMockHandlers, mockLessonSection, mockLessons } from "./lesson-handlers";
 export { MOCK_COMPLETED_PLAN_ID, MOCK_PAUSED_PLAN_ID, mockProgressWithOtherPlans, planMockHandlers } from "./plan-handlers";

@@ -1,0 +1,237 @@
+{
+  "expectationsVersion": 1,
+  "synthetic": true,
+  "pinnedFrom": "fixtures/demo_scenarios.json",
+  "catalogProfile": "scripts/demo_catalog.py: quran-hafs-quranenc-synthetic, nawawi40-hadeethenc-synthetic",
+  "derivation": "Written once at pinning time from fixtures/demo_scenarios.json and the synthetic editions of scripts/demo_catalog.py, before any run, and never edited afterwards. goalRecognition: the first edition key prefix and the section references of the scenario. realisticDays: min is the rules estimate (review_buffered_days at the capacity of the scenario's session minutes, the fastest pace the minutes allow); max is 1.5 times min, 2 times min for the light start of QA case 9. errorPriorityRefs: the scenario's errorPassageRefs (a section reference names the first passage of that section). lightReviewExpected: the scenario has an absence of 3 or more days.",
+  "scenarios": [
+    {
+      "scenarioId": "scenario-01",
+      "qaCase": 1,
+      "goalRecognition": {
+        "editionKeyPrefix": "quran-hafs-quranenc",
+        "sectionRefs": [
+          "112",
+          "81"
+        ]
+      },
+      "realisticDays": {
+        "min": 10,
+        "max": 15
+      },
+      "errorPriorityRefs": [],
+      "lightReviewExpected": false,
+      "basis": {
+        "totalWords": 209,
+        "sessionMinutes": 10
+      }
+    },
+    {
+      "scenarioId": "scenario-02",
+      "qaCase": 2,
+      "goalRecognition": {
+        "editionKeyPrefix": "quran-hafs-quranenc",
+        "sectionRefs": [
+          "112",
+          "113",
+          "114",
+          "78",
+          "79",
+          "80",
+          "81"
+        ]
+      },
+      "realisticDays": {
+        "min": 69,
+        "max": 104
+      },
+      "errorPriorityRefs": [],
+      "lightReviewExpected": false,
+      "basis": {
+        "totalWords": 711,
+        "sessionMinutes": 5
+      }
+    },
+    {
+      "scenarioId": "scenario-03",
+      "qaCase": 3,
+      "goalRecognition": {
+        "editionKeyPrefix": "quran-hafs-quranenc",
+        "sectionRefs": [
+          "112",
+          "113",
+          "80"
+        ]
+      },
+      "realisticDays": {
+        "min": 29,
+        "max": 44
+      },
+      "errorPriorityRefs": [],
+      "lightReviewExpected": false,
+      "basis": {
+        "totalWords": 295,
+        "sessionMinutes": 5
+      }
+    },
+    {
+      "scenarioId": "scenario-04",
+      "qaCase": 4,
+      "goalRecognition": {
+        "editionKeyPrefix": "quran-hafs-quranenc",
+        "sectionRefs": [
+          "112",
+          "113",
+          "114",
+          "79",
+          "80",
+          "81"
+        ]
+      },
+      "realisticDays": {
+        "min": 29,
+        "max": 44
+      },
+      "errorPriorityRefs": [
+        "113",
+        "80"
+      ],
+      "lightReviewExpected": true,
+      "basis": {
+        "totalWords": 627,
+        "sessionMinutes": 10
+      }
+    },
+    {
+      "scenarioId": "scenario-05",
+      "qaCase": 5,
+      "goalRecognition": {
+        "editionKeyPrefix": "quran-hafs-quranenc",
+        "sectionRefs": [
+          "112",
+          "113",
+          "80",
+          "81"
+        ]
+      },
+      "realisticDays": {
+        "min": 20,
+        "max": 30
+      },
+      "errorPriorityRefs": [
+        "112",
+        "81"
+      ],
+      "lightReviewExpected": false,
+      "basis": {
+        "totalWords": 418,
+        "sessionMinutes": 10
+      }
+    },
+    {
+      "scenarioId": "scenario-06",
+      "qaCase": 6,
+      "goalRecognition": {
+        "editionKeyPrefix": "quran-hafs-quranenc",
+        "sectionRefs": [
+          "*"
+        ]
+      },
+      "realisticDays": {
+        "min": 97,
+        "max": 146
+      },
+      "errorPriorityRefs": [],
+      "lightReviewExpected": false,
+      "basis": {
+        "totalWords": 3366,
+        "sessionMinutes": 15
+      }
+    },
+    {
+      "scenarioId": "scenario-07",
+      "qaCase": 7,
+      "goalRecognition": {
+        "editionKeyPrefix": "quran-hafs-quranenc",
+        "sectionRefs": [
+          "112",
+          "78"
+        ]
+      },
+      "realisticDays": {
+        "min": 8,
+        "max": 12
+      },
+      "errorPriorityRefs": [],
+      "lightReviewExpected": false,
+      "basis": {
+        "totalWords": 170,
+        "sessionMinutes": 10
+      }
+    },
+    {
+      "scenarioId": "scenario-08",
+      "qaCase": 8,
+      "goalRecognition": {
+        "editionKeyPrefix": "nawawi40-hadeethenc",
+        "sectionRefs": [
+          "nawawi40:1"
+        ]
+      },
+      "realisticDays": {
+        "min": 3,
+        "max": 5
+      },
+      "errorPriorityRefs": [],
+      "lightReviewExpected": false,
+      "basis": {
+        "totalWords": 54,
+        "sessionMinutes": 10
+      }
+    },
+    {
+      "scenarioId": "scenario-09",
+      "qaCase": 9,
+      "goalRecognition": {
+        "editionKeyPrefix": "nawawi40-hadeethenc",
+        "sectionRefs": [
+          "nawawi40:1",
+          "nawawi40:2",
+          "nawawi40:3"
+        ]
+      },
+      "realisticDays": {
+        "min": 22,
+        "max": 44
+      },
+      "errorPriorityRefs": [
+        "nawawi40:2"
+      ],
+      "lightReviewExpected": false,
+      "basis": {
+        "totalWords": 224,
+        "sessionMinutes": 5
+      }
+    },
+    {
+      "scenarioId": "scenario-10",
+      "qaCase": 10,
+      "goalRecognition": {
+        "editionKeyPrefix": "nawawi40-hadeethenc",
+        "sectionRefs": [
+          "*"
+        ]
+      },
+      "realisticDays": {
+        "min": 127,
+        "max": 191
+      },
+      "errorPriorityRefs": [],
+      "lightReviewExpected": false,
+      "basis": {
+        "totalWords": 2757,
+        "sessionMinutes": 10
+      }
+    }
+  ]
+}

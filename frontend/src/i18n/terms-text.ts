@@ -129,7 +129,7 @@ const ar: TermsText = {
       blocks: [{ kind: "paragraph", text: "لا يستنتج التطبيق ديانة أو سمات دينية عن المستخدم." }],
     },
   ],
-  returnButton: { register: "العودة إلى إنشاء الحساب", consent: "العودة إلى الموافقة", home: "العودة إلى الصفحة الرئيسية" },
+  returnButton: { register: "العودة إلى إنشاء الحساب", consent: "العودة إلى الموافقة", demo: "العودة إلى رابط العرض التجريبي", home: "العودة إلى الصفحة الرئيسية" },
 };
 
 const en: TermsText = {
@@ -223,7 +223,7 @@ const en: TermsText = {
       blocks: [{ kind: "paragraph", text: "The app does not infer a religion or religious traits about the user." }],
     },
   ],
-  returnButton: { register: "Back to create account", consent: "Back to consent", home: "Back to home" },
+  returnButton: { register: "Back to create account", consent: "Back to consent", demo: "Back to try the demo", home: "Back to home" },
 };
 
 // A missing translation fails the build (NFR-14): the record needs both locales.

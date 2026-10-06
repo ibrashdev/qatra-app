@@ -1,5 +1,6 @@
 import { passwordViolations, usernameViolations } from "@/lib/auth/account-rules";
 import type { HealthResponse, LoginResponse, RegisterResponse } from "../types";
+import { demoMockHandlers } from "./demo-handlers";
 import { MOCK_LOGINS, MOCK_PASSWORD, MOCK_RECOVERY_CODE, MOCK_REGISTRATIONS, MOCK_TERMS_VERSION, mockCatalog, mockProfile, mockToday, mockTodayWithoutPlan } from "./fixtures";
 import { offlineMockHandlers } from "./offline-handlers";
 import { lessonMockHandlers } from "./lesson-handlers";
@@ -146,6 +147,7 @@ export const mockHandlers: Readonly<Record<string, MockHandler>> = {
     return { status: 200, body: scenario.isDemo ? { ...mockProfile, isDemo: true } : mockProfile };
   },
   ...planChatHandlers,
+  ...demoMockHandlers, // E26 to E29 (S-28, S-29, S-30)
   ...todayMockHandlers, // E19 and E20 `daily` (S-11)
   ...planMockHandlers, // E15, E17 and E30 (S-12, S-13)
   ...lessonMockHandlers, // the lessons reader (D92): GET /lessons and GET /lessons/:sectionId
