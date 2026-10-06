@@ -29,7 +29,7 @@ local job rows. `publish` writes no local row (the `published` row is in its SQL
 | Command | Step written | Status |
 |---|---|---|
 | `acquire` | `acquired` | implemented |
-| `verify` | `verified` | implemented, with the source-only mode `--source-only-decision D83` |
+| `verify` | `verified` | implemented, with the decision-scoped source-only modes `D83` and `D95` |
 | `segment` | `segmented` | implemented (B8) |
 | `propose-questions` | none (optional, between `segment` and `build-bank`) | implemented (D92) |
 | `build-bank` | `bank_built` | implemented (B8) |
@@ -100,6 +100,9 @@ uv run python -m scripts.content_tools verify --edition quran-hafs-quranenc --ba
     --source-only-decision D83 --http-recheck
 uv run python -m scripts.content_tools verify --edition nawawi40-hadeethenc --bank-version 1 \
     --source-only-decision D83
+# D95: for the full Juz' Amma scope at bank version 4, the HTTP re-acquisition replaces the oracle
+uv run python -m scripts.content_tools verify --edition quran-hafs-quranenc --bank-version 4 \
+    --source-only-decision D95 --http-recheck
 ```
 
 - **Quran** (with `--oracle`): NFC text equals the NFC oracle text for every ayah of the scope.
@@ -125,13 +128,21 @@ uv run python -m scripts.content_tools verify --edition nawawi40-hadeethenc --ba
     `--http-recheck` is optional and adds a third acquisition.
   - Refused: any other scope or bank version, a stored object that came from a records file and a
     hadith record other than 66511 (exit 3, before any request); `--oracle` or `--skeleton`
-    together with the option, and any decision other than `D83` (exit 2).
+    together with the option, and an unknown decision (neither `D83` nor `D95`; exit 2).
   - Recorded (counts, ids and hashes only): the method `source_only(D83):...`, the decision id,
     the objects with their `rawSha256` and times, in `verification.json`,
     `verification_report.md`, the job summary (`sourceOnly`) and the `verification` entry of the
     review record. For the Quran the summary also cites the sample check recorded in D68 as
     prior evidence (not re-fetched).
   - Without the option nothing changes: a missing oracle still fails closed.
+- **`--source-only-decision D95`** (owner decision of 6 October 2026) accepts only the Quran
+  edition `quran-hafs-quranenc`, bank version 4, and the complete surah scope 78–114. The stored
+  HTTP acquisitions are compared with fresh HTTP re-acquisitions from the same Islamic Content
+  MCP source, byte for byte and after NFC. Pass `--http-recheck`. This is an owner-approved
+  source-only verification method for this exact scope; it is not comparison with the independent
+  King Fahd Complex Hafs v18 oracle. It does not cover hadith, partial scopes, other bank versions,
+  or publication. The method and decision id are recorded as `source_only(D95):...`; the evidence
+  note records D95 as the authorization basis, not D68's earlier sample check.
 - Any mismatch blocks the affected unit (exit 4, the step is recorded `failed` with its cursor
   and the edition stays draft). Writes `verification.json`, `verification_report.md` and, for
   hadith, `gap_report.md` under `<build>/<editionKey>/` (counts and unit refs only).
@@ -298,7 +309,7 @@ uv run python -m scripts.content_tools publish --edition <key> --bank-version 1 
 
 ## The MCP client in live use
 
-`acquire --http`, `verify --http-recheck` and the D83 mode share one client
+`acquire --http`, `verify --http-recheck` and the D83/D95 modes share one client
 (`app/workflow/mcp_client.py`). Its first and so far only live run was the operator run of 5
 October 2026 against `https://mcp.islamiccontent.org/mcp`: surah 112 of `quran-hafs-quranenc`
 (acquired, then re-acquired by `verify`) and HadeethEnc record 66511 in two passes. The parsers

@@ -30,9 +30,10 @@ both independent passes are stored: which hadiths legitimately have no record is
 number (digits, optionally with U+06DD or ornate brackets) is stripped before comparing.
 **Skeleton file** (``verify --skeleton PATH``, hadith, optional): ``fortyNumber|text`` lines.
 
-**Source-only mode** (``verify --source-only-decision D83``): for exactly the scope of D83 (see
-``source_only``) two independent HTTP acquisitions from the service replace the oracle and the
-skeleton. Without the option nothing changes: a missing oracle still fails closed.
+**Source-only mode** (``verify --source-only-decision D83|D95``): for exactly the scope of the
+selected decision (see ``source_only``) independent HTTP acquisitions from the service replace
+the oracle and the skeleton. Without the option nothing changes: a missing oracle still fails
+closed.
 """
 
 from __future__ import annotations
@@ -836,7 +837,7 @@ def _verify_hadith(
     return units, gaps, suspected
 
 
-# --- source-only mode (D83) ----------------------------------------------------------------
+# --- source-only mode (D83 and D95) ---------------------------------------------------------
 
 
 def _records_payload_sha256(records: Sequence[QuranRecord]) -> str:
@@ -862,6 +863,7 @@ def _verify_quran_source_only(
     storage: RawStorage,
     client: McpJsonRpcClient,
     edition_key: str,
+    decision: str,
     clock: Clock,
 ) -> tuple[list[VerificationRecord], list[dict[str, Any]]]:
     """Compare each stored HTTP acquisition with a fresh HTTP re-acquisition of the same surah."""
@@ -871,7 +873,7 @@ def _verify_quran_source_only(
         )
         for surah in scope.surahs
     }
-    source_only.assert_http_acquired(stored)  # before any request is made
+    source_only.assert_http_acquired(stored, decision=decision)  # before any request is made
     units: list[VerificationRecord] = []
     entries: list[dict[str, Any]] = []
     method = "source_only_http_reacquisition"
@@ -972,8 +974,9 @@ def verify_verbatim(
     scope. Hadith: pass 1 equals pass 2 after NFC; optional letter-skeleton review flags;
     optional HTTP re-acquisition compared byte for byte.
 
-    With ``source_only_decision`` (D83) the oracle and the skeleton are not used: for exactly the
-    scope of the decision, two HTTP acquisitions from the service itself are compared instead
+    With ``source_only_decision`` (D83 or D95) the oracle and the skeleton are not used: for
+    exactly the scope of that decision, two HTTP acquisitions from the service itself are
+    compared instead
     (Quran: the stored one against a re-acquisition made here, byte for byte; hadith: pass 1
     against pass 2 after NFC). Any other scope is refused."""
     spec = edition_spec(edition_key)
@@ -987,7 +990,7 @@ def verify_verbatim(
             raise InputError(
                 "the source-only decision replaces the oracle and the skeleton: pass neither"
             )
-        source_only.assert_scope(edition_key, bank_version, scope)
+        source_only.assert_scope(edition_key, bank_version, scope, decision=source_only_decision)
     if spec.kind == "quran":
         if source_only_decision is not None:
             if recheck_client is None:
@@ -1000,10 +1003,16 @@ def verify_verbatim(
                 storage=storage,
                 client=recheck_client,
                 edition_key=edition_key,
+                decision=source_only_decision,
                 clock=clock,
             )
-            method = source_only.method_name("http_reacquisition_byte_equality")
-            evidence = {"acquisitions": entries, "priorEvidence": dict(source_only.PRIOR_EVIDENCE)}
+            method = source_only.method_name(
+                "http_reacquisition_byte_equality", decision=source_only_decision
+            )
+            evidence = {
+                "acquisitions": entries,
+                "priorEvidence": dict(source_only.prior_evidence(source_only_decision)),
+            }
             acquisitions = 2
         else:
             if oracle is None:
@@ -1026,7 +1035,8 @@ def verify_verbatim(
             edition_key=edition_key,
         )
         method = source_only.method_name(
-            "two_pass_nfc_equality" + ("+http_byte_diff" if recheck_client is not None else "")
+            "two_pass_nfc_equality" + ("+http_byte_diff" if recheck_client is not None else ""),
+            decision=source_only_decision,
         )
         acquisitions = 2 + (1 if recheck_client is not None else 0)
     else:
