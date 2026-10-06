@@ -14,7 +14,9 @@ import { PasswordField } from "@/components/ui/PasswordField";
 import { TextField } from "@/components/ui/TextField";
 import { TextLink } from "@/components/ui/TextLink";
 import { useLocale } from "@/i18n/LocaleProvider";
+import { demoMessages } from "@/i18n/demo-messages";
 import { formatInteger } from "@/i18n/format";
+import { registerDemo } from "@/lib/api/demo-endpoints";
 import { useApiRuntime, useWakeUpState } from "@/lib/api/react";
 import { checkConfirmation, checkPassword, checkUsername, type ConfirmationRule, type PasswordRule, type UsernameRule } from "@/lib/auth/account-rules";
 import { holdRecoveryCode } from "@/lib/auth/recovery-handoff";
@@ -25,6 +27,7 @@ import { browserTimeZone, reloadPage } from "@/lib/browser";
 import { TERMS_VERSION } from "@/lib/config";
 import { afterPress } from "@/lib/dom/after-press";
 import { useConnectivity } from "@/lib/net/use-connectivity";
+import { wipeIfDifferentAccount } from "@/lib/offline/owner";
 
 // P-06: a request that waits longer than this says it is still working.
 const SLOW_REQUEST_MS = 5_000;
@@ -86,15 +89,20 @@ function revalidated(current: Errors, field: "username" | "password" | "confirma
 
 // S-02 (UI-screens Batch 1): username, password and its confirmation, the recovery-code notice and the mandatory consent box, E03.
 // Like S-01 the inputs are read from the page, so a password manager that fills them without a change event still works.
-export function RegisterForm() {
+// S-28 (the demo link, option C) is the same form with variant "demo": E26 takes the body of E03, so the only differences are the call, the words
+// and the screen S-04 continues to. The client never says that the account is a demo account: the endpoint decides.
+export function RegisterForm({ variant = "learner" }: { variant?: "learner" | "demo" } = {}) {
   const { locale, messages } = useLocale();
-  const { api } = useApiRuntime();
+  const { api, client } = useApiRuntime();
+  const demo = variant === "demo";
+  const demoText = demoMessages(locale).entry;
   const router = useRouter();
   const wake = useWakeUpState();
   const { online, reconnected } = useConnectivity();
   useSignedInRedirect();
 
   const text = messages.auth.register;
+  const screenName = demo ? demoText.screenName : messages.screens.register;
   const usernameId = useId();
   const passwordId = useId();
   const confirmationId = useId();
@@ -237,23 +245,26 @@ export function RegisterForm() {
     const slowTimer = setTimeout(() => setSlow(true), SLOW_REQUEST_MS);
     let leaving = false;
     try {
-      const { recoveryCode } = await api.register({
+      const request = {
         username: values.username,
         password: values.password,
         timeZone: browserTimeZone(),
         language: locale,
-        termsAccepted: true,
+        termsAccepted: true as const,
         termsVersion: TERMS_VERSION ?? "",
-      });
+      };
+      const { recoveryCode } = demo ? await registerDemo(client, request) : await api.register(request);
       // The account exists, so nothing typed is kept, whether or not the visitor is still on this page.
       clearRegisterDraft();
+      // A different account than the one whose plan is saved on this device loses that local copy first (G-04).
+      await wipeIfDifferentAccount(values.username).catch(() => false);
       if (!mounted.current) return;
       for (const field of ["username", "password", "confirmation"] as const) {
         const input = inputFor(field);
         if (input) input.value = "";
       }
       // S-04 shows the code once; it is handed over in memory and the form is replaced in the history, so back never returns to it.
-      holdRecoveryCode(recoveryCode, "register");
+      holdRecoveryCode(recoveryCode, demo ? "demo" : "register");
       leaving = true;
       router.replace("/recovery-code");
     } catch (error) {
@@ -315,9 +326,9 @@ export function RegisterForm() {
 
   return (
     <div className="mx-auto w-full max-w-form">
-      <PageTitle screenName={messages.screens.register} />
+      <PageTitle screenName={screenName} />
       <h1 data-page-heading tabIndex={-1} className="text-title text-ink">
-        {messages.screens.register}
+        {screenName}
       </h1>
 
       {attempted && summary.length >= 2 ? (
@@ -327,11 +338,17 @@ export function RegisterForm() {
       ) : null}
 
       <div className="mt-q24">
+        {demo ? <p className="mb-q8 text-body text-ink">{demoText.intro}</p> : null}
         <p className="text-body text-ink">{text.lead}</p>
         <TextLink href="/terms" prefetch onClick={keepDraft}>
           {text.termsLink}
         </TextLink>
       </div>
+      {demo ? (
+        <div className="mt-q16">
+          <Notice>{demoText.syntheticNote}</Notice>
+        </div>
+      ) : null}
 
       <form noValidate method="post" onSubmit={submit} className="mt-q24">
         <div className="flex flex-col gap-q16">
@@ -426,7 +443,7 @@ export function RegisterForm() {
           alert={alertBanner}
           announcement={
             <>
-              {submitting ? <p>{text.submittingStatus}</p> : null}
+              {submitting ? <p>{demo ? demoText.submittingStatus : text.submittingStatus}</p> : null}
               {wake.phase === "ready" && pressedWhileWaking ? <p>{messages.server.ready}</p> : null}
               {reconnected && online ? <p>{messages.form.backOnline}</p> : null}
               {throttleOver ? <p>{messages.form.throttleOver}</p> : null}
@@ -436,7 +453,7 @@ export function RegisterForm() {
 
         <div className="mt-q24">
           <Button type="submit" fullWidth loading={submitting} aria-disabled={throttled || undefined} aria-describedby={throttled ? bannerId : undefined}>
-            {submitting ? text.submitting : text.submit}
+            {submitting ? (demo ? demoText.submitting : text.submitting) : demo ? demoText.submit : text.submit}
           </Button>
           {shown?.kind === "throttled" ? (
             <div className="mt-q8">

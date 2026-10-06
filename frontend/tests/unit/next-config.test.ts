@@ -50,8 +50,10 @@ describe("next.config rewrites (API-spec 1.1: same origin, no CORS, no route han
   );
 
   it("sets no CORS header and defines no other rewrite or redirect", async () => {
-    expect(nextConfig.headers).toBeUndefined();
+    // The only header block is the one for the service worker file (offline PWA); tests/unit/pwa-manifest.test.ts checks its values.
+    expect(((await nextConfig.headers?.()) ?? []).map((block) => block.source)).toEqual(["/sw.js"]);
     expect(nextConfig.redirects).toBeUndefined();
     expect(JSON.stringify(nextConfig)).not.toMatch(/Access-Control/i);
+    expect(JSON.stringify(await nextConfig.headers?.())).not.toMatch(/Access-Control/i);
   });
 });

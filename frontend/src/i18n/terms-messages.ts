@@ -8,11 +8,11 @@ export interface TermsMessages {
 }
 
 export const termsAr: TermsMessages = {
-  destinations: { register: "إنشاء الحساب", consent: "الموافقة", home: "الصفحة الرئيسية" },
+  destinations: { register: "إنشاء الحساب", consent: "الموافقة", demo: "رابط العرض التجريبي", home: "الصفحة الرئيسية" },
   unavailable: "تعذّر فتح شروط الاستخدام وبيان الخصوصية. تحقّق من الاتصال ثم أعد المحاولة.",
 };
 
 export const termsEn: TermsMessages = {
-  destinations: { register: "Create account", consent: "Consent", home: "Home" },
+  destinations: { register: "Create account", consent: "Consent", demo: "Try the demo", home: "Home" },
   unavailable: "The terms of use and privacy statement could not be opened. Check your connection and try again.",
 };

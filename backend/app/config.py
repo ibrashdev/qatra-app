@@ -152,6 +152,14 @@ class Settings(BaseSettings):
     # The default is false (D76, Q2): a forgotten variable cannot send learner text to a model.
     QATRA_CHAT_MODEL_FOR_LEARNERS: bool = False
 
+    # Demo path (API-spec §4.9, A-09; confirmed by D74, Q6). Configuration defaults, not code:
+    # demo accounts per client address in a rolling 24 hours (E26), demo plans per demo account
+    # and UTC day (E28) and, optionally, the directory of the fixture files (default: the
+    # repository-root ``fixtures`` directory).
+    QATRA_DEMO_ACCOUNTS_PER_IP_PER_DAY: int = Field(default=5, ge=1)
+    QATRA_DEMO_PLANS_PER_ACCOUNT_PER_DAY: int = Field(default=10, ge=1)
+    QATRA_DEMO_FIXTURES_DIR: str | None = None
+
     def is_missing(self, name: str) -> bool:
         value = getattr(self, name)
         if value is None:

@@ -3,6 +3,7 @@
 import { LearningCue } from "@/components/learning-cue";
 import type { Ref } from "react";
 import { QuestionView, questionPrompt, type HintEffect, type QuestionError, type QuestionResult, type QuestionViewHandle, type TextKind } from "@/components/questions";
+import type { RunBackend } from "@/components/session/run-backend";
 import { SessionFailureBanner } from "@/components/session/SessionBanners";
 import { Banner } from "@/components/ui/Banner";
 import { Button } from "@/components/ui/Button";
@@ -30,12 +31,15 @@ export function RoundRun({
   replay,
   onPlayAgain,
   onRefreshPlan,
+  backend,
 }: {
   round: GameRound;
   questions: readonly Question[];
   replay: ReplayState;
   onPlayAgain: () => void;
   onRefreshPlan: () => void;
+  // The offline shell passes its backend (durable outbox, local finish); online there is none and the round behaves as before.
+  backend?: RunBackend;
 }) {
   const { locale } = useLocale();
   const t = gamesMessages(locale);
@@ -43,7 +47,7 @@ export function RoundRun({
   const session = sessionMessages(locale);
   const { online } = useConnectivity();
   const wake = useWakeUpState();
-  const run = useGameRound({ round, questions });
+  const run = useGameRound({ round, questions, backend });
   const waking = wake.phase === "waking" || wake.phase === "timed_out";
 
   if (run.phase === "result") {
@@ -75,6 +79,11 @@ export function RoundRun({
       <Banner variant="warning">{t.unavailable.text}</Banner>
     ) : run.sync !== null ? (
       <SessionFailureBanner failure={run.sync} online={online} waking={waking} onRetry={run.retrySync} onRefresh={reloadPage} />
+    ) : backend !== undefined ? (
+      // Offline round: the answers are on the device and are verified at the next sync, so the line is the fixed one, not «سنعيد المحاولة».
+      backend.banner === null ? null : (
+        <Banner variant={backend.banner.variant}>{backend.banner.text}</Banner>
+      )
     ) : !online ? (
       <Banner variant="info">{session.banners.offlineQueue}</Banner>
     ) : null;

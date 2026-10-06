@@ -20,6 +20,7 @@ import { QuestionStep } from "./QuestionStep";
 import { PlanInactiveBanner, RevokedView, SessionFailureBanner } from "./SessionBanners";
 import { StageIndicator } from "./StageIndicator";
 import { peekResume } from "./resume-store";
+import type { RunBackend } from "./run-backend";
 import { firstIndexFrom, passageFacts, questionPosition, stageOfStep, stagesOf, stepLineOf } from "./session-model";
 import { useSessionRun } from "./use-session-run";
 
@@ -29,12 +30,14 @@ export interface SessionRunProps {
   textKind: TextKind;
   // True after a reload or a direct visit: the session starts again at its first step, and the step line says so.
   restarted: boolean;
+  // The offline shell passes its backend (durable outbox, local finish); online there is none and the run behaves as before.
+  backend?: RunBackend;
 }
 
 
 // The open session (UI-screens S-19): focus-flow chrome, the compact daily bar, the stage indicator, the step region and the sticky action bar with its one
 // button. Every answer is graded by the server; the screen shows the first verdict from the snapshot's key and takes the server's when it arrives.
-export function SessionRun({ snapshot, daily, textKind, restarted }: SessionRunProps) {
+export function SessionRun({ snapshot, daily, textKind, restarted, backend }: SessionRunProps) {
   const { locale } = useLocale();
   const t = sessionMessages(locale);
   const today = todayMessages(locale);
@@ -42,7 +45,7 @@ export function SessionRun({ snapshot, daily, textKind, restarted }: SessionRunP
   const wake = useWakeUpState();
   // The step a pause in this tab left off at (S-19 "Resumed"); a reload has lost it and starts at the first step.
   const [resumeAt] = useState(() => peekResume(snapshot.sessionId));
-  const run = useSessionRun({ snapshot, initialDaily: daily, resumeAt });
+  const run = useSessionRun({ snapshot, initialDaily: daily, resumeAt, backend });
   const steps = snapshot.steps;
   const facts = useMemo(() => passageFacts(steps), [steps]);
   const stages = useMemo(() => stagesOf(steps), [steps]);
@@ -82,6 +85,11 @@ export function SessionRun({ snapshot, daily, textKind, restarted }: SessionRunP
       <SessionFailureBanner failure={run.finishFailure} online={online} waking={waking} onRefresh={() => window.location.reload()} />
     ) : run.sync !== null ? (
       <SessionFailureBanner failure={run.sync} online={online} waking={waking} onRetry={run.retrySync} onRefresh={() => window.location.reload()} />
+    ) : backend !== undefined ? (
+      // Offline run: the answers are on the device and are verified at the next sync, so the line is the fixed one, not «سنعيد المحاولة».
+      backend.banner === null ? null : (
+        <Banner variant={backend.banner.variant}>{backend.banner.text}</Banner>
+      )
     ) : !online ? (
       <Banner variant="info">{t.banners.offlineQueue}</Banner>
     ) : null;

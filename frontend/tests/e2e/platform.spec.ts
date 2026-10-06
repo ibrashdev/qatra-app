@@ -55,14 +55,19 @@ test.describe("same-origin API through the rewrite (API-spec 1.1)", () => {
   });
 });
 
-test.describe("deferred features are absent (option C)", () => {
-  test("no service worker, no manifest, no PWA registration", async ({ page }) => {
-    await page.goto("/today");
-    await page.waitForTimeout(500);
-    expect(await page.evaluate(async () => (await navigator.serviceWorker.getRegistrations()).length)).toBe(0);
-    await expect(page.locator("link[rel=manifest]")).toHaveCount(0);
-    const worker = await page.request.get("/sw.js");
-    expect(worker.status()).toBe(404);
+test.describe("the offline plan (option C) and what stays deferred", () => {
+  // Every other spec runs with workers blocked (playwright.config.ts), so that `page.route` sees every request. The offline plan opts in here and in offline*.spec.ts.
+  test.describe("with service workers allowed", () => {
+    test.use({ serviceWorkers: "allow" });
+    test("the manifest is linked and served, the worker file is served as a script, and the worker registers", async ({ page }) => {
+      await page.goto("/today");
+      await expect(page.locator("link[rel=manifest]")).toHaveAttribute("href", "/manifest.webmanifest");
+      expect((await page.request.get("/manifest.webmanifest")).status()).toBe(200);
+      const worker = await page.request.get("/sw.js");
+      expect(worker.status()).toBe(200);
+      expect(worker.headers()["content-type"]).toContain("javascript");
+      await expect.poll(async () => page.evaluate(async () => (await navigator.serviceWorker.getRegistrations()).length)).toBe(1);
+    });
   });
 
   test("the browser stores no token, only the language choice", async ({ page }) => {

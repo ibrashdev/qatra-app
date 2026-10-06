@@ -39,6 +39,9 @@ yarn-error.log*
 .env*
 !.env.example
 
+# generated service worker (scripts/build-sw.mjs writes it after `next build`)
+/public/sw.js
+
 # vercel
 .vercel
 

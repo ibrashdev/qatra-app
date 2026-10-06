@@ -2,8 +2,8 @@
 // «شروط الاستخدام وبيان الخصوصية», and by the rows of «البيانات المسموحة ومكانها» that the section points to ("as in the table above").
 // The Arabic keeps the words of those bullets and rows. What is taken out: decision and task codes, table and column names, and the
 // pointers to other places in the documents. The English is proposed (UI-tokens A7) and is not a legal review of either language.
-// Left out until their features ship: the offline paragraph and the downloaded-plan row (option C, F13), the lesson-feedback row (D45),
-// and the embedding provider, which this build does not have (D69).
+// Left out until their features ship: the lesson-feedback row (D45), and the embedding provider, which this build does not have (D69).
+// The downloaded-plan row and the offline paragraph (D46, D58) are here, since the offline plan ships with this build (option C, F13).
 // This file is loaded with the S-03 route only (and later S-26), not with every page: the shell strings stay in messages.ts.
 import type { Locale } from "./messages";
 import type { TermsOpener } from "@/lib/nav/terms-opener";
@@ -86,6 +86,7 @@ const ar: TermsText = {
             "الخطة والمراحل والأخطاء والمراجعات: جداول شخصية؛ أخطاء كمعرفات وأنواع ونتائج، ونتيجة الاختبار الأولي والتقدير الذاتي الاختياري.",
             "محادثة الخطة: رسائل المتعلم والمساعد والحالة؛ وتحفظ رسائل المحادثة مع الحساب وتحذف معه في طلب الحذف نفسه؛ لا يحفظ ناتج النموذج الخام، ولا يسجل نص الهدف أو الرسائل في سجلات الطلبات.",
             "فترات النشاط والإنجاز اليومي ودليل الحفظ: فترات تعلم وألعاب نشطة متحقق منها؛ تجمع الفترات المحدودة اللازمة لحساب الوقت، ولا تحول إلى مراقبة عامة لاستعمال الجهاز أو بيانات شخصية إضافية؛ مدير المحتوى لا يقرأ هذه الصفوف لمجرد إدارة كتاب.",
+            "لقطة الخطة المحملة والأحداث المحلية: IndexedDB بنطاق صاحب النسخة المحلية، مع مراجع الخطة/النسخة/البنك والجلسات المعدة خادميًا والأجوبة العابرة لحين إقرارها؛ سجل خادمي خاص مملوك؛ لا JWT أو رمز جلسة أو كلمة مرور أو أسرار في أي cache؛ المصادقة والتنزيل والمزامنة تحتاج اتصالًا.",
             "صفوف تحديد المحاولات: بصمات HMAC لاسم المستخدم المطبع ولبادئة IP مع عداد ونافذة زمنية بدقيقة واحدة؛ لمنع التخمين فقط؛ تحذف بعد ٢٤ ساعة بتنظيف انتهازي محدود.",
           ],
         },
@@ -120,6 +121,7 @@ const ar: TermsText = {
           kind: "paragraph",
           text: "لا نسخ احتياطية قابلة للتنزيل، ومدة احتفاظ المزود بنسخه الداخلية هي ما تتيحه الخطة المجانية، دون ادعاء مدة محددة الآن.",
         },
+        { kind: "paragraph", text: "إعادة فتح الخطة المحملة دون اتصال وصول محلي مؤقت؛ جهاز مشترك قد يعرضها إن بقيت دون مسح، وسحب المحتوى/الحساب عن بعد لا يصل فورًا للأجهزة غير المتصلة؛ الخروج المحلي ومسح النسخة لا يساويان حذف الحساب أو إلغاء جلسة الخادم. لا وعد بالمزامنة والتطبيق مغلق، ولا يمنع التثبيت فقد غير المتزامن بسبب الطرد/مسح الجهاز." },
       ],
     },
     {
@@ -127,7 +129,7 @@ const ar: TermsText = {
       blocks: [{ kind: "paragraph", text: "لا يستنتج التطبيق ديانة أو سمات دينية عن المستخدم." }],
     },
   ],
-  returnButton: { register: "العودة إلى إنشاء الحساب", consent: "العودة إلى الموافقة", home: "العودة إلى الصفحة الرئيسية" },
+  returnButton: { register: "العودة إلى إنشاء الحساب", consent: "العودة إلى الموافقة", demo: "العودة إلى رابط العرض التجريبي", home: "العودة إلى الصفحة الرئيسية" },
 };
 
 const en: TermsText = {
@@ -178,6 +180,7 @@ const en: TermsText = {
             "Plan, stages, mistakes and reviews: personal tables; mistakes as identifiers, types and results, and the placement test result and the optional self-assessment.",
             "Plan conversation: the messages of the learner and the assistant, and the state; the conversation messages are kept with the account and deleted with it in the same deletion request; the raw model output is not kept, and the text of the goal or of the messages is not written to request logs.",
             "Activity periods, daily progress and memorization evidence: verified periods of active learning and games; the limited periods needed to count time are collected and are not turned into general monitoring of device use or additional personal data; the content manager does not read these rows just to manage a book.",
+            "Downloaded plan snapshot and local events: IndexedDB on the device, scoped to the owner of the local copy, with references to the plan, edition and question bank, the sessions prepared by the server and the answers held briefly until the server confirms them; a private server record owned by the account; no JWT, session token, password or secret in any cache; sign-in, downloading and syncing need a connection.",
             "Attempt-limiting records: HMAC fingerprints of the normalized username and of an IP prefix, with a counter and a one-minute time window; only to prevent guessing; deleted after 24 hours by limited opportunistic cleanup.",
           ],
         },
@@ -212,6 +215,7 @@ const en: TermsText = {
           kind: "paragraph",
           text: "There are no downloadable backups, and how long the provider keeps its internal copies is whatever its free plan allows, without claiming a specific period for now.",
         },
+        { kind: "paragraph", text: "Reopening the downloaded plan without a connection is temporary local access: a shared device may show it if it is left without being cleared, and a remote withdrawal of content or of the account does not reach devices that are offline at once; logging out locally and clearing the copy are not the same as deleting the account or ending the server session. Nothing is promised about syncing while the app is closed, and installing does not prevent losing what has not been synced when the browser evicts storage or the device is wiped." },
       ],
     },
     {
@@ -219,7 +223,7 @@ const en: TermsText = {
       blocks: [{ kind: "paragraph", text: "The app does not infer a religion or religious traits about the user." }],
     },
   ],
-  returnButton: { register: "Back to create account", consent: "Back to consent", home: "Back to home" },
+  returnButton: { register: "Back to create account", consent: "Back to consent", demo: "Back to try the demo", home: "Back to home" },
 };
 
 // A missing translation fails the build (NFR-14): the record needs both locales.

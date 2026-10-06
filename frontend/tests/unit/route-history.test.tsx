@@ -57,10 +57,11 @@ describe("the route history (which screen opened this one)", () => {
 });
 
 describe("the screens that open S-03", () => {
-  it("names the register form and the re-consent gate, and treats every other route, or none, as a direct visit", () => {
+  it("names the register form, the re-consent gate and the demo entry form, and treats every other route, or none, as a direct visit", () => {
     expect(termsOpener("/register")).toBe("register");
     expect(termsOpener("/consent")).toBe("consent");
-    for (const other of ["/login", "/", "/terms", "/recovery", "/settings", "/register/extra", null]) expect(termsOpener(other), String(other)).toBe("home");
+    expect(termsOpener("/demo")).toBe("demo");
+    for (const other of ["/login", "/", "/terms", "/recovery", "/settings", "/register/extra", "/demo/scenario", "/demo/simulations", null]) expect(termsOpener(other), String(other)).toBe("home");
   });
 });
 

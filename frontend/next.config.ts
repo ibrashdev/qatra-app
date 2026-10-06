@@ -24,6 +24,21 @@ function resolveBackendOrigin(): string | null {
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // Offline PWA (offline-spec 3.1): the worker file is never cached by the browser or a CDN, so an update is found at the next navigation, and its own
+  // CSP allows scripts from this origin only. Other header blocks (the Quran-audio addendum adds its own) are added beside this one, not into it.
+  async headers() {
+    return [
+      {
+        source: "/sw.js",
+        headers: [
+          { key: "Cache-Control", value: "no-cache, no-store, must-revalidate" },
+          { key: "Content-Type", value: "application/javascript; charset=utf-8" },
+          { key: "Content-Security-Policy", value: "default-src 'self'; script-src 'self'" },
+          { key: "Service-Worker-Allowed", value: "/" },
+        ],
+      },
+    ];
+  },
   async rewrites() {
     const origin = resolveBackendOrigin();
     if (origin === null) {

@@ -6,7 +6,7 @@ import { isAbortError } from "@/lib/api/errors";
 import { homeDestination, type HomePath } from "./destination";
 
 // The screen whose response carried the code: it decides where S-04 goes next.
-export type RecoveryHost = "register" | "recovery" | "settings";
+export type RecoveryHost = "register" | "recovery" | "settings" | "demo";
 
 export interface HeldRecoveryCode {
   code: string;
@@ -42,10 +42,10 @@ export function recoveryCodeFileText(lines: { title: string; code: string; warni
   return [lines.title, lines.code, lines.warning].join("\n");
 }
 
-// Where the continue action of S-04 goes: S-08 after registration (a placeholder until Batch 2), S-01 after a recovery, S-22 after a rotation.
-export type NextScreen = "/start" | "/login" | "/settings";
+// Where the continue action of S-04 goes: S-08 after registration, S-01 after a recovery, S-22 after a rotation, S-29 after the creation of a demo account.
+export type NextScreen = "/start" | "/login" | "/settings" | "/demo/scenario";
 
-const NEXT_SCREEN: Record<RecoveryHost, NextScreen> = { register: "/start", recovery: "/login", settings: "/settings" };
+const NEXT_SCREEN: Record<RecoveryHost, NextScreen> = { register: "/start", recovery: "/login", settings: "/settings", demo: "/demo/scenario" };
 
 export function nextScreen(host: RecoveryHost): NextScreen {
   return NEXT_SCREEN[host];

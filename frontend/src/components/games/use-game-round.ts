@@ -6,6 +6,7 @@ import { finalizeAnswer, validateAnswer, type HintEffect, type QuestionError, ty
 import { redirectToLogin } from "@/components/plan-chat/session-ended";
 import { SessionEventQueue, type FlushResult } from "@/components/session/event-queue";
 import { gradeLocally } from "@/components/session/local-grade";
+import { isPromiseLike, type RunBackend, type RunQueue } from "@/components/session/run-backend";
 import { activityEvent, answerEvent, newEventId } from "@/components/session/session-events";
 import { retriesByItself, type SessionFailure } from "@/components/session/session-failure";
 import { useActivityClock } from "@/components/session/use-activity";
@@ -71,7 +72,7 @@ export interface GameRoundRun {
 
 // The runtime of a round (S-15 to S-18, P-18 to P-25): the question loop, the answers and their first verdict, the outbox of events, the active time, the
 // end of the round and the leave sheet. The snapshot is only read, and the server grades every answer: its `results[]` replace the first verdict.
-export function useGameRound({ round, questions }: { round: GameRound; questions: readonly Question[] }): GameRoundRun {
+export function useGameRound({ round, questions, backend }: { round: GameRound; questions: readonly Question[]; backend?: RunBackend }): GameRoundRun {
   const router = useRouter();
   const { client } = useApiRuntime();
   const sessionId = round.snapshot.sessionId;
@@ -94,10 +95,21 @@ export function useGameRound({ round, questions }: { round: GameRound; questions
   const attempts = useRef(0);
   const retryTimer = useRef<number | null>(null);
   const flushAgain = useRef<() => void>(() => undefined);
+  // The offline shell passes a backend (durable enveloped outbox, local finish, shell navigation); online it is absent and nothing below changes.
+  const backendRef = useRef(backend);
+  useEffect(() => {
+    backendRef.current = backend;
+  });
+  const storing = useRef(false);
 
-  const [queue] = useState(() => new SessionEventQueue({ send: (events: SessionEvent[]) => postSessionEvents(client, sessionId, events) }));
+  const [queue] = useState<RunQueue>(() => backend?.queue ?? new SessionEventQueue({ send: (events: SessionEvent[]) => postSessionEvents(client, sessionId, events) }));
 
   const goGames = useCallback(() => {
+    const offline = backendRef.current;
+    if (offline !== undefined) {
+      offline.leave();
+      return;
+    }
     clearRound();
     router.replace("/games");
   }, [router]);
@@ -153,7 +165,9 @@ export function useGameRound({ round, questions }: { round: GameRound; questions
       const failure = classifyGameError(error);
       if (failure.kind === "aborted") return null;
       if (failure.kind === "session_ended") {
-        redirectToLogin(router, "/games");
+        const offline = backendRef.current;
+        if (offline !== undefined) offline.sessionEnded();
+        else redirectToLogin(router, "/games");
         return null;
       }
       if (failure.kind === "not_found") {
@@ -200,7 +214,9 @@ export function useGameRound({ round, questions }: { round: GameRound; questions
     onInterval: (startedAtMs, endedAtMs) => {
       const event = activityEvent(startedAtMs, endedAtMs);
       if (event === null) return;
-      queue.enqueue(event);
+      const stored = queue.enqueue(event);
+      // A durable queue settles when the interval is committed; a failed write is the backend's to show, and the interval is lost with it.
+      if (isPromiseLike(stored)) stored.catch((error: unknown) => backendRef.current?.storageFailed(error));
       void runFlush();
     },
   });
@@ -228,6 +244,21 @@ export function useGameRound({ round, questions }: { round: GameRound; questions
   const finish = useCallback(async () => {
     if (finishingNow.current) return;
     finishingNow.current = true;
+    const offline = backendRef.current;
+    if (offline !== undefined) {
+      // G-03: no E22 for a prepared descriptor. The shell closes the round on the device and shows the local, provisional summary in its place.
+      activity.close();
+      const stored = await queue.flush();
+      if (!mounted.current) return;
+      try {
+        if (!stored.ok) throw stored.error;
+        await offline.finish();
+      } catch (error) {
+        finishingNow.current = false;
+        if (mounted.current) offline.storageFailed(error);
+      }
+      return;
+    }
     setPhase("result");
     setResult({ status: "loading" });
     activity.close();
@@ -266,7 +297,7 @@ export function useGameRound({ round, questions }: { round: GameRound; questions
   // P-21: an incomplete answer sends nothing and moves focus to the first control that needs one; a complete one is queued and shown at once from the
   // answer key the snapshot ships.
   const check = useCallback(() => {
-    if (question === undefined || checked || ended !== null) return;
+    if (question === undefined || checked || ended !== null || storing.current) return;
     const payload = finalizeAnswer(question, draft.answer);
     if (payload === null) {
       setDraft((previous) => ({ ...previous, error: validateAnswer(question, previous.answer) }));
@@ -277,12 +308,31 @@ export function useGameRound({ round, questions }: { round: GameRound; questions
     const hintUsed = draft.hint !== null;
     const event = answerEvent({ questionId: question.questionId, answer: payload, hintUsed, occurredAtMs: now, durationMs: now - shownAt.current });
     eventQuestion.current.set(event.clientEventId, question.questionId);
-    queue.enqueue(event);
+    const stored = queue.enqueue(event);
     const graded = gradeLocally(question, payload, hintUsed);
-    setAnswered((previous) => ({ ...previous, [question.questionId]: { clientEventId: event.clientEventId, hintUsed, result: graded } }));
-    setDraft((previous) => ({ ...previous, answer: payload, error: null }));
-    void runFlush();
-    focusPrimary();
+    const show = () => {
+      setAnswered((previous) => ({ ...previous, [question.questionId]: { clientEventId: event.clientEventId, hintUsed, result: graded } }));
+      setDraft((previous) => ({ ...previous, answer: payload, error: null }));
+      void runFlush();
+      focusPrimary();
+    };
+    if (!isPromiseLike(stored)) {
+      show();
+      return;
+    }
+    // A durable queue: the feedback is shown only after the answer is committed to IndexedDB. A failed write shows none and the learner may press again.
+    storing.current = true;
+    stored.then(
+      () => {
+        storing.current = false;
+        if (mounted.current) show();
+      },
+      (error: unknown) => {
+        storing.current = false;
+        eventQuestion.current.delete(event.clientEventId);
+        if (mounted.current) backendRef.current?.storageFailed(error);
+      },
+    );
   }, [question, checked, ended, draft, queue, runFlush, focusPrimary]);
 
   const press = useCallback(() => {
@@ -315,11 +365,14 @@ export function useGameRound({ round, questions }: { round: GameRound; questions
       if (handleFailure(flushed.error) !== null) setSheet({ open: true, status: "failed" });
       return;
     }
-    try {
-      await completeSession(client, sessionId, { idempotencyKey });
-    } catch (error) {
-      if (mounted.current && handleFailure(error) !== null) setSheet({ open: true, status: "failed" });
-      return;
+    // G-03: a prepared offline descriptor is never completed on the server while it can be reused, so the offline shell only leaves.
+    if (backendRef.current === undefined) {
+      try {
+        await completeSession(client, sessionId, { idempotencyKey });
+      } catch (error) {
+        if (mounted.current && handleFailure(error) !== null) setSheet({ open: true, status: "failed" });
+        return;
+      }
     }
     if (mounted.current) goGames();
   }, [queue, client, sessionId, idempotencyKey, handleFailure, goGames]);

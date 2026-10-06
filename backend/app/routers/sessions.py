@@ -28,7 +28,9 @@ semantics, completion is idempotent per session. Both use the Session write limi
 ``Cache-Control: no-store``; neither the body, an answer nor a question is ever logged.
 
 ``install_sessions`` also includes the router of E18 and E19 (``routers/progress.py``) and builds
-the ``ProgressService``, so the application factory and ``app/wiring.py`` need no change.
+the ``ProgressService``, and it calls ``install_offline`` (E23 to E25, ``routers/offline.py``, which
+shares this service's bank, learning repository and plan ports), so the application factory and
+``app/wiring.py`` need no change.
 """
 
 from __future__ import annotations
@@ -50,6 +52,7 @@ from app.providers.postgrest import PostgrestClient
 from app.repositories.bank import BankRepository
 from app.repositories.learning import LearningRepository
 from app.routers.health import ip_rate_limit
+from app.routers.offline import install_offline
 from app.routers.progress import router as progress_router
 from app.services.plans import PlanService
 from app.services.progress import PlanDirectory, PlanServiceDirectory, ProgressService
@@ -217,6 +220,7 @@ def install_sessions(
         new_id=new_id,
     )
     app.state.sessions_service = service
+    install_offline(app, settings, sessions=service, client=client, new_id=new_id)  # E23-E25 (B9)
     if not getattr(app.state, "progress_router_included", False):
         app.include_router(progress_router)
         app.state.progress_router_included = True
