@@ -38,9 +38,11 @@ const AR = {
   backHome: "رجوع إلى الصفحة الرئيسية",
   backRegister: "رجوع إلى إنشاء الحساب",
   backConsent: "رجوع إلى الموافقة",
+  backDemo: "رجوع إلى رابط العرض التجريبي",
   returnHome: "العودة إلى الصفحة الرئيسية",
   returnRegister: "العودة إلى إنشاء الحساب",
   returnConsent: "العودة إلى الموافقة",
+  returnDemo: "العودة إلى رابط العرض التجريبي",
   unavailable: "تعذّر فتح شروط الاستخدام وبيان الخصوصية. تحقّق من الاتصال ثم أعد المحاولة.",
   retry: "إعادة المحاولة",
   loading: "جارٍ التحميل",
@@ -57,6 +59,8 @@ const EN = {
   backRegister: "Back to Create account",
   returnHome: "Back to home",
   returnRegister: "Back to create account",
+  backDemo: "Back to Try the demo",
+  returnDemo: "Back to try the demo",
   unavailable: "The terms of use and privacy statement could not be opened. Check your connection and try again.",
   retry: "Try again",
   loading: "Loading",
@@ -359,6 +363,25 @@ describe("S-03 exit: back to the opener with its state kept, or to / when opened
     await userEvent.click(screen.getByRole("button", { name: AR.backConsent }));
     expect(screen.getByRole("button", { name: AR.returnConsent })).toBeInTheDocument();
     expect(navigation.router.back).toHaveBeenCalledTimes(1);
+  });
+
+  it("opened from the demo entry form (S-28): both controls name it and take one step back, as they do for the register form", async () => {
+    setLanguage("ar");
+    noteRoute("/demo");
+    renderTerms(<TermsScreen />);
+    expect(screen.queryByRole("link", { name: AR.backHome })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: AR.backDemo }));
+    await userEvent.click(screen.getByRole("button", { name: AR.returnDemo }));
+    expect(navigation.router.back).toHaveBeenCalledTimes(2);
+    expect(navigation.router.push).not.toHaveBeenCalled();
+  });
+
+  it("names the demo entry form in English", () => {
+    setLanguage("en");
+    noteRoute("/demo");
+    renderTerms(<TermsScreen />);
+    expect(screen.getByRole("button", { name: EN.backDemo })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: EN.returnDemo })).toBeInTheDocument();
   });
 
   it("treats any other earlier screen as a direct visit", () => {

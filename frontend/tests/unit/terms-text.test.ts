@@ -12,7 +12,9 @@ const SCREENS_DOC = path.resolve(root, "../docs/UI-screens.md");
 // The documents sit beside frontend/ in the repository; a copy of the frontend alone has nothing to compare with, and those checks are skipped.
 const hasDocs = existsSync(AUTH_DOC) && existsSync(SCREENS_DOC);
 
-const OPENERS: TermsOpener[] = ["register", "consent", "home"];
+const OPENERS: TermsOpener[] = ["register", "consent", "demo", "home"];
+// The openers that docs/UI-screens.md S-03 lists. The demo entry form (S-28, option C) is the register form with another call and is not listed there.
+const DOCUMENTED_OPENERS = ["register", "consent", "home"] as const;
 
 const ar = getTermsText("ar");
 const en = getTermsText("en");
@@ -46,14 +48,14 @@ describe("the text of S-03 in both languages (UI-screens S-03 sections 2 and 3)"
   it("has the version line of c3 with a place for the version, and the return buttons of c6", () => {
     expect(ar.versionLine).toBe("إصدار الشروط: {version}");
     expect(en.versionLine).toBe("Terms version: {version}");
-    expect(ar.returnButton).toEqual({ register: "العودة إلى إنشاء الحساب", consent: "العودة إلى الموافقة", home: "العودة إلى الصفحة الرئيسية" });
-    expect(en.returnButton).toEqual({ register: "Back to create account", consent: "Back to consent", home: "Back to home" });
+    expect(ar.returnButton).toEqual({ register: "العودة إلى إنشاء الحساب", consent: "العودة إلى الموافقة", demo: "العودة إلى رابط العرض التجريبي", home: "العودة إلى الصفحة الرئيسية" });
+    expect(en.returnButton).toEqual({ register: "Back to create account", consent: "Back to consent", demo: "Back to try the demo", home: "Back to home" });
   });
 
   it("keeps the shell strings of S-03 (the back control names and the error banner) in the shell catalog, in both languages", () => {
     const [shellAr, shellEn] = [getMessages("ar").terms, getMessages("en").terms];
-    expect(shellAr.destinations).toEqual({ register: "إنشاء الحساب", consent: "الموافقة", home: "الصفحة الرئيسية" });
-    expect(shellEn.destinations).toEqual({ register: "Create account", consent: "Consent", home: "Home" });
+    expect(shellAr.destinations).toEqual({ register: "إنشاء الحساب", consent: "الموافقة", demo: "رابط العرض التجريبي", home: "الصفحة الرئيسية" });
+    expect(shellEn.destinations).toEqual({ register: "Create account", consent: "Consent", demo: "Try the demo", home: "Home" });
     expect(shellAr.unavailable).toBe("تعذّر فتح شروط الاستخدام وبيان الخصوصية. تحقّق من الاتصال ثم أعد المحاولة.");
     expect(shellEn.unavailable).toBe("The terms of use and privacy statement could not be opened. Check your connection and try again.");
     // c6 repeats the destination of c1 after "Back to".
@@ -122,10 +124,10 @@ describe.skipIf(!hasDocs)("the Arabic text against its source, docs/Authenticati
 
   it("uses the proposed headings, return buttons, error banner and version line of the screen spec", () => {
     for (const title of [...ar.terms, ...ar.privacy].map((topic) => topic.title)) expect(screens.includes(`«${title}»`), title).toBe(true);
-    expect(screens.includes(Object.values(ar.returnButton).join(" / "))).toBe(true);
+    expect(screens.includes(DOCUMENTED_OPENERS.map((opener) => ar.returnButton[opener]).join(" / "))).toBe(true);
     expect(screens.includes(getMessages("ar").terms.unavailable)).toBe(true);
     expect(screens.includes(ar.versionLine.replace("{version}", "{TERMS_VERSION}"))).toBe(true);
-    expect(screens.includes(`رجوع إلى {${Object.values(getMessages("ar").terms.destinations).join(" / ")}}`)).toBe(true);
+    expect(screens.includes(`رجوع إلى {${DOCUMENTED_OPENERS.map((opener) => getMessages("ar").terms.destinations[opener]).join(" / ")}}`)).toBe(true);
   });
 
   it("uses the proposed English of the screen spec for the headings, the version line, the error banner and the return buttons", () => {
@@ -134,7 +136,7 @@ describe.skipIf(!hasDocs)("the Arabic text against its source, docs/Authenticati
     expect(screens.includes(en.versionLine.replace("{version}", "{TERMS_VERSION}"))).toBe(true);
     expect(screens.includes(getMessages("en").terms.unavailable)).toBe(true);
     expect(screens.includes("Back to create account / consent / home")).toBe(true);
-    expect(screens.includes(`Back to {${Object.values(getMessages("en").terms.destinations).join(" / ")}}`)).toBe(true);
+    expect(screens.includes(`Back to {${DOCUMENTED_OPENERS.map((opener) => getMessages("en").terms.destinations[opener]).join(" / ")}}`)).toBe(true);
   });
 
   it("takes every clause of the body from the source: nothing is added to the words of the bullets and table rows it quotes", () => {

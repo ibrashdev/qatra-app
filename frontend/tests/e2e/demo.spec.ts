@@ -24,6 +24,10 @@ const COPY = {
     password: "كلمة المرور",
     confirmation: "تأكيد كلمة المرور",
     consent: "قرأت شروط الاستخدام وبيان الخصوصية وأوافق عليها",
+    termsOfUse: "شروط الاستخدام",
+    backToDemo: "رجوع إلى رابط العرض التجريبي",
+    returnToDemo: "العودة إلى رابط العرض التجريبي",
+    backHome: "رجوع إلى الصفحة الرئيسية",
     submit: "إنشاء حساب العرض",
     recoveryHeading: "حفظ رمز الاسترجاع",
     savedCode: "حفظت الرمز في مكان آمن خارج التطبيق",
@@ -47,6 +51,10 @@ const COPY = {
     password: "Password",
     confirmation: "Confirm password",
     consent: "I have read the terms of use and privacy statement and I agree to them.",
+    termsOfUse: "Terms of use",
+    backToDemo: "Back to Try the demo",
+    returnToDemo: "Back to try the demo",
+    backHome: "Back to Home",
     submit: "Create demo account",
     recoveryHeading: "Save your recovery code",
     savedCode: "I have saved the code in a safe place outside the app",
@@ -190,6 +198,64 @@ test.describe("the committee journey from S-01 to today", () => {
     await page.getByRole("radiogroup", { name: COPY.ar.group }).getByRole("radio").nth(1).check();
     await page.getByRole("button", { name: COPY.ar.build }).click();
     await expect(page.getByText(COPY.ar.byPlanner)).toBeVisible();
+  });
+});
+
+// S-03 opened from S-28: the demo entry form is the register form with another call, so the terms page returns to it as it returns to S-02, with the draft kept.
+test.describe("S-03 opened from S-28", () => {
+  const SYNTHETIC = { username: "sample_demo_01", password: "first synthetic phrase", confirmation: "second synthetic phrase" } as const;
+
+  async function fillDemoForm(page: Page, language: Language) {
+    const copy = COPY[language];
+    await page.getByRole("textbox", { name: copy.username }).fill(SYNTHETIC.username);
+    await page.getByLabel(copy.password, { exact: true }).fill(SYNTHETIC.password);
+    await page.getByLabel(copy.confirmation, { exact: true }).fill(SYNTHETIC.confirmation);
+    await page.getByRole("checkbox", { name: copy.consent }).check();
+  }
+
+  async function expectDemoFormKept(page: Page, language: Language) {
+    const copy = COPY[language];
+    await expect(page).toHaveURL(/\/demo$/);
+    await expect(page.getByRole("heading", { level: 1, name: copy.entry })).toBeVisible();
+    await expect(page.getByRole("textbox", { name: copy.username })).toHaveValue(SYNTHETIC.username);
+    await expect(page.getByLabel(copy.password, { exact: true })).toHaveValue(SYNTHETIC.password);
+    await expect(page.getByLabel(copy.password, { exact: true })).toHaveAttribute("type", "password");
+    await expect(page.getByLabel(copy.confirmation, { exact: true })).toHaveValue(SYNTHETIC.confirmation);
+    await expect(page.getByRole("checkbox", { name: copy.consent })).toBeChecked();
+  }
+
+  for (const language of ["ar", "en"] as const) {
+    test(`${language}: the back control names S-28 and returns to /demo, not to /, with every typed value and the box kept`, async ({ page }) => {
+      const copy = COPY[language];
+      await serveMockBackend(page, { signedIn: false });
+      const { go } = await open(page, "/demo", { language });
+      await go();
+      await fillDemoForm(page, language);
+      await page.getByRole("link", { name: copy.termsOfUse, exact: true }).click();
+      await expect(page).toHaveURL(/\/terms#terms$/);
+      const back = page.getByRole("button", { name: copy.backToDemo, exact: true });
+      await expect(back).toBeVisible();
+      await expect(page.getByRole("link", { name: copy.backHome, exact: true })).toHaveCount(0);
+      await back.click();
+      await expectDemoFormKept(page, language);
+    });
+  }
+
+  test("the closing button does the same, and going back adds nothing to the history: the step before S-28 is still the step before it", async ({ page }) => {
+    const copy = COPY.ar;
+    await serveMockBackend(page, { signedIn: false });
+    const { go } = await open(page, "/login");
+    await go();
+    await page.getByRole("link", { name: copy.loginLink }).click();
+    await expect(page).toHaveURL(/\/demo$/);
+    await fillDemoForm(page, "ar");
+    await page.getByRole("link", { name: "شروط الاستخدام وبيان الخصوصية", exact: true }).click();
+    await expect(page).toHaveURL(/\/terms$/);
+    await page.getByRole("button", { name: copy.returnToDemo, exact: true }).click();
+    await expectDemoFormKept(page, "ar");
+    // Had the control pushed S-28 again, the browser's back would land on S-03 here and not on the login screen.
+    await page.goBack();
+    await expect(page).toHaveURL(/\/login$/);
   });
 });
 
