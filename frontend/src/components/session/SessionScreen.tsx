@@ -12,11 +12,15 @@ import { useWakeUpState } from "@/lib/api/react";
 import { useAfterDelay } from "@/lib/dom/use-after-delay";
 import { routeBefore } from "@/lib/nav/route-history";
 import { useConnectivity } from "@/lib/net/use-connectivity";
+import type { OnlineQueueStatus } from "./durable-online-queue";
 import { RevokedView, SessionFailureBanner } from "./SessionBanners";
 import { SessionRun } from "./SessionRun";
 import { useSessionLoad } from "./use-session-load";
 
 const SKELETON_DELAY_MS = 300; // UI-tokens 6.14
+
+// A session that could not be loaded holds no answers in this page; when the device already has some of it, they are saved there.
+const HELD_ON_DEVICE: OnlineQueueStatus = { mode: "durable", storageProblem: false };
 
 // S-19 at /session/[id] (UI-screens Batch 4): loads the daily session (E18, then E20 `daily`) and runs it. Before the snapshot is in, the screen is the focus
 // shell with a skeleton or the reason it failed; a guard sends an id the server does not answer to back to Today.
@@ -41,17 +45,20 @@ export function SessionScreen({ routeId }: { routeId: string }) {
   }, [state.status, failureKind, router]);
 
   if (state.status === "ready") {
-    return <SessionRun key={state.snapshot.sessionId} snapshot={state.snapshot} daily={state.daily} textKind={state.textKind} restarted={restarted} />;
+    return (
+      <SessionRun key={state.snapshot.sessionId} snapshot={state.snapshot} daily={state.daily} textKind={state.textKind} restarted={restarted} journal={state.journal} />
+    );
   }
 
   const failure = state.status === "failed" ? state.failure : null;
+  const held = state.status === "failed" && state.held;
   const waking = wake.phase === "waking" || wake.phase === "timed_out";
 
   return (
     <FocusShell title={t.title} back={{ destination: t.backDestination, href: "/today" }} offlineNotice={false}>
       <div role="status" aria-live="polite" className="has-[*]:mb-q16">
         {failure === null || failure.kind === "revoked" ? null : (
-          <SessionFailureBanner failure={failure} online={online} waking={waking} onRetry={reload} onRefresh={reload} />
+          <SessionFailureBanner failure={failure} online={online} waking={waking} onRetry={reload} onRefresh={reload} durability={held ? HELD_ON_DEVICE : null} />
         )}
       </div>
 

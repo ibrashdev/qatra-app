@@ -16,6 +16,8 @@ const NOTICE_BODY = /ولم يُحفظ بعد/;
 const SERVER_NOTICE = "الخادم غير متاح الآن. يمكنك متابعة التعلم بالخطة المحمّلة على هذا الجهاز.";
 const OPEN_PLAN = "افتح الخطة المحمّلة";
 const BACK_TO_PAGE = "العودة إلى الصفحة";
+// Since offline phase 2 the answers of an online run are written to the device first, so the line is the fixed G-22 one, not the «this page only» line.
+const SAVED_ON_DEVICE = "محفوظ على الجهاز، بانتظار المزامنة";
 const KEEP_OPEN = "إجاباتك محفوظة في هذه الصفحة فقط إلى أن تُرسل، فلا تُعِد تحميلها ولا تغلقها.";
 const OFFLINE_QUEUE = "لا يوجد اتصال بالشبكة. سنعيد المحاولة تلقائيًا، أو اضغط «إعادة المحاولة».";
 
@@ -94,7 +96,7 @@ test.describe("a page that only reads gives way to the downloaded plan, in place
   });
 });
 
-test.describe("a run that is open keeps its state and its answers wait on the page", () => {
+test.describe("a run that is open keeps its state and its answers wait on the device", () => {
   test.use({ serviceWorkers: "block" });
 
   test("an online daily session: the same question and verdict stay, both answers are acknowledged once after the connection returns, and the session finishes", async ({ page, context }) => {
@@ -118,9 +120,10 @@ test.describe("a run that is open keeps its state and its answers wait on the pa
     await expect(page.getByText(OFFLINE_QUEUE)).toHaveCount(0);
 
     await context.setOffline(true);
-    // The run stays exactly where it was: same address, same question, same verdict, and the line says the answers live on this page only.
+    // The run stays exactly where it was: same address, same question, same verdict, and the line says the answers are saved on the device.
     await expect(page.getByText(OFFLINE_QUEUE)).toBeVisible();
-    await expect(page.getByText(KEEP_OPEN)).toBeVisible();
+    await expect(page.getByText(SAVED_ON_DEVICE)).toBeVisible();
+    await expect(page.getByText(KEEP_OPEN)).toHaveCount(0);
     expect(page.url()).toBe(sessionUrl);
     expect((await page.locator("[data-step-heading]").innerText()).trim()).toBe(heading);
     expect((await page.locator("[data-feedback]").innerText()).trim()).toBe(verdict);
@@ -134,7 +137,7 @@ test.describe("a run that is open keeps its state and its answers wait on the pa
     await page.getByRole("button", { name: "تحقق" }).click();
     await expect(page.locator("[data-session-primary]")).toHaveText("إنهاء الجلسة");
     await expect(page.locator("[data-feedback]")).toBeVisible();
-    await expect(page.getByText(KEEP_OPEN)).toBeVisible();
+    await expect(page.getByText(SAVED_ON_DEVICE)).toBeVisible();
     expect(page.url()).toBe(sessionUrl);
     expect((await stubState(tenant)).eventLog.filter((entry) => entry.type === "answer")).toHaveLength(1);
 
@@ -143,7 +146,7 @@ test.describe("a run that is open keeps its state and its answers wait on the pa
     const answers = (await stubState(tenant)).eventLog.filter((entry) => entry.type === "answer").map((entry) => entry.clientEventId);
     expect(new Set(answers).size).toBe(2);
     expect((await stubState(tenant)).acknowledged).toEqual(expect.arrayContaining(answers));
-    await expect(page.getByText(KEEP_OPEN)).toHaveCount(0);
+    await expect(page.getByText(SAVED_ON_DEVICE)).toHaveCount(0);
     await expect(page.getByText(OFFLINE_QUEUE)).toHaveCount(0);
     expect(page.url()).toBe(sessionUrl);
 

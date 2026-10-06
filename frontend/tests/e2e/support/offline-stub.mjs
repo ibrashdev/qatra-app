@@ -44,6 +44,10 @@ function freshState() {
     rejected: new Map(),
     eventLog: [],
     batches: 0,
+    // Events the server already had (it answered `duplicate`): a resend that was needed, counted so a spec can say "nothing was sent twice".
+    duplicates: 0,
+    // Every E22 the server saw, with the Idempotency-Key it carried (null when the header was missing).
+    completions: [],
     answerResults: [],
     intervals: [],
     logoutCalls: 0,
@@ -247,6 +251,7 @@ function events(state, request, response, sessionId, body) {
     const id = event.clientEventId;
     if (state.acknowledged.has(id)) {
       result.duplicate.push(id);
+      state.duplicates += 1;
       continue;
     }
     // An online run sends no envelope (it is the replay envelope of an event recorded offline), so only a downloaded session is held to it.
@@ -326,6 +331,9 @@ async function control(request, response, url) {
       rejected: Object.fromEntries(state.rejected),
       eventLog: state.eventLog,
       batches: state.batches,
+      duplicates: state.duplicates,
+      completions: state.completions,
+      onlineSessionId: state.onlineDaily?.sessionId ?? null,
       snapshots: state.snapshots.size,
       snapshotIds: [...state.snapshots.keys()],
       sessionIds: [...state.snapshots.values()].flatMap((snapshot) => snapshot.preparedSessions.map((session) => session.sessionId)),
@@ -419,6 +427,7 @@ export function handleOfflineStub(request, response) {
     if (sessionComplete !== null) {
       const found = findSession(state, decodeURIComponent(sessionComplete[1]));
       if (found === null) return failure(response, 404, "not_found", "The session was not found.");
+      state.completions.push({ sessionId: decodeURIComponent(sessionComplete[1]), key: request.headers["idempotency-key"] ?? null });
       return send(response, 200, { summary: { answered: state.answerResults.length, correct: state.answerResults.filter((entry) => entry.correct).length, newPassages: 0, reviewsPassed: 0, reviewsFailed: 0, activeMs: unionMs(state.intervals) }, daily: dailyOf(state) });
     }
     if (create !== null) return createSnapshot(state, response, decodeURIComponent(create[1]), body);

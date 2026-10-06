@@ -1,6 +1,7 @@
 import type { ApiClient } from "@/lib/api/client";
 import type {
   AnswerPayload,
+  AnswerResult,
   DailyProgress,
   EventsResponse,
   ISODateTime,
@@ -15,7 +16,8 @@ import type {
 // implement them with `export const fn: FnType = ...`. A change goes through the coordinator. PWA-design 4 and offline-spec 2.2 describe the design.
 
 export const OFFLINE_DB_NAME = "qatra-offline";
-export const OFFLINE_DB_VERSION = 1;
+// Version 2 (the online journal of PWA-design 4) adds `onlineRuns` and `onlineEvents` and leaves every version 1 store and record as it is.
+export const OFFLINE_DB_VERSION = 2;
 export const OFFLINE_SCHEMA_VERSION = 1;
 export const OFFLINE_PROTOCOL_VERSION = 1;
 
@@ -56,10 +58,10 @@ export interface GuardOptions {
 }
 
 // ---------------------------------------------------------------------------------------------------------------------------------------------
-// Stored records (IndexedDB database `qatra-offline`, version 1). No record holds a token, a cookie or a password.
+// Stored records (IndexedDB database `qatra-offline`, version 2). No record holds a token, a cookie or a password.
 // ---------------------------------------------------------------------------------------------------------------------------------------------
 
-export type StoreName = "ownerState" | "planSnapshots" | "activeRuns" | "pendingEvents" | "syncState";
+export type StoreName = "ownerState" | "planSnapshots" | "activeRuns" | "pendingEvents" | "syncState" | "onlineRuns" | "onlineEvents";
 
 // ownerState['current']. `ownerId` is null after a clear: the record stays so the generation keeps counting and `logoutPending` survives.
 export interface OwnerState {
@@ -143,6 +145,78 @@ export interface OutboxCounts {
   pending: number;
   blocked: number;
   total: number;
+}
+
+// ---------------------------------------------------------------------------------------------------------------------------------------------
+// The online journal (version 2): ordinary online sessions (daily session, game rounds, lesson reading time) keep their events here until the server has
+// them. It is bound to the signed-in account by its normalized username, because an online learner has no server user id on the device (E11 has none).
+// An online event is never enveloped and never mixed with the offline outbox (`pendingEvents`): an enveloped event belongs to a prepared session.
+// ---------------------------------------------------------------------------------------------------------------------------------------------
+
+export type OnlineSessionKind = "daily" | "game" | "lesson";
+
+// What a writer holds: the account (normalized username) and the local generation read when the run began. Every write checks both inside its own transaction.
+export interface OnlineBinding {
+  accountKey: string;
+  generation: number;
+}
+
+// onlineEvents, keyed by clientEventId. `sessionId` is the E21 path parameter; the event body never carries it and never carries an envelope.
+export interface OnlineEventRecord {
+  clientEventId: string;
+  accountKey: string;
+  generation: number;
+  sessionId: string;
+  kind: OnlineSessionKind;
+  state: PendingEventState;
+  reasonCode?: string; // state 'pending': kept without credit, resent on a later foreground sync
+  code?: string; // state 'blocked': rejected by the server (or locally blocked), never resent unchanged
+  event: SessionEvent; // never an OfflineEnvelope
+  orderMs: number; // occurredAt (answer) or startedAt (activity), the replay order together with clientEventId
+  attempts: number;
+  createdAt: ISODateTime;
+  updatedAt: ISODateTime;
+}
+
+// What a screen needs to show an already answered question again after a reload. JSON-safe, and never the learner's typed answer text.
+export interface OnlineAnswered {
+  clientEventId: string;
+  hintUsed: boolean;
+  result: {
+    correct: boolean;
+    assisted: boolean;
+    expected: AnswerResult["expected"];
+    status?: "counted" | "rejected" | "pending";
+    updated?: boolean;
+  };
+}
+
+export interface OnlineCompletion {
+  state: "pending";
+  idempotencyKey: string; // the same UUID for every attempt of one finish (E22 Idempotency-Key)
+  requestedAt: ISODateTime;
+}
+
+// onlineRuns, keyed by sessionId: where a reload resumes an online session, and the finish that is still owed to the server.
+export interface OnlineRunRecord {
+  sessionId: string;
+  accountKey: string;
+  generation: number;
+  kind: OnlineSessionKind;
+  planId: string | null;
+  planVersion: number | null;
+  resumeIndex: number;
+  answered: Record<string, OnlineAnswered>; // by questionId
+  completion: null | OnlineCompletion;
+  createdAt: ISODateTime;
+  updatedAt: ISODateTime;
+}
+
+export interface PendingOnlineCompletion {
+  sessionId: string;
+  kind: OnlineSessionKind;
+  idempotencyKey: string;
+  requestedAt: ISODateTime;
 }
 
 export interface RevalidationRecord {
@@ -252,6 +326,7 @@ export interface SyncResult {
   duplicateIds: string[];
   revalidations: RevalidationRecord[];
   daily: DailyProgress | null; // the last authoritative figure of the replay: it replaces the provisional local one
+  completedSessionIds: string[]; // online sessions whose E22 this sync finished (the online journal, never the prepared-session E22 of G-03)
   retryAfterSec?: number | null;
 }
 

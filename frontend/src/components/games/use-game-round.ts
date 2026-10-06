@@ -4,13 +4,15 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
 import { finalizeAnswer, validateAnswer, type HintEffect, type QuestionError, type QuestionResult, type QuestionViewHandle } from "@/components/questions";
 import { redirectToLogin } from "@/components/plan-chat/session-ended";
-import { SessionEventQueue, type FlushResult } from "@/components/session/event-queue";
+import { DurableOnlineQueue, resolveOnlineBinding, type OnlineQueueStatus } from "@/components/session/durable-online-queue";
+import type { FlushResult } from "@/components/session/event-queue";
 import { gradeLocally } from "@/components/session/local-grade";
 import { isPromiseLike, type RunBackend, type RunQueue } from "@/components/session/run-backend";
 import { activityEvent, answerEvent, newEventId } from "@/components/session/session-events";
-import { retriesByItself, type SessionFailure } from "@/components/session/session-failure";
+import { FINISH_PENDING, leavesFinishPending, retriesByItself, type FinishPending, type SessionFailure } from "@/components/session/session-failure";
 import { useActivityClock } from "@/components/session/use-activity";
 import { useBackGuard } from "@/components/session/use-back-guard";
+import { useOnlineQueueStatus, useOnlineRunLock } from "@/components/session/use-online-run-lock";
 import { useApiRuntime } from "@/lib/api/react";
 import { completeSession, postSessionEvents } from "@/lib/api/session-endpoints";
 import type { AnswerPayload, CompleteResponse, EventsResponse, Question, SessionEvent } from "@/lib/api/types";
@@ -37,7 +39,8 @@ export type Ended = "inactive" | "closed" | "revoked" | null;
 export type SheetState = { open: false } | { open: true; status: "idle" | "saving" | "failed" };
 
 // P-25: the screen changes in place after the last question. While E22 runs, or after it failed, the summary area keeps a skeleton.
-export type ResultState = { status: "loading" } | { status: "failed"; failure: SessionFailure } | { status: "ready"; complete: CompleteResponse };
+// `finish_pending` is not a failure: the finish is recorded on the device and its result is confirmed when the connection is back.
+export type ResultState = { status: "loading" } | { status: "failed"; failure: SessionFailure | FinishPending } | { status: "ready"; complete: CompleteResponse };
 
 export type RoundAction = "check" | "next" | "finish";
 
@@ -54,6 +57,8 @@ export interface GameRoundRun {
   ended: Ended;
   sheet: SheetState;
   sync: SessionFailure | null;
+  // Where the answers of this round live (the online journal, or this page only). Null for the offline shell, whose backend speaks for itself.
+  durability: OnlineQueueStatus | null;
   phase: "playing" | "result";
   result: ResultState | null;
   questionRef: RefObject<QuestionViewHandle | null>;
@@ -74,7 +79,7 @@ export interface GameRoundRun {
 // end of the round and the leave sheet. The snapshot is only read, and the server grades every answer: its `results[]` replace the first verdict.
 export function useGameRound({ round, questions, backend }: { round: GameRound; questions: readonly Question[]; backend?: RunBackend }): GameRoundRun {
   const router = useRouter();
-  const { client } = useApiRuntime();
+  const { api, client } = useApiRuntime();
   const sessionId = round.snapshot.sessionId;
 
   const [index, setIndex] = useState(0);
@@ -102,7 +107,26 @@ export function useGameRound({ round, questions, backend }: { round: GameRound; 
   });
   const storing = useRef(false);
 
-  const [queue] = useState<RunQueue>(() => backend?.queue ?? new SessionEventQueue({ send: (events: SessionEvent[]) => postSessionEvents(client, sessionId, events) }));
+  // The offline shell brings its own durable queue. An ordinary online round writes every answer to the online journal before it counts it (PWA-design 4);
+  // where the device cannot hold them the queue is the old page-memory one. A reloaded game page starts a new round, so nothing is restored here: the old
+  // round's events and its owed finish are completed by the foreground sync once no tab holds its lock.
+  const [wiring] = useState<{ queue: RunQueue; online: DurableOnlineQueue | null }>(() => {
+    if (backend !== undefined) return { queue: backend.queue, online: null };
+    const online = new DurableOnlineQueue({
+      sessionId,
+      kind: "game",
+      send: (events: SessionEvent[]) => postSessionEvents(client, sessionId, events),
+      resolveBinding: () => resolveOnlineBinding(api),
+    });
+    return { queue: online, online };
+  });
+  const { queue, online } = wiring;
+  const durability = useOnlineQueueStatus(online);
+  // The foreground sync leaves this round to this tab while the lock is held.
+  useOnlineRunLock(sessionId, online !== null);
+  useEffect(() => {
+    void online?.start();
+  }, [online]);
 
   const goGames = useCallback(() => {
     const offline = backendRef.current;
@@ -221,14 +245,20 @@ export function useGameRound({ round, questions, backend }: { round: GameRound; 
     },
   });
 
-  // The connection is back: resend what waits.
+  // The connection is back: resend what waits, and send a finish that was left for later with the same key.
+  const finishAgain = useRef<() => void>(() => undefined);
+  const finishIsPending = useRef(false);
   useEffect(() => {
     const onOnline = () => {
       if (queue.size > 0) flushAgain.current();
+      if (finishIsPending.current) finishAgain.current();
     };
     window.addEventListener("online", onOnline);
     return () => window.removeEventListener("online", onOnline);
   }, [queue]);
+  useEffect(() => {
+    finishIsPending.current = result?.status === "failed" && result.failure.kind === "finish_pending";
+  }, [result]);
 
   const question = questions[index];
   const answeredHere = question === undefined ? undefined : answered[question.questionId];
@@ -262,10 +292,22 @@ export function useGameRound({ round, questions, backend }: { round: GameRound; 
     setPhase("result");
     setResult({ status: "loading" });
     activity.close();
+    // An online round records the finish on the device BEFORE it sends anything: from here on it is owed to the server, and every attempt sends the identical
+    // Idempotency-Key. Where nothing can be recorded the page's own key serves, as before.
+    let key = idempotencyKey;
+    let owed = false;
+    if (online !== null) {
+      const requested = await online.requestCompletion(idempotencyKey);
+      if (!mounted.current) return;
+      key = requested.key;
+      owed = requested.durable;
+    }
     const fail = (error: unknown) => {
       finishingNow.current = false;
       const failure = handleFailure(error);
-      if (failure !== null) setResult({ status: "failed", failure });
+      if (failure === null) return;
+      // The finish is recorded on the device: a connection that is gone, or a free server that is not answering, only means the result comes later.
+      setResult({ status: "failed", failure: owed && leavesFinishPending(failure) ? FINISH_PENDING : failure });
     };
     const flushed = await queue.flush();
     if (!mounted.current) return;
@@ -275,14 +317,20 @@ export function useGameRound({ round, questions, backend }: { round: GameRound; 
     }
     setSync(null);
     try {
-      const complete = await completeSession(client, sessionId, { idempotencyKey });
+      const complete = await completeSession(client, sessionId, { idempotencyKey: key });
       if (!mounted.current) return;
+      // The server holds the finished round: what was owed is settled, and only now does the confirmed result show.
+      if (owed) await online?.confirmCompletion();
       setResult({ status: "ready", complete });
       finishingNow.current = false;
     } catch (error) {
       if (mounted.current) fail(error);
     }
-  }, [activity, queue, client, sessionId, idempotencyKey, handleFailure]);
+  }, [activity, queue, online, client, sessionId, idempotencyKey, handleFailure]);
+
+  useEffect(() => {
+    finishAgain.current = () => void finish();
+  }, [finish]);
 
   const advance = useCallback(() => {
     if (last) {
@@ -367,15 +415,18 @@ export function useGameRound({ round, questions, backend }: { round: GameRound; 
     }
     // G-03: a prepared offline descriptor is never completed on the server while it can be reused, so the offline shell only leaves.
     if (backendRef.current === undefined) {
+      // A round that is left is finished like one that ends: owed from this moment, so a leave that could not reach the server still closes the round later.
+      const requested = online === null ? null : await online.requestCompletion(idempotencyKey);
       try {
-        await completeSession(client, sessionId, { idempotencyKey });
+        await completeSession(client, sessionId, { idempotencyKey: requested?.key ?? idempotencyKey });
       } catch (error) {
         if (mounted.current && handleFailure(error) !== null) setSheet({ open: true, status: "failed" });
         return;
       }
+      if (requested?.durable === true) await online?.confirmCompletion();
     }
     if (mounted.current) goGames();
-  }, [queue, client, sessionId, idempotencyKey, handleFailure, goGames]);
+  }, [queue, online, client, sessionId, idempotencyKey, handleFailure, goGames]);
 
   const leave = useCallback(() => {
     if (!sheet.open || sheet.status === "saving") return;
@@ -433,6 +484,7 @@ export function useGameRound({ round, questions, backend }: { round: GameRound; 
     ended,
     sheet,
     sync,
+    durability: online === null ? null : durability,
     phase,
     result,
     questionRef,

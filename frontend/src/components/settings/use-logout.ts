@@ -10,6 +10,7 @@ import { ConnectivityError } from "@/lib/api/errors";
 import { useApiRuntime } from "@/lib/api/react";
 import { wipeRecoveryCode } from "@/lib/auth/recovery-handoff";
 import { clearRegisterDraft } from "@/lib/auth/register-draft";
+import { accountKeyOf, countOnlineEvents } from "@/lib/offline/online-journal";
 import { countOutbox } from "@/lib/offline/outbox";
 import { logoutLocally, readOwnerState } from "@/lib/offline/owner";
 
@@ -19,11 +20,16 @@ export interface Logout {
   press: () => Promise<void>;
 }
 
-// The answers waiting on this device for the account that is signed in; 0 where nothing is stored or storage is unavailable.
+// The answers waiting on this device for the account that is signed in: the offline outbox of a downloaded copy plus the online journal of the account
+// (unsent answers of a session that was played online). 0 where nothing is stored or storage is unavailable; a part that cannot be read counts as nothing.
 async function countUnsynced(): Promise<number> {
   try {
     const owner = await readOwnerState();
-    return owner?.ownerId == null ? 0 : (await countOutbox(owner.ownerId)).total;
+    if (owner === null) return 0;
+    let total = 0;
+    if (owner.ownerId !== null) total += await countOutbox(owner.ownerId).then((counts) => counts.total, () => 0);
+    if (owner.username !== null && accountKeyOf(owner.username) !== "") total += await countOnlineEvents(accountKeyOf(owner.username)).then((counts) => counts.total, () => 0);
+    return total;
   } catch {
     return 0;
   }

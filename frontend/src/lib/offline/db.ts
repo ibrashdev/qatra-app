@@ -13,10 +13,12 @@ import {
   type SyncStateRecord,
 } from "./types";
 
-// A raw IndexedDB wrapper (G-14: no `idb`). One database, version 1, the five stores of offline-spec 2.2. Nothing here ever holds a token, a cookie or a
-// password: every record is learning data of the signed-in learner, and every one carries the `ownerId`.
+// A raw IndexedDB wrapper (G-14: no `idb`). One database, version 2: the five stores of offline-spec 2.2 plus the two stores of the online journal. Nothing
+// here ever holds a token, a cookie or a password: every record is learning data of the signed-in learner, and every one carries the `ownerId` (the
+// offline stores) or the `accountKey` (the online journal).
 
-export const STORE_NAMES: readonly StoreName[] = ["ownerState", "planSnapshots", "activeRuns", "pendingEvents", "syncState"];
+// Every store: a clear (logout, account switch, delete account, clear the local copy) wipes all of them.
+export const STORE_NAMES: readonly StoreName[] = ["ownerState", "planSnapshots", "activeRuns", "pendingEvents", "syncState", "onlineRuns", "onlineEvents"];
 
 export const OWNER_KEY = "current";
 export const SYNC_KEY = "sync";
@@ -42,7 +44,8 @@ export function isOfflineStorageSupported(): boolean {
   return factory() !== null;
 }
 
-function createSchema(db: IDBDatabase): void {
+// Version 1: the five stores of offline-spec 2.2.
+function createSchemaV1(db: IDBDatabase): void {
   db.createObjectStore("ownerState");
   const snapshots = db.createObjectStore("planSnapshots", { keyPath: "snapshotId" });
   snapshots.createIndex("byOwner", "ownerId");
@@ -55,6 +58,21 @@ function createSchema(db: IDBDatabase): void {
   events.createIndex("bySession", "sessionId");
   events.createIndex("bySnapshot", "snapshotId");
   db.createObjectStore("syncState");
+}
+
+// Version 2: the online journal. Added next to the version 1 stores, which are never touched.
+function createSchemaV2(db: IDBDatabase): void {
+  const runs = db.createObjectStore("onlineRuns", { keyPath: "sessionId" });
+  runs.createIndex("byAccount", "accountKey");
+  const events = db.createObjectStore("onlineEvents", { keyPath: "clientEventId" });
+  events.createIndex("byAccount", "accountKey");
+  events.createIndex("bySession", "sessionId");
+}
+
+// A non-destructive upgrade (PWA-design 8): only what the stored version lacks is created, so unsent version 1 answers survive the update.
+export function upgradeSchema(db: IDBDatabase, oldVersion: number): void {
+  if (oldVersion < 1) createSchemaV1(db);
+  if (oldVersion < 2) createSchemaV2(db);
 }
 
 function mapError(error: unknown, fallback: "storage_failed" | "unsupported" = "storage_failed"): OfflineError {
@@ -77,7 +95,7 @@ export function openOfflineDb(): Promise<IDBDatabase> {
       reject(mapError(error, "unsupported"));
       return;
     }
-    request.onupgradeneeded = () => createSchema(request.result);
+    request.onupgradeneeded = (event) => upgradeSchema(request.result, event.oldVersion);
     request.onsuccess = () => {
       const db = request.result;
       // Another tab upgrades the database: close at once so it is not blocked, and open again on the next call.

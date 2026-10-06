@@ -3,8 +3,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { LOCK_MARKER_KEY, STORE_NAMES, clearAccountCache, closeOfflineDb, deleteOfflineDatabase, openOfflineDb, readOwnerInTx, runTx } from "@/lib/offline/db";
 import { enqueueEvent, listPendingEvents } from "@/lib/offline/outbox";
 import { adoptOwner, isOfflineLocked, readOwnerState } from "@/lib/offline/owner";
+import { bindOnlineAccount, listOnlineEvents, recordOnlineEvents } from "@/lib/offline/online-journal";
 import { cacheActivePlan, readReadyPlan } from "@/lib/offline/plan-cache";
-import { OFFLINE_DB_NAME, isOfflineError, type OwnerState } from "@/lib/offline/types";
+import { OFFLINE_DB_NAME, OFFLINE_DB_VERSION, isOfflineError, type OwnerState, type PlanSnapshotRecord } from "@/lib/offline/types";
 import { FakeBroadcastChannel, OTHER_OWNER_ID, OWNER_ID, USERNAME, activityAt, answerAt, dumpAllStores, makeSnapshot, resetOfflineEnvironment, uuid } from "./offline-support";
 
 beforeEach(() => resetOfflineEnvironment());
@@ -12,22 +13,28 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("IndexedDB wrapper (database qatra-offline, version 1)", () => {
-  it("creates the five stores of offline-spec 2.2 with their indexes", async () => {
+describe("IndexedDB wrapper (database qatra-offline, version 2)", () => {
+  it("creates the seven stores (the five of offline-spec 2.2 and the online journal) with their indexes", async () => {
     const db = await openOfflineDb();
     expect(db.name).toBe(OFFLINE_DB_NAME);
-    expect(db.version).toBe(1);
+    expect(OFFLINE_DB_VERSION).toBe(2);
+    expect(db.version).toBe(2);
     expect(Array.from(db.objectStoreNames).sort()).toEqual([...STORE_NAMES].sort());
-    const tx = db.transaction(["planSnapshots", "activeRuns", "pendingEvents"], "readonly");
+    expect([...STORE_NAMES].sort()).toEqual(["activeRuns", "onlineEvents", "onlineRuns", "ownerState", "pendingEvents", "planSnapshots", "syncState"]);
+    const tx = db.transaction(["planSnapshots", "activeRuns", "pendingEvents", "onlineRuns", "onlineEvents"], "readonly");
     expect(Array.from(tx.objectStore("planSnapshots").indexNames).sort()).toEqual(["byOwner", "byPlan"]);
     expect(Array.from(tx.objectStore("activeRuns").indexNames).sort()).toEqual(["byOwner", "bySnapshot"]);
     expect(Array.from(tx.objectStore("pendingEvents").indexNames).sort()).toEqual(["byOwner", "bySession", "bySnapshot"]);
+    expect(tx.objectStore("onlineRuns").keyPath).toBe("sessionId");
+    expect(Array.from(tx.objectStore("onlineRuns").indexNames)).toEqual(["byAccount"]);
+    expect(tx.objectStore("onlineEvents").keyPath).toBe("clientEventId");
+    expect(Array.from(tx.objectStore("onlineEvents").indexNames).sort()).toEqual(["byAccount", "bySession"]);
   });
 
   it("refuses a stored database that is newer than the app and keeps it untouched (schema_too_new)", async () => {
     const factory = (globalThis as { indexedDB: IDBFactory }).indexedDB;
     await new Promise<void>((resolve, reject) => {
-      const request = factory.open(OFFLINE_DB_NAME, 2);
+      const request = factory.open(OFFLINE_DB_NAME, OFFLINE_DB_VERSION + 1);
       request.onupgradeneeded = () => request.result.createObjectStore("future");
       request.onsuccess = () => {
         request.result.close();
@@ -140,5 +147,110 @@ describe("clearAccountCache", () => {
     expect(isOfflineError(error, "locked")).toBe(true);
     expect(await deleteOfflineDatabase()).toBe(true);
     expect(await isOfflineLocked()).toBe(false);
+  });
+});
+
+// A database exactly as version 1 of the app wrote it: the five stores and their indexes, with learner records in them.
+async function writeVersion1Database(): Promise<{ eventId: string; snapshotId: string }> {
+  const factory = (globalThis as { indexedDB: IDBFactory }).indexedDB;
+  const snapshot = makeSnapshot();
+  const event = answerAt(snapshot, uuid(), 0);
+  const record: PlanSnapshotRecord = {
+    snapshotId: snapshot.snapshotId,
+    ownerId: OWNER_ID,
+    generation: 3,
+    planId: snapshot.planId,
+    editionId: snapshot.editionId,
+    bankVersion: snapshot.bankVersion,
+    planVersion: snapshot.planVersion,
+    ready: true,
+    stagedAt: "2026-10-05T10:00:00.000Z",
+    readyAt: "2026-10-05T10:00:01.000Z",
+    sizeBytes: 1000,
+    schemaVersion: 1,
+    retired: false,
+    snapshot,
+  };
+  const db = await new Promise<IDBDatabase>((resolve, reject) => {
+    const request = factory.open(OFFLINE_DB_NAME, 1);
+    request.onupgradeneeded = () => {
+      const created = request.result;
+      created.createObjectStore("ownerState");
+      const snapshots = created.createObjectStore("planSnapshots", { keyPath: "snapshotId" });
+      snapshots.createIndex("byOwner", "ownerId");
+      snapshots.createIndex("byPlan", ["ownerId", "planId"]);
+      const runs = created.createObjectStore("activeRuns", { keyPath: "clientRunId" });
+      runs.createIndex("byOwner", "ownerId");
+      runs.createIndex("bySnapshot", "snapshotId");
+      const events = created.createObjectStore("pendingEvents", { keyPath: "clientEventId" });
+      events.createIndex("byOwner", "ownerId");
+      events.createIndex("bySession", "sessionId");
+      events.createIndex("bySnapshot", "snapshotId");
+      created.createObjectStore("syncState");
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(["ownerState", "planSnapshots", "pendingEvents"], "readwrite");
+    tx.objectStore("ownerState").put({ ownerId: OWNER_ID, username: USERNAME, generation: 3, logoutPending: false, clearFailed: false, updatedAt: "2026-10-05T10:00:00.000Z" }, "current");
+    tx.objectStore("planSnapshots").put(record);
+    tx.objectStore("pendingEvents").put({
+      clientEventId: event.clientEventId,
+      ownerId: OWNER_ID,
+      generation: 3,
+      snapshotId: snapshot.snapshotId,
+      sessionId: "s1",
+      clientRunId: event.clientRunId,
+      localSequence: 0,
+      state: "queued",
+      event,
+      orderMs: Date.parse(event.type === "answer" ? event.occurredAt : event.startedAt),
+      attempts: 0,
+      createdAt: "2026-10-05T10:00:00.000Z",
+      updatedAt: "2026-10-05T10:00:00.000Z",
+    });
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error);
+  });
+  db.close();
+  return { eventId: event.clientEventId, snapshotId: snapshot.snapshotId };
+}
+
+describe("the upgrade from version 1 to version 2 never destroys what the learner has (PWA-design 8)", () => {
+  it("keeps the owner, the ready plan and the unsent answers, and adds the two empty online stores", async () => {
+    const { eventId, snapshotId } = await writeVersion1Database();
+
+    const db = await openOfflineDb();
+    expect(db.version).toBe(2);
+    expect(Array.from(db.objectStoreNames).sort()).toEqual([...STORE_NAMES].sort());
+
+    expect(await readOwnerState()).toMatchObject({ ownerId: OWNER_ID, username: USERNAME, generation: 3 });
+    expect((await listPendingEvents(OWNER_ID)).map((event) => event.clientEventId)).toEqual([eventId]);
+    expect((await readReadyPlan(OWNER_ID))?.snapshotId).toBe(snapshotId);
+    const stores = (await dumpAllStores()) as unknown as Record<string, unknown[]>;
+    expect(stores.onlineRuns).toEqual([]);
+    expect(stores.onlineEvents).toEqual([]);
+  });
+
+  it("the new journal works on the upgraded database and does not touch the version 1 outbox", async () => {
+    const { eventId } = await writeVersion1Database();
+    const binding = await bindOnlineAccount(USERNAME);
+    expect(binding).toEqual({ accountKey: "test.learner", generation: 3 });
+    const online = { clientEventId: uuid(), type: "activity" as const, startedAt: "2026-10-05T10:00:00.000Z", endedAt: "2026-10-05T10:00:05.000Z", activeMs: 5000 };
+    await recordOnlineEvents(binding, "online-session", "lesson", [online]);
+
+    expect((await listOnlineEvents(binding.accountKey)).map((event) => event.clientEventId)).toEqual([online.clientEventId]);
+    expect((await listPendingEvents(OWNER_ID)).map((event) => event.clientEventId)).toEqual([eventId]);
+  });
+
+  it("a second open of the upgraded database changes nothing", async () => {
+    await writeVersion1Database();
+    await openOfflineDb();
+    closeOfflineDb();
+    const db = await openOfflineDb();
+    expect(db.version).toBe(2);
+    expect((await listPendingEvents(OWNER_ID)).length).toBe(1);
   });
 });

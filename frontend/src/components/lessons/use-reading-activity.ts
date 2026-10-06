@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { SessionEventQueue } from "@/components/session/event-queue";
+import { DurableOnlineQueue, resolveOnlineBinding } from "@/components/session/durable-online-queue";
 import { activityEvent } from "@/components/session/session-events";
 import { useActivityClock } from "@/components/session/use-activity";
 import { useApiRuntime } from "@/lib/api/react";
@@ -23,8 +23,9 @@ export const READING_RETRY_MS = 30_000;
 //   never start before the session is known.
 // - Intervals follow the session's own rules (use-activity.ts): the clock runs while the page is visible and ends at a hide, at the 5 minute cut and when
 //   the reader closes. Each interval is queued and sent at once, through the session's event queue. Nothing but ids and times is ever sent, never the text.
-// - Offline or failing: the events wait in the page's memory and are sent again at the next interval or when the connection returns; they are lost if the
-//   reader closes first, as the session's own outbox is on a reload. A session that closed meanwhile (`session_closed`) ends the crediting for this visit: no
+// - Offline or failing: each interval is committed to the online journal (kind `lesson`, activity events only) before it is counted, so a reload or a closed
+//   reader no longer loses it; it waits there and is sent again at the next interval, when the connection returns, or by the foreground sync. Where the
+//   device cannot hold it the interval waits in the page's memory as before. The reader holds no run lock and owes no finish. A session that closed meanwhile (`session_closed`) ends the crediting for this visit: no
 //   new session is created. An account without an active plan credits nothing, silently: reading never shows an error for its time.
 export function useReadingActivity(active: boolean): void {
   const { api, client } = useApiRuntime();
@@ -32,7 +33,16 @@ export function useReadingActivity(active: boolean): void {
   const [stopped, setStopped] = useState(false); // nothing is credited for this visit: no plan, a completed day, or a session that closed
 
   // One queue per session: its events are sent to that session and to no other.
-  const queue = useMemo(() => (sessionId === null ? null : new SessionEventQueue({ send: (events) => postSessionEvents(client, sessionId, events) })), [client, sessionId]);
+  const queue = useMemo(
+    () =>
+      sessionId === null
+        ? null
+        : new DurableOnlineQueue({ sessionId, kind: "lesson", send: (events) => postSessionEvents(client, sessionId, events), resolveBinding: () => resolveOnlineBinding(api) }),
+    [api, client, sessionId],
+  );
+  useEffect(() => {
+    void queue?.start();
+  }, [queue]);
 
   // The session that closed (completed on another screen) takes no more time, and no new session is made for the rest of this visit. The events it
   // refused are final.
