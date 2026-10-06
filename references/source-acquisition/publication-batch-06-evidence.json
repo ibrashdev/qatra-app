@@ -1,0 +1,87 @@
+{
+  "task": "CONTENT-PUBLICATION-06",
+  "asOf": "2026-10-06",
+  "scope": "Juz Amma Quran bank 4 full 37 surahs 564 ayahs",
+  "ownerApproval": {
+    "at": "2026-10-06T11:49:51+04:00",
+    "words": "اكمل المتبقي حتى النهاية وعلى دفعات\nاولا انشر ما تمت مطابقته تمت الموافقة\nالباقي امشي بالخطوات بالتتالي",
+    "source": "ChatGPT Work current conversation; exact conversation URL not provided",
+    "sourceUrl": "https://chatgpt.com/"
+  },
+  "publication": [
+    {
+      "step": "approved",
+      "status": "succeeded",
+      "published_at": null
+    },
+    {
+      "step": "published",
+      "status": "succeeded",
+      "published_at": "2026-10-06 08:02:44.344606+00"
+    }
+  ],
+  "liveReadback": [
+    {
+      "id": "9527c486-e79f-55ae-a328-44a41a652148",
+      "edition_key": "quran-hafs-quranenc-expanded-20261006",
+      "status": "published",
+      "bank_version": 4,
+      "publication_approved": "true",
+      "human_reviewed": "false",
+      "published_lessons": 111,
+      "published_questions": 2549,
+      "sections": 37
+    },
+    {
+      "id": "064cdaec-837b-5aaa-bc10-c2353f84d798",
+      "edition_key": "quran-hafs-quranenc-ai-20261005",
+      "status": "superseded",
+      "bank_version": 1,
+      "publication_approved": "true",
+      "human_reviewed": null,
+      "published_lessons": 21,
+      "published_questions": 349,
+      "sections": 4
+    },
+    {
+      "id": "176a4ddd-778b-50cc-b167-ccf01bb136b8",
+      "edition_key": "quran-hafs-quranenc",
+      "status": "superseded",
+      "bank_version": 1,
+      "publication_approved": null,
+      "human_reviewed": null,
+      "published_lessons": 0,
+      "published_questions": 0,
+      "sections": 1
+    }
+  ],
+  "canonicalTextHashRecheck": [
+    {
+      "edition_id": "9527c486-e79f-55ae-a328-44a41a652148",
+      "units": 564,
+      "actual_text_hashes_match": true,
+      "ordinal_hash_md5": "65b09bd662d6f6b299269e1fc19563e1"
+    }
+  ],
+  "liveCatalog": {
+    "url": "https://qatra-api-knmj.onrender.com/api/catalog",
+    "statusCode": 200,
+    "editionId": "9527c486-e79f-55ae-a328-44a41a652148",
+    "catalogVersion": 4,
+    "sections": 37,
+    "source": "Root observed the live public catalogue after publication; no account created"
+  },
+  "privateArchive": {
+    "fileName": "Qatra-content-expansion-20261005.zip",
+    "version": 5,
+    "sha256": "a339f0aaf9e0136af06c9861bda25f94f3cee204843d66a1e61ab3c17a1f4db3",
+    "entries": 353
+  },
+  "limitations": {
+    "humanReligiousReview": false,
+    "independentHafsV18Compared": false,
+    "rawStorageUpload": false,
+    "rightsStatus": "owner_accepted_pending_verification"
+  },
+  "next": "Review hadith bank5 segmentation flags and standalone source matches, then remaining five gaps."
+}
