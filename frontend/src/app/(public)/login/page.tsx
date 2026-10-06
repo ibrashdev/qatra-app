@@ -2,11 +2,11 @@ import { LoginForm } from "@/components/auth/LoginForm";
 import { PublicShell } from "@/components/ui/PublicShell";
 
 // S-01. No logo in the header (the page carries the lockup) and no wake-up line at the top (the form shows it above its button).
-// The demo link (option C) is on for the page.
+// The demo link is off on this page (D97); /demo stays reachable by its address.
 export default function LoginPage() {
   return (
     <PublicShell logo={false} wakeUp={false}>
-      <LoginForm demoLink />
+      <LoginForm />
     </PublicShell>
   );
 }

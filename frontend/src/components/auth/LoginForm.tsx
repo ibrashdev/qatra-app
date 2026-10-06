@@ -58,7 +58,7 @@ const VALID: Invalid = { username: false, password: false };
 
 // S-01 (UI-screens Batch 1): username and password, E04. The inputs are read from the page when the form is sent, not from state,
 // so a password manager that fills them without a change event still works.
-// `demoLink` adds the tertiary link to the demo entry (S-28, option C; it reverses UA-08). The route turns it on; the form alone stays as in option B.
+// `demoLink` adds the tertiary link to the demo entry (S-28, option C; it reverses UA-08). D97 turned it off on the login route; the prop stays for the component tests.
 export function LoginForm({ demoLink = false }: { demoLink?: boolean } = {}) {
   const { locale, messages, setLocale } = useLocale();
   const { api } = useApiRuntime();
