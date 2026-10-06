@@ -8,15 +8,18 @@ import { useApiRuntime } from "@/lib/api/react";
 import { completeSession, postSessionEvents } from "@/lib/api/session-endpoints";
 import type { AnswerPayload, DailyProgress, EventsResponse, SessionEvent, SessionSnapshot } from "@/lib/api/types";
 import { holdSessionResult } from "@/lib/session/result-handoff";
-import { SessionEventQueue, type FlushResult } from "./event-queue";
+import type { OnlineAnswered, OnlineRunRecord } from "@/lib/offline/types";
+import { DurableOnlineQueue, resolveOnlineBinding, type OnlineQueueStatus, type SessionJournal } from "./durable-online-queue";
+import type { FlushResult } from "./event-queue";
 import { gradeLocally } from "./local-grade";
 import { clearResume, rememberResume } from "./resume-store";
 import { isPromiseLike, type RunBackend, type RunQueue } from "./run-backend";
 import { activityEvent, answerEvent, newEventId } from "./session-events";
-import { classifySessionError, retriesByItself, type SessionFailure } from "./session-failure";
+import { classifySessionError, FINISH_PENDING, leavesFinishPending, retriesByItself, type FinishPending, type SessionFailure } from "./session-failure";
 import { firstIndexFrom, nextStep, primaryAction, recallTarget, type PrimaryAction } from "./session-model";
 import { useActivityClock } from "./use-activity";
 import { useBackGuard } from "./use-back-guard";
+import { useOnlineQueueStatus, useOnlineRunLock } from "./use-online-run-lock";
 
 export interface Draft {
   answer: AnswerPayload | null;
@@ -41,12 +44,37 @@ export interface SessionRunInput {
   snapshot: SessionSnapshot;
   initialDaily: DailyProgress;
   resumeAt: number | null;
-  // The offline shell passes a backend (durable enveloped outbox, local finish, shell navigation). Online it is absent and nothing below changes.
+  // The offline shell passes a backend (durable enveloped outbox, local finish, shell navigation). Online it is absent: the run then keeps its answers in the
+  // online journal (PWA-design 4), and a reload finds them again through `journal`.
   backend?: RunBackend;
+  // What the journal holds for this session, read next to E18: the run state (resume step, answers given, a finish that is owed) and the events that were
+  // never acknowledged. Absent when there is nothing to restore (the first visit, no storage, the offline shell).
+  journal?: SessionJournal;
 }
 
 const RETRY_BASE_MS = 3000;
 const RETRY_MAX_MS = 30_000;
+
+// The answers a reload restores, as the screen holds them: what the server said about each one before the page went away. Never the typed answer.
+function answersOf(run: OnlineRunRecord | null): Record<string, AnsweredQuestion> {
+  const restored: Record<string, AnsweredQuestion> = {};
+  if (run === null) return restored;
+  for (const [questionId, entry] of Object.entries(run.answered)) {
+    restored[questionId] = {
+      clientEventId: entry.clientEventId,
+      hintUsed: entry.hintUsed,
+      result: { correct: entry.result.correct, assisted: entry.result.assisted, expected: entry.result.expected, ...(entry.result.status === undefined ? {} : { status: entry.result.status }), ...(entry.result.updated === undefined ? {} : { updated: entry.result.updated }) },
+    };
+  }
+  return restored;
+}
+
+// The reverse: what the journal keeps of the answers given so far.
+function journalAnswers(answered: Readonly<Record<string, AnsweredQuestion>>): Record<string, OnlineAnswered> {
+  const kept: Record<string, OnlineAnswered> = {};
+  for (const [questionId, entry] of Object.entries(answered)) kept[questionId] = { clientEventId: entry.clientEventId, hintUsed: entry.hintUsed, result: entry.result };
+  return kept;
+}
 
 export interface SessionRun {
   index: number | null;
@@ -63,7 +91,10 @@ export interface SessionRun {
   sheet: SheetState;
   sync: SessionFailure | null;
   finishing: boolean;
-  finishFailure: SessionFailure | null;
+  // `finish_pending` is not a failure: the finish is recorded on the device and will be confirmed when the connection is back.
+  finishFailure: SessionFailure | FinishPending | null;
+  // Where the answers of this run live (the online journal, or this page only). Null for the offline shell, whose backend speaks for itself.
+  durability: OnlineQueueStatus | null;
   announcement: { key: number; text: string } | null;
   questionRef: RefObject<QuestionViewHandle | null>;
   setAnswer: (answer: AnswerPayload | null) => void;
@@ -80,14 +111,16 @@ export interface SessionRun {
 
 // The runtime of S-19: the step machine, the answers and their first verdict, the outbox of events, the active time, the finish and the pause.
 // The snapshot is only read. The server's answers are authoritative: `daily` and each result replace the local figures.
-export function useSessionRun({ snapshot, initialDaily, resumeAt, backend }: SessionRunInput): SessionRun {
+export function useSessionRun({ snapshot, initialDaily, resumeAt, backend, journal }: SessionRunInput): SessionRun {
   const router = useRouter();
-  const { client } = useApiRuntime();
+  const { api, client } = useApiRuntime();
   const steps = snapshot.steps;
   const sessionId = snapshot.sessionId;
+  // The journal is for the online run only: the offline shell has its own durable outbox and its own run records.
+  const restored = backend === undefined ? (journal?.run ?? null) : null;
 
   const [index, setIndex] = useState<number | null>(() => firstIndexFrom(steps, resumeAt ?? 0));
-  const [answered, setAnswered] = useState<Record<string, AnsweredQuestion>>({});
+  const [answered, setAnswered] = useState<Record<string, AnsweredQuestion>>(() => answersOf(restored));
   const [draft, setDraft] = useState<Draft>(EMPTY_DRAFT);
   const [hidden, setHidden] = useState(false);
   const [skippedNotice, setSkippedNotice] = useState(false);
@@ -98,13 +131,15 @@ export function useSessionRun({ snapshot, initialDaily, resumeAt, backend }: Ses
   const [sheet, setSheet] = useState<SheetState>({ open: false });
   const [sync, setSync] = useState<SessionFailure | null>(null);
   const [finishing, setFinishing] = useState(false);
-  const [finishFailure, setFinishFailure] = useState<SessionFailure | null>(null);
+  const [finishFailure, setFinishFailure] = useState<SessionFailure | FinishPending | null>(null);
   const [announcement, setAnnouncement] = useState<{ key: number; text: string } | null>(null);
+  // The key of the finish when nothing could be recorded on the device: the same one for every retry of this page. With the journal the stored key wins.
   const [idempotencyKey] = useState(newEventId);
 
   const questionRef = useRef<QuestionViewHandle>(null);
   const mounted = useRef(true);
-  const eventQuestion = useRef(new Map<string, string>());
+  // The question an event belongs to, so a verdict that comes back by event id lands on its question. A restored answer keeps its id.
+  const [eventQuestion] = useState(() => new Map(Object.entries(answersOf(restored)).map(([questionId, entry]) => [entry.clientEventId, questionId] as const)));
   const shownAt = useRef(0);
   const goalWasReached = useRef(initialDaily.dailyCompleted);
   const finishingNow = useRef(false);
@@ -119,7 +154,26 @@ export function useSessionRun({ snapshot, initialDaily, resumeAt, backend }: Ses
   });
   const storing = useRef(false);
 
-  const [queue] = useState<RunQueue>(() => backend?.queue ?? new SessionEventQueue({ send: (events: SessionEvent[]) => postSessionEvents(client, sessionId, events) }));
+  // The offline shell brings its own durable queue. An ordinary online session writes every answer to the online journal before it counts it (PWA-design 4),
+  // and takes back the events of an earlier page that were never acknowledged; where the device cannot hold them the queue is the old page-memory one.
+  const [wiring] = useState<{ queue: RunQueue; online: DurableOnlineQueue | null }>(() => {
+    if (backend !== undefined) return { queue: backend.queue, online: null };
+    const online = new DurableOnlineQueue({
+      sessionId,
+      kind: "daily",
+      send: (events: SessionEvent[]) => postSessionEvents(client, sessionId, events),
+      resolveBinding: () => resolveOnlineBinding(api),
+    });
+    online.restore(journal?.queued ?? []);
+    return { queue: online, online };
+  });
+  const { queue, online } = wiring;
+  const durability = useOnlineQueueStatus(online);
+  // The foreground sync leaves this session to this tab while the lock is held.
+  useOnlineRunLock(sessionId, online !== null);
+  useEffect(() => {
+    void online?.start();
+  }, [online]);
 
   const announce = useCallback((text: string) => {
     announcementKey.current += 1;
@@ -180,7 +234,7 @@ export function useSessionRun({ snapshot, initialDaily, resumeAt, backend }: Ses
             };
           }
           for (const [clientEventId, status] of statusOf) {
-            const questionId = eventQuestion.current.get(clientEventId);
+            const questionId = eventQuestion.get(clientEventId);
             const existing = questionId === undefined ? undefined : next[questionId];
             if (questionId !== undefined && existing !== undefined) next[questionId] = { ...existing, result: { ...existing.result, status } };
           }
@@ -188,7 +242,7 @@ export function useSessionRun({ snapshot, initialDaily, resumeAt, backend }: Ses
         });
       }
     });
-  }, [queue]);
+  }, [queue, eventQuestion]);
 
   const handleFailure = useCallback(
     (error: unknown): SessionFailure | null => {
@@ -251,14 +305,27 @@ export function useSessionRun({ snapshot, initialDaily, resumeAt, backend }: Ses
     },
   });
 
-  // The connection is back: resend what waits.
+  // The connection is back: resend what waits, and send a finish that was left for later with the same key.
+  const finishAgain = useRef<() => void>(() => undefined);
+  const finishIsPending = useRef(false);
   useEffect(() => {
     const onOnline = () => {
       if (queue.size > 0) flushAgain.current();
+      if (finishIsPending.current) finishAgain.current();
     };
     window.addEventListener("online", onOnline);
     return () => window.removeEventListener("online", onOnline);
   }, [queue]);
+  useEffect(() => {
+    finishIsPending.current = finishFailure?.kind === "finish_pending";
+  }, [finishFailure]);
+
+  // What the events that an earlier page left in the journal need: they go out again with their own ids (the server answers `duplicate` for any it has).
+  useEffect(() => {
+    if ((journal?.queued.length ?? 0) > 0 && backend === undefined) flushAgain.current();
+    // Only once, when the run opens: `journal` is the page's own snapshot of the journal and never changes while the run is open.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const current = index === null ? null : (steps[index] ?? null);
   const answeredHere = current?.type === "question" ? answered[current.question.questionId] : undefined;
@@ -275,13 +342,25 @@ export function useSessionRun({ snapshot, initialDaily, resumeAt, backend }: Ses
     setFinishing(true);
     setFinishFailure(null);
     activity.close();
+    // An online session records the finish on the device BEFORE it sends anything: from here on the finish is owed to the server, and every attempt, from this
+    // page or after a reload, sends the identical Idempotency-Key. Where nothing can be recorded the page's own key serves, as before.
+    let key = idempotencyKey;
+    let owed = false;
+    if (online !== null) {
+      const requested = await online.requestCompletion(idempotencyKey);
+      if (!mounted.current) return;
+      key = requested.key;
+      owed = requested.durable;
+    }
     const flushed = await queue.flush();
     if (!mounted.current) return;
     const fail = (error: unknown) => {
       const failure = handleFailure(error);
       finishingNow.current = false;
       setFinishing(false);
-      if (failure !== null) setFinishFailure(failure);
+      if (failure === null) return;
+      // The finish is recorded on the device: a connection that is gone, or a free server that is not answering, only means the result comes later.
+      setFinishFailure(owed && leavesFinishPending(failure) ? FINISH_PENDING : failure);
     };
     if (!flushed.ok) {
       fail(flushed.error);
@@ -296,8 +375,10 @@ export function useSessionRun({ snapshot, initialDaily, resumeAt, backend }: Ses
         clearResume(sessionId);
         return;
       }
-      const complete = await completeSession(client, sessionId, { idempotencyKey });
+      const complete = await completeSession(client, sessionId, { idempotencyKey: key });
       if (!mounted.current) return;
+      // The server holds the finished session: what was owed is settled, and only now does the confirmed result open.
+      if (owed) await online?.confirmCompletion();
       holdSessionResult({ sessionId, complete });
       clearResume(sessionId);
       // The button keeps its loading state while the result screen opens.
@@ -305,7 +386,18 @@ export function useSessionRun({ snapshot, initialDaily, resumeAt, backend }: Ses
     } catch (error) {
       if (mounted.current) fail(error);
     }
-  }, [activity, queue, client, sessionId, idempotencyKey, router, handleFailure]);
+  }, [activity, queue, online, client, sessionId, idempotencyKey, router, handleFailure]);
+
+  useEffect(() => {
+    finishAgain.current = () => void finish();
+  }, [finish]);
+
+  // A page that was closed after the learner finished: the finish is still owed, so it goes out at once with the stored key (the events come first).
+  useEffect(() => {
+    if (restored?.completion != null) finishAgain.current();
+    // Only once, when the run opens.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const advance = useCallback(() => {
     if (index === null) return;
@@ -333,7 +425,7 @@ export function useSessionRun({ snapshot, initialDaily, resumeAt, backend }: Ses
     const now = Date.now();
     const hintUsed = draft.hint !== null;
     const event = answerEvent({ questionId: question.questionId, answer: payload, hintUsed, occurredAtMs: now, durationMs: now - shownAt.current });
-    eventQuestion.current.set(event.clientEventId, question.questionId);
+    eventQuestion.set(event.clientEventId, question.questionId);
     const stored = queue.enqueue(event);
     const graded = gradeLocally(question, payload, hintUsed);
     const target = graded.correct ? null : recallTarget(steps, question);
@@ -357,11 +449,11 @@ export function useSessionRun({ snapshot, initialDaily, resumeAt, backend }: Ses
       },
       (error: unknown) => {
         storing.current = false;
-        eventQuestion.current.delete(event.clientEventId);
+        eventQuestion.delete(event.clientEventId);
         if (mounted.current) backendRef.current?.storageFailed(error);
       },
     );
-  }, [current, checked, finishing, draft, queue, runFlush, focusPrimary, steps]);
+  }, [current, checked, finishing, draft, queue, runFlush, focusPrimary, steps, eventQuestion]);
 
   const press = useCallback(() => {
     if (action === null || finishing) return;
@@ -375,6 +467,17 @@ export function useSessionRun({ snapshot, initialDaily, resumeAt, backend }: Ses
     if (index === null) return 0;
     return checked ? (nextStep(steps, index).index ?? index) : index;
   }, [index, checked, steps]);
+
+  // PWA-design 4: where a reload resumes and what was answered, written best effort after each answer that was committed, each step and each verdict of the
+  // server. The first render writes nothing, so a session that was only opened leaves no record.
+  const baseline = useRef<{ index: number | null; answers: number } | null>({ index, answers: Object.keys(answered).length });
+  useEffect(() => {
+    if (online === null || index === null) return;
+    const first = baseline.current;
+    if (first !== null && first.index === index && first.answers === Object.keys(answered).length) return;
+    baseline.current = null;
+    void online.saveRun({ resumeIndex: resumeIndex(), answered: journalAnswers(answered), planId: snapshot.planId, planVersion: snapshot.planVersion });
+  }, [online, index, answered, resumeIndex, snapshot.planId, snapshot.planVersion]);
 
   const leaveNow = useCallback(() => {
     rememberResume(sessionId, resumeIndex());
@@ -454,6 +557,7 @@ export function useSessionRun({ snapshot, initialDaily, resumeAt, backend }: Ses
     sync,
     finishing,
     finishFailure,
+    durability: online === null ? null : durability,
     announcement,
     questionRef,
     setAnswer: (answer) => setDraft((previous) => ({ ...previous, answer, error: null })),

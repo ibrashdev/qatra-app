@@ -17,8 +17,9 @@ import { DailyLine } from "./DailyLine";
 import { LearnStep } from "./LearnStep";
 import { PauseSheet } from "./PauseSheet";
 import { QuestionStep } from "./QuestionStep";
-import { PlanInactiveBanner, RevokedView, SessionFailureBanner } from "./SessionBanners";
+import { OfflineRunLines, PlanInactiveBanner, RevokedView, SessionFailureBanner } from "./SessionBanners";
 import { StageIndicator } from "./StageIndicator";
+import type { SessionJournal } from "./durable-online-queue";
 import { peekResume } from "./resume-store";
 import type { RunBackend } from "./run-backend";
 import { firstIndexFrom, passageFacts, questionPosition, stageOfStep, stagesOf, stepLineOf } from "./session-model";
@@ -30,22 +31,25 @@ export interface SessionRunProps {
   textKind: TextKind;
   // True after a reload or a direct visit: the session starts again at its first step, and the step line says so.
   restarted: boolean;
-  // The offline shell passes its backend (durable outbox, local finish); online there is none and the run behaves as before.
+  // The offline shell passes its backend (durable outbox, local finish); online there is none and the run keeps its answers in the online journal.
   backend?: RunBackend;
+  // What the online journal holds for this session (read next to E18): a reload resumes at its step, with its answers, and sends what was never acknowledged.
+  journal?: SessionJournal;
 }
 
 
 // The open session (UI-screens S-19): focus-flow chrome, the compact daily bar, the stage indicator, the step region and the sticky action bar with its one
 // button. Every answer is graded by the server; the screen shows the first verdict from the snapshot's key and takes the server's when it arrives.
-export function SessionRun({ snapshot, daily, textKind, restarted, backend }: SessionRunProps) {
+export function SessionRun({ snapshot, daily, textKind, restarted, backend, journal }: SessionRunProps) {
   const { locale } = useLocale();
   const t = sessionMessages(locale);
   const today = todayMessages(locale);
   const { online } = useConnectivity();
   const wake = useWakeUpState();
-  // The step a pause in this tab left off at (S-19 "Resumed"); a reload has lost it and starts at the first step.
-  const [resumeAt] = useState(() => peekResume(snapshot.sessionId));
-  const run = useSessionRun({ snapshot, initialDaily: daily, resumeAt, backend });
+  // The step a pause left off at (S-19 "Resumed"). The online journal outlives a reload, so its step wins; without a record the position lives in page memory
+  // only, a reload has lost it and the session starts at its first step.
+  const [resumeAt] = useState(() => (backend === undefined && journal?.run != null ? journal.run.resumeIndex : peekResume(snapshot.sessionId)));
+  const run = useSessionRun({ snapshot, initialDaily: daily, resumeAt, backend, journal });
   const steps = snapshot.steps;
   const facts = useMemo(() => passageFacts(steps), [steps]);
   const stages = useMemo(() => stagesOf(steps), [steps]);
@@ -82,9 +86,9 @@ export function SessionRun({ snapshot, daily, textKind, restarted, backend }: Se
     run.ended === "inactive" ? (
       <PlanInactiveBanner onBack={run.goToday} />
     ) : run.finishFailure !== null ? (
-      <SessionFailureBanner failure={run.finishFailure} online={online} waking={waking} onRefresh={() => window.location.reload()} />
+      <SessionFailureBanner failure={run.finishFailure} online={online} waking={waking} onRefresh={() => window.location.reload()} durability={run.durability} />
     ) : run.sync !== null ? (
-      <SessionFailureBanner failure={run.sync} online={online} waking={waking} onRetry={run.retrySync} onRefresh={() => window.location.reload()} />
+      <SessionFailureBanner failure={run.sync} online={online} waking={waking} onRetry={run.retrySync} onRefresh={() => window.location.reload()} durability={run.durability} />
     ) : backend !== undefined ? (
       // Offline run: the answers are on the device and are verified at the next sync, so the line is the fixed one, not «سنعيد المحاولة».
       backend.banner === null ? null : (
@@ -92,8 +96,7 @@ export function SessionRun({ snapshot, daily, textKind, restarted, backend }: Se
       )
     ) : !online ? (
       <Banner variant="info">
-        <p>{t.banners.offlineQueue}</p>
-        <p className="mt-q4">{t.banners.keepOpen}</p>
+        <OfflineRunLines durability={run.durability} />
       </Banner>
     ) : null;
 

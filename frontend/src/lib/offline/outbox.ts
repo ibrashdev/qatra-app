@@ -1,4 +1,4 @@
-import type { EventsResponse } from "@/lib/api/types";
+import type { EventsResponse, SessionEvent } from "@/lib/api/types";
 import { MAX_EVENTS_PER_REQUEST } from "@/lib/api/session-endpoints";
 import { publishOfflineMessage } from "./broadcast";
 import { nowIso, readOwnerInTx, requireOwnerInTx, runTx, readLockMarker, emptyCounts, type TxContext } from "./db";
@@ -15,6 +15,7 @@ import {
   type ListPendingEventsFn,
   type OutboxCounts,
   type PendingEvent,
+  type PendingEventState,
 } from "./types";
 
 // The durable outbox of PWA-design 4 and offline-spec 5. An event is one IndexedDB record keyed by its `clientEventId`; the id is made once and never
@@ -118,14 +119,24 @@ export const countOutbox: CountOutboxFn = async (ownerId) => countEvents(await l
 // Replay planning (pure)
 // ---------------------------------------------------------------------------------------------------------------------------------------------
 
+// What the pure replay helpers need from a stored event. The offline outbox (`PendingEvent`) and the online journal (`OnlineEventRecord`) both fit, so the
+// same planning serves both without changing what it does for either.
+export interface ReplayableEvent {
+  clientEventId: string;
+  sessionId: string;
+  state: PendingEventState;
+  orderMs: number;
+  event: SessionEvent;
+}
+
 // The server's replay order: occurredAt (startedAt for activity), then clientEventId. It never reorders, so the client sends in this order.
-export function sortForReplay<T extends Pick<PendingEvent, "orderMs" | "clientEventId">>(events: readonly T[]): T[] {
+export function sortForReplay<T extends Pick<ReplayableEvent, "orderMs" | "clientEventId">>(events: readonly T[]): T[] {
   return [...events].sort((left, right) => left.orderMs - right.orderMs || (left.clientEventId < right.clientEventId ? -1 : left.clientEventId > right.clientEventId ? 1 : 0));
 }
 
-export interface ReplayBatch {
+export interface ReplayBatch<T extends ReplayableEvent = PendingEvent> {
   sessionId: string;
-  events: PendingEvent[];
+  events: T[];
 }
 
 export interface ReplayLimits {
@@ -133,17 +144,17 @@ export interface ReplayLimits {
   maxBytes?: number;
 }
 
-export function eventBytes(event: PendingEvent): number {
+export function eventBytes(event: Pick<ReplayableEvent, "event">): number {
   return utf8Length(JSON.stringify(event.event)) + 1;
 }
 
 // Groups the events by session (the E21 path), one request per session at a time and sessions one after another, earliest session first. Inside a
 // session a batch holds at most 100 events and about 48 KB. A single event larger than the cap is still a batch of one: the server's 413 decides.
 // Blocked events are never sent again; the caller passes only `queued` and `pending` ones.
-export function planReplayBatches(events: readonly PendingEvent[], limits: ReplayLimits = {}): ReplayBatch[] {
+export function planReplayBatches<T extends ReplayableEvent = PendingEvent>(events: readonly T[], limits: ReplayLimits = {}): ReplayBatch<T>[] {
   const maxEvents = Math.max(1, Math.min(limits.maxEvents ?? MAX_EVENTS_PER_REQUEST, MAX_EVENTS_PER_REQUEST));
   const maxBytes = limits.maxBytes ?? MAX_REPLAY_BYTES;
-  const bySession = new Map<string, PendingEvent[]>();
+  const bySession = new Map<string, T[]>();
   for (const event of events) {
     if (event.state === "blocked") continue;
     const list = bySession.get(event.sessionId);
@@ -152,9 +163,9 @@ export function planReplayBatches(events: readonly PendingEvent[], limits: Repla
   }
   const sessions = [...bySession.entries()].map(([sessionId, list]) => ({ sessionId, list: sortForReplay(list) }));
   sessions.sort((left, right) => (left.list[0]?.orderMs ?? 0) - (right.list[0]?.orderMs ?? 0) || (left.sessionId < right.sessionId ? -1 : 1));
-  const batches: ReplayBatch[] = [];
+  const batches: ReplayBatch<T>[] = [];
   for (const { sessionId, list } of sessions) {
-    let current: PendingEvent[] = [];
+    let current: T[] = [];
     let bytes = REQUEST_OVERHEAD_BYTES;
     for (const event of list) {
       const size = eventBytes(event);
@@ -172,7 +183,7 @@ export function planReplayBatches(events: readonly PendingEvent[], limits: Repla
 }
 
 // After a 413: the same events in two halves (a single event cannot be halved).
-export function halveBatch(batch: ReplayBatch): ReplayBatch[] {
+export function halveBatch<T extends ReplayableEvent = PendingEvent>(batch: ReplayBatch<T>): ReplayBatch<T>[] {
   if (batch.events.length < 2) return [batch];
   const middle = Math.ceil(batch.events.length / 2);
   return [

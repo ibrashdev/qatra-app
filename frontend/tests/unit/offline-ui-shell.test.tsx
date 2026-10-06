@@ -53,7 +53,7 @@ function setOnline(value: boolean) {
 }
 
 function syncResult(outcome: SyncResult["outcome"], overrides: Partial<SyncResult> = {}): SyncResult {
-  return { acknowledgedIds: [], pendingIds: [], blockedIds: [], outcome, duplicateIds: [], revalidations: [], daily: null, ...overrides };
+  return { acknowledgedIds: [], pendingIds: [], blockedIds: [], outcome, duplicateIds: [], revalidations: [], daily: null, completedSessionIds: [], ...overrides };
 }
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });

@@ -17,3 +17,16 @@ export function classifySessionError(error: unknown): SessionFailure {
 export function retriesByItself(failure: SessionFailure): boolean {
   return failure.kind === "connectivity" || failure.kind === "unavailable";
 }
+
+// The finish of a session that is recorded on this device and owed to the server (E22): the run is complete here, the result is confirmed only after the
+// server answers. It is shown in the place of a plain failure when the finish could not leave the device because of the connection or an unavailable
+// free server (PWA-design 6). It is not an error: it is never classified from an exception, and nothing about the session is lost.
+export type FinishPending = { kind: "finish_pending" };
+
+export const FINISH_PENDING: FinishPending = { kind: "finish_pending" };
+
+// Only a failure that is the connection's or the free server's own counts as "later": anything else (a throttle, a conflict, an internal error) says
+// something the learner has to see as it is.
+export function leavesFinishPending(failure: SessionFailure): boolean {
+  return failure.kind === "connectivity" || failure.kind === "unavailable";
+}

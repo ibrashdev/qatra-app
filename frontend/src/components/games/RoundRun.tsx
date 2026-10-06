@@ -4,13 +4,12 @@ import { LearningCue } from "@/components/learning-cue";
 import type { Ref } from "react";
 import { QuestionView, questionPrompt, type HintEffect, type QuestionError, type QuestionResult, type QuestionViewHandle, type TextKind } from "@/components/questions";
 import type { RunBackend } from "@/components/session/run-backend";
-import { SessionFailureBanner } from "@/components/session/SessionBanners";
+import { OfflineRunLines, SessionFailureBanner } from "@/components/session/SessionBanners";
 import { Banner } from "@/components/ui/Banner";
 import { Button } from "@/components/ui/Button";
 import { gamesMessages } from "@/i18n/games-messages";
 import { useLocale } from "@/i18n/LocaleProvider";
 import { questionMessages } from "@/i18n/question-messages";
-import { sessionMessages } from "@/i18n/session-messages";
 import { useWakeUpState } from "@/lib/api/react";
 import type { AnswerPayload, Question } from "@/lib/api/types";
 import { reloadPage } from "@/lib/browser";
@@ -44,7 +43,6 @@ export function RoundRun({
   const { locale } = useLocale();
   const t = gamesMessages(locale);
   const copy = t.games[round.gameType];
-  const session = sessionMessages(locale);
   const { online } = useConnectivity();
   const wake = useWakeUpState();
   const run = useGameRound({ round, questions, backend });
@@ -78,7 +76,7 @@ export function RoundRun({
     ) : revoked ? (
       <Banner variant="warning">{t.unavailable.text}</Banner>
     ) : run.sync !== null ? (
-      <SessionFailureBanner failure={run.sync} online={online} waking={waking} onRetry={run.retrySync} onRefresh={reloadPage} />
+      <SessionFailureBanner failure={run.sync} online={online} waking={waking} onRetry={run.retrySync} onRefresh={reloadPage} durability={run.durability} />
     ) : backend !== undefined ? (
       // Offline round: the answers are on the device and are verified at the next sync, so the line is the fixed one, not «سنعيد المحاولة».
       backend.banner === null ? null : (
@@ -86,8 +84,7 @@ export function RoundRun({
       )
     ) : !online ? (
       <Banner variant="info">
-        <p>{session.banners.offlineQueue}</p>
-        <p className="mt-q4">{session.banners.keepOpen}</p>
+        <OfflineRunLines durability={run.durability} />
       </Banner>
     ) : null;
 

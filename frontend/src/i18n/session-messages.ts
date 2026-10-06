@@ -28,7 +28,7 @@ export interface SessionMessages {
   question: { counter: (k: number, n: number, locale: Locale) => string; streak: (count: number, goal: number, locale: Locale) => string; skipped: string };
   primary: { check: string; next: string; finish: string; finishing: string; retry: string };
   pauseSheet: { title: string; body: string; keepGoing: string; leave: string; saving: string; failed: string; retry: string };
-  banners: { offlineQueue: string; keepOpen: string; planInactive: string; backToToday: string; tooLarge: string };
+  banners: { offlineQueue: string; keepOpen: string; storageProblem: string; finishPending: string; planInactive: string; backToToday: string; tooLarge: string };
   empty: { text: string; action: string };
 }
 
@@ -76,6 +76,10 @@ const ar: SessionMessages = {
     offlineQueue: "لا يوجد اتصال بالشبكة. سنعيد المحاولة تلقائيًا، أو اضغط «إعادة المحاولة».",
     // Proposed best-practice text (D93): the answers of an online run wait in this page's memory, not on the device.
     keepOpen: "إجاباتك محفوظة في هذه الصفحة فقط إلى أن تُرسل، فلا تُعِد تحميلها ولا تغلقها.",
+    // Proposed best-practice text (D93): the device could not store the answers of an online run, so they live in this page's memory only.
+    storageProblem: "تعذّر الحفظ على هذا الجهاز، فإجاباتك في هذه الصفحة فقط إلى أن تُرسل.",
+    // Proposed best-practice text (D93): the finish is recorded on the device and owed to the server; the confirmed result comes only after E22 answers.
+    finishPending: "انتهت الجلسة على هذا الجهاز. ستُعتمد نتيجتها بعد عودة الاتصال.",
     planInactive: "هذه الخطة غير نشطة.",
     backToToday: "العودة إلى اليوم",
     tooLarge: "تعذّر إرسال الطلب لأنه أكبر من الحد المسموح.",
@@ -126,6 +130,8 @@ const en: SessionMessages = {
   banners: {
     offlineQueue: "There is no network connection. We will try again automatically, or press “Try again”.",
     keepOpen: "Your answers are kept on this page only until they are sent. Do not reload or close it.",
+    storageProblem: "Saving on this device failed, so your answers are kept on this page only until they are sent.",
+    finishPending: "The session is finished on this device. Its result will be confirmed when the connection is back.",
     planInactive: "This plan is not active.",
     backToToday: "Back to Today",
     tooLarge: "The request could not be sent because it is larger than the allowed limit.",

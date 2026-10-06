@@ -44,6 +44,9 @@ export interface StubState {
   rejected: Record<string, string>;
   eventLog: { sessionId: string; clientEventId: string; type: string; localSequence: number; clientRunId: string; snapshotId: string; occurredAt: string }[];
   batches: number;
+  duplicates: number;
+  completions: { sessionId: string; key: string | null }[];
+  onlineSessionId: string | null;
   snapshots: number;
   snapshotIds: string[];
   sessionIds: string[];
