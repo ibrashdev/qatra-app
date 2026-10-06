@@ -8,6 +8,7 @@ export { MOCK_QUESTION_IDS, MOCK_RECALL_WORD, mockSessionSnapshot, sessionMockHa
 export { MOCK_OFFLINE_USER_ID, buildMockPlanSnapshot, mockOfflineControl, offlineMockHandlers, type MockOfflineControl } from "./offline-handlers";
 export { placementMockHandlers, withPlacementMock } from "./placement-handlers";
 export { withGameMock, mockGameQuestions, MOCK_GAME_SESSION_PREFIX, type GameMockOptions } from "./game-handlers";
+export { adminMockHandlers, MOCK_ADMIN } from "./admin-handlers";
 export { accountMockHandlers, MOCK_OLD_TERMS_VERSION, MOCK_RECOVERY_RESET, MOCK_RECOVERY_VERIFY, MOCK_REPLACEMENT_CODE } from "./account-handlers";
 export { MOCK_CHAT_GOALS, MOCK_CHAT_TEXTS, MOCK_FALLBACK, MOCK_QUICK_REPLIES, MOCK_REDIRECT, MOCK_REFUSAL } from "./plan-chat-fixtures";
 export {
