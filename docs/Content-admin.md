@@ -22,7 +22,7 @@ D91 amends, for this web admin only: D43 and D70 (the manager UI is no longer co
 - Editing verbatim source text, tokens, hashes, references, units, passages, lessons or question items. A correction is a new edition through the CLI workflow (D44, API-spec §5).
 - `approve` and `publish`: they stay owner-typed CLI steps (API-spec §5.2, D71, D83).
 - Any database migration, new role, grant, view or function.
-- Any model call. AI never writes or edits content (D20, D22, D43).
+- Any model call. The web admin never asks a model to write or edit content (D20, D22, D43); the AI question proposals of D92 belong to the CLI workflow, where they are checked and reviewed before the bank is built, and are not part of this admin.
 
 ## 2. Access and security
 
@@ -148,7 +148,7 @@ Every destructive confirmation is an alert dialog whose safe choice (Cancel) tak
 
 ## 7. AI
 
-AI takes no part in content administration. The card on AD-01 only reports configuration and counters: whether the plan-conversation model is on for learners (`QATRA_CHAT_MODEL_FOR_LEARNERS`), whether a provider key is configured (yes or no, never the key), the configured free model ids (`OPENROUTER_MODELS`), the daily cap (`QATRA_OPENROUTER_FREE_REQUESTS_PER_DAY`) and the counted requests today and in the last minute from the in-process ledger (reset when the server restarts). The rules engine stays the permanent fallback (D60). No `ai_usage` read is added (that would need a grant).
+The web admin makes no model call and AI takes no part in its actions. The card on AD-01 only reports configuration and counters: whether the plan-conversation model is on for learners (`QATRA_CHAT_MODEL_FOR_LEARNERS`), whether a provider key is configured (yes or no, never the key), the configured free model ids (`OPENROUTER_MODELS`), the daily cap (`QATRA_OPENROUTER_FREE_REQUESTS_PER_DAY`) and the counted requests today and in the last minute from the in-process ledger (reset when the server restarts). The rules engine stays the permanent fallback (D60). No `ai_usage` read is added (that would need a grant).
 
 ## 8. Known limits
 

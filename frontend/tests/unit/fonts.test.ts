@@ -5,7 +5,7 @@ import { inflateSync } from "node:zlib";
 import { describe, expect, it } from "vitest";
 
 // Re-checks the coverage claim of docs/UI-tokens.md 3.2 against the installed Fontsource packages:
-// Amiri Quran and Amiri contain the six Uthmani marks, Cairo contains none. Coverage only; shaping is
+// Scheherazade New contains the six Uthmani marks, Cairo contains none. Coverage only; shaping is
 // checked by the Playwright screenshots (tests/e2e/fonts.spec.ts).
 const MARKS = { U06E1: 0x06e1, U06E5: 0x06e5, U06E6: 0x06e6, U06E2: 0x06e2, U06ED: 0x06ed, U06DF: 0x06df };
 
@@ -61,13 +61,8 @@ function cmapCodePoints(woff: Buffer): Set<number> {
 }
 
 describe("original-text fonts (UI-tokens 3.1 and 3.2), checked in the installed packages", () => {
-  it("Amiri Quran contains all six Uthmani marks", () => {
-    const points = cmapCodePoints(readWoff("@fontsource/amiri-quran", "amiri-quran-arabic-400-normal.woff"));
-    for (const [name, code] of Object.entries(MARKS)) expect(points.has(code), name).toBe(true);
-  });
-
-  it("Amiri contains all six Uthmani marks", () => {
-    const points = cmapCodePoints(readWoff("@fontsource/amiri", "amiri-arabic-400-normal.woff"));
+  it("Scheherazade New contains all six Uthmani marks", () => {
+    const points = cmapCodePoints(readWoff("@fontsource/scheherazade-new", "scheherazade-new-arabic-400-normal.woff"));
     for (const [name, code] of Object.entries(MARKS)) expect(points.has(code), name).toBe(true);
   });
 
@@ -78,17 +73,16 @@ describe("original-text fonts (UI-tokens 3.1 and 3.2), checked in the installed 
     }
   });
 
-  it("the two original-text families are declared with font-display block and no other source than the package files", () => {
+  it("the original-text family is declared with font-display block and no other source than the package file", () => {
     const css = readFileSync(new URL("../../src/styles/fonts.css", import.meta.url), "utf8");
     const faces = css.match(/@font-face\s*\{[^}]*\}/g) ?? [];
-    expect(faces).toHaveLength(2);
+    expect(faces).toHaveLength(1);
     for (const face of faces) {
       expect(face).toMatch(/font-display:\s*block/);
-      expect(face).toMatch(/url\("\.\.\/\.\.\/node_modules\/@fontsource\/amiri(-quran)?\/files\/[^"]+\.woff2"\)/);
+      expect(face).toMatch(/url\("\.\.\/\.\.\/node_modules\/@fontsource\/scheherazade-new\/files\/[^"]+\.woff2"\)/);
       expect(face).not.toMatch(/https?:/);
     }
-    expect(css).toContain('font-family: "Amiri Quran"');
-    expect(css).toContain('font-family: "Amiri"');
+    expect(css).toContain('font-family: "Scheherazade New"');
   });
 
   it("the layout imports only the subset entry files of the Fontsource packages (no font CDN)", () => {

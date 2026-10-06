@@ -8,7 +8,7 @@ from uuid import UUID
 import pytest
 
 from app.config import Settings
-from app.contracts_plan_chat import PlanParameters, TargetScope
+from app.contracts_plan_chat import DailyNew, PlanParameters, TargetScope
 from app.domain import plan_chat_policy as policy
 from app.domain import plan_chat_templates as templates
 from app.providers.llm import ModelContext
@@ -400,6 +400,132 @@ def test_numbers_that_contradict_the_proposal_are_replaced_or_the_reply_is_templ
     assert not stray.ok and stray.text == templates.templated_reply(proposal, "en")
     allowed = policy.guard_reply("That is 8 days with 10 minutes daily.", proposal, "en")
     assert allowed.ok and not allowed.replaced_numbers
+
+
+# --- the daily amount in whole units (D92) ---
+
+
+def with_daily(daily: DailyNew | None):
+    proposal = proposal_fixture()
+    return proposal.model_copy(
+        update={"estimate": proposal.estimate.model_copy(update={"daily_new": daily})}
+    )
+
+
+@pytest.mark.parametrize(
+    "daily,ar,en",
+    [
+        (DailyNew(unit="ayah", per_day=1), "آية جديدة في اليوم", "a new ayah each day"),
+        (DailyNew(unit="ayah", per_day=2), "آيتان جديدتان في اليوم", "2 new ayat each day"),
+        (
+            DailyNew(unit="ayah", per_day=3),
+            "نحو 3 آيات جديدة في اليوم",
+            "about 3 new ayat each day",
+        ),
+        (DailyNew(unit="ayah", per_day=10), "نحو 10 آيات جديدة في اليوم", "about 10 new ayat"),
+        (DailyNew(unit="ayah", per_day=11), "نحو 11 آية جديدة في اليوم", "about 11 new ayat"),
+        (DailyNew(unit="ayah", every_days=2), "آية جديدة كل يومين", "a new ayah every 2 days"),
+        (DailyNew(unit="hadith", per_day=1), "حديث جديد كل يوم", "a new hadith each day"),
+        (DailyNew(unit="hadith", per_day=2), "حديثان جديدان في اليوم", "2 new hadiths each day"),
+        (DailyNew(unit="hadith", per_day=5), "نحو 5 أحاديث جديدة في اليوم", "about 5 new hadiths"),
+        (
+            DailyNew(unit="hadith", per_day=12),
+            "نحو 12 حديثًا جديدًا في اليوم",
+            "about 12 new hadiths",
+        ),
+        (DailyNew(unit="hadith", every_days=1), "حديث جديد كل يوم", "a new hadith every day"),
+        (DailyNew(unit="hadith", every_days=2), "حديث جديد كل يومين", "a new hadith every 2 days"),
+        (DailyNew(unit="hadith", every_days=3), "حديث جديد كل 3 أيام", "every 3 days"),
+        (DailyNew(unit="hadith", every_days=11), "حديث جديد كل 11 يومًا", "every 11 days"),
+    ],
+)
+def test_the_card_states_the_daily_amount_in_whole_units(daily: DailyNew, ar: str, en: str) -> None:
+    proposal = with_daily(daily)
+    for language, expected in (("ar", ar), ("en", en)):
+        sections = templates.build_sections(
+            proposal.estimate,
+            params(),
+            make_quran(),
+            language,
+            reason_code="no_preferred_date",
+            revision=False,
+        )
+        assert expected in sections.daily_time
+        assert "كلمة" not in sections.daily_time and "words" not in sections.daily_time
+
+
+def test_the_card_falls_back_to_the_words_figure_without_a_unit_amount() -> None:
+    proposal = with_daily(None)
+    ar = templates.build_sections(
+        proposal.estimate,
+        params(),
+        make_quran(),
+        "ar",
+        reason_code="no_preferred_date",
+        revision=False,
+    )
+    en = templates.build_sections(
+        proposal.estimate,
+        params(),
+        make_quran(),
+        "en",
+        reason_code="no_preferred_date",
+        revision=False,
+    )
+    assert "25 كلمة جديدة" in ar.daily_time and "25 new words" in en.daily_time
+
+
+def test_the_guard_accepts_the_proposals_own_ayah_amount_and_rejects_a_mismatch() -> None:
+    proposal = with_daily(DailyNew(unit="ayah", per_day=5))
+    for text in (
+        "You will learn about 5 ayat a day.",
+        "You will learn about 5 verses each day.",
+        "ستتعلم نحو ٥ آيات جديدة في اليوم.",
+        "ستتعلم نحو 5 آية جديدة في اليوم.",
+    ):
+        guarded = policy.guard_reply(text, proposal, "ar" if "ستتعلم" in text else "en")
+        assert guarded.ok and not guarded.replaced_numbers, text
+        assert guarded.text == text
+    for text in (
+        "You will learn about 9 ayat a day.",
+        "ستتعلم نحو ٩ آيات جديدة في اليوم.",
+        "You will learn 5 hadith a day.",  # the right number for the wrong unit
+    ):
+        guarded = policy.guard_reply(text, proposal, "ar" if "ستتعلم" in text else "en")
+        assert not guarded.ok and guarded.reason == "number_mismatch", text
+        assert guarded.text == templates.templated_reply(
+            proposal, "ar" if "ستتعلم" in text else "en"
+        )
+
+
+def test_the_guard_accepts_a_hadith_every_n_days_and_rejects_another_pace() -> None:
+    proposal = with_daily(DailyNew(unit="hadith", every_days=3))
+    ok = policy.guard_reply("You get 1 hadith every 3 days.", proposal, "en")
+    assert ok.ok and not ok.replaced_numbers and "every 3 days" in ok.text
+    arabic = policy.guard_reply("ستتعلم حديثًا جديدًا كل ٣ أيام.", proposal, "ar")
+    assert arabic.ok and not arabic.replaced_numbers
+    assert not policy.guard_reply("You get 2 hadith every 3 days.", proposal, "en").ok
+    wrong_unit = policy.guard_reply("You get 1 ayah every 3 days.", proposal, "en")
+    assert not wrong_unit.ok and wrong_unit.reason == "number_mismatch"
+    # a day count that is not the pace is still replaced by the plan's own number of days
+    other = policy.guard_reply("You get 1 hadith every 5 days.", proposal, "en")
+    assert other.ok and other.replaced_numbers and "every 8 days" in other.text
+
+
+def test_the_guard_rejects_unit_numbers_when_the_estimate_has_none() -> None:
+    proposal = with_daily(None)
+    guarded = policy.guard_reply("You will learn 3 ayat a day.", proposal, "en")
+    assert not guarded.ok and guarded.reason == "number_mismatch"
+    # the words handling is unchanged
+    assert policy.guard_reply("About 25 words a day.", proposal, "en").ok
+    assert not policy.guard_reply("About 26 words a day.", proposal, "en").ok
+
+
+def test_the_daily_amount_reaches_the_model_payload_and_passes_the_allowlist() -> None:
+    estimate = with_daily(DailyNew(unit="hadith", every_days=2)).estimate
+    payload = {"estimate": estimate.model_dump(by_alias=True, mode="json")}
+    assert payload["estimate"]["dailyNew"] == {"unit": "hadith", "perDay": None, "everyDays": 2}
+    assert policy.find_disallowed_keys(payload) == []
 
 
 # --- payload allowlist ---

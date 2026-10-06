@@ -16,6 +16,7 @@ The committed synthetic **bundles** (`synthetic_bundle*.json`, contract §2.6) a
 | `synthetic_oracle.txt` | `verify --oracle`: one ayah per line as `surah\|ayah\|text`. Lines 1 and 3 carry a trailing ayah number (with U+06DD) that the verifier strips; lines 2 and 4 do not |
 | `synthetic_mcp_quran_response.txt` | the observed `get_quran_verses` layout (`[Surah n, translation "..."]`, one `[EXACT]` block with `[s:a]` markers, a verse line, a **tafsir line that must be dropped**, `Source:` line) |
 | `synthetic_mcp_hadith_response.txt` | the observed `get_hadith` layout (title, `[EXACT]` narration, `[ATTRIBUTION]` with `Narrator:`/`Grade:`, a `[COMMENTARY]` block that must be ignored, `Source:` line, a languages sentence) |
+| `live_framing/synthetic_mcp_hadith_response_live_framing.txt` | the same synthetic hadith in the live `get_hadith` framing (5 October 2026): a banner line (`──── RETRIEVED FROM … ────`) first, an English reminder line **inside** `[EXACT]` before the Arabic narration, and a closing banner. The parser must drop the framing and never store it. It sits in a sub-folder because it has English and box-drawing text that the placeholder-vocabulary guard of `test_wf_fixtures.py` (top level only) is not meant to scan |
 
 Notes and limits:
 

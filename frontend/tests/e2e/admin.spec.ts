@@ -151,12 +151,15 @@ test.describe("AD-01 to AD-06: Arabic, right to left, on a phone", () => {
     await expect(page.getByText("النص معروض كما في المصدر ولا يمكن تعديله.")).toBeVisible();
     const quran = page.getByText("نص تجريبي للوحدة الأولى");
     await expect(quran).toHaveAttribute("dir", "rtl");
-    await expect(quran).toHaveCSS("font-family", /Amiri Quran/);
+    // Since D92 both faces use Scheherazade New, so the face is told apart by its class.
+    await expect(quran).toHaveClass(/text-quran/);
+    await expect(quran).toHaveCSS("font-family", /Scheherazade New/);
     await expect(page.getByRole("heading", { level: 2, name: "النص الأصلي" }).locator("..").getByRole("textbox")).toHaveCount(0);
 
     await page.goto(`/admin/sections/${S.hidden}`);
     const hadith = page.getByText("نص تجريبي للوحدة الأولى");
-    await expect(hadith).toHaveCSS("font-family", /^Amiri(?! Quran)/);
+    await expect(hadith).toHaveClass(/text-hadith/);
+    await expect(hadith).toHaveCSS("font-family", /Scheherazade New/);
     await expect(page.getByRole("link", { name: "رجوع إلى تفاصيل الطبعة" })).toHaveAttribute("href", `/admin/editions/${E.hidden}`);
   });
 });

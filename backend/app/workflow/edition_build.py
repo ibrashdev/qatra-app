@@ -1,8 +1,12 @@
-"""Runner handlers of ``segment``, ``build-bank`` and ``validate`` (API-spec §5.3, B8).
+"""Runner handlers of ``segment``, ``build-bank`` and ``validate`` (API-spec §5.3, B8), and the
+``propose-questions`` run between ``segment`` and ``build-bank`` (D92).
 
 Files written under ``<build>/<editionKey>/`` (gitignored; they contain source text except
 ``report.md``): ``bundle.json`` (the structure after ``segment``, the full bundle after
-``build-bank``), ``publish.sql`` and ``report.md`` (counts, ids, codes only).
+``build-bank``), ``publish.sql`` and ``report.md`` (counts, ids, codes only). ``propose-questions``
+adds ``question-proposals.json`` (the stored model picks, references only, read by ``build-bank``
+when present) and ``question-proposals.md`` (the owner's review sheet, with source text). It is not
+a ledger step: it writes no job row, and ``build-bank`` records the proposal counts in its summary.
 
 Scope: the three steps follow the scope recorded by ``acquire`` (a sample build covers only what
 was acquired and never expects the whole of Juz' Amma or all 42 hadiths); a full-scope build is
@@ -16,8 +20,10 @@ full bundle, and ``validate`` refuses a ``bundle.json`` that no longer has that.
 
 from __future__ import annotations
 
+import time
 from collections import Counter
 from collections.abc import Callable, Mapping, Sequence
+from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -48,6 +54,15 @@ from app.workflow.lesson_question_builder import build_question_bank
 from app.workflow.models import ContentJob, RawObject, canonical_json, sha256_hex
 from app.workflow.paths import BuildPaths
 from app.workflow.publish_sql import generate_publish_sql
+from app.workflow.question_proposals import (
+    ProposalProvider,
+    ProposalStore,
+    propose_questions,
+    render_review_markdown,
+    render_summary_section,
+    review_store,
+    usage_summary,
+)
 from app.workflow.reports import render_edition_report, write_text
 from app.workflow.runner import StepHandler, StepOutcome
 from app.workflow.segmentation import load_boundaries, segment_hadith, segment_quran
@@ -84,8 +99,10 @@ def _write_outputs(
     skipped: Sequence[Mapping[str, str]],
     now: datetime,
     write_bundle: bool,
+    proposals: Mapping[str, Any] | None = None,
 ) -> None:
-    """Write ``bundle.json`` (optionally), ``publish.sql`` and ``report.md``."""
+    """Write ``bundle.json`` (optionally), ``publish.sql`` and ``report.md``. ``proposals`` is the
+    count summary of a build that used a proposal store (D92); it adds a section to the report."""
     key, bank = bundle["editionKey"], bundle["bankVersion"]
     if write_bundle:
         write_text(paths.bundle_json(key), dumps_bundle(bundle))
@@ -101,10 +118,10 @@ def _write_outputs(
         paths.publish_sql(key),
         generate_publish_sql(bundle, list(rows.values()), review_entries=review),
     )
-    write_text(
-        paths.report_md(key),
-        render_edition_report(bundle, validation=validation, skipped=skipped, generated_at=now),
-    )
+    report = render_edition_report(bundle, validation=validation, skipped=skipped, generated_at=now)
+    if proposals:
+        report = report.rstrip("\n") + "\n\n" + render_summary_section(proposals)
+    write_text(paths.report_md(key), report)
 
 
 def _inflight(
@@ -247,7 +264,10 @@ def make_build_bank_handler(
             raise PreconditionError(
                 "bundle.json no longer has the structure recorded by segment; run segment again"
             )
-        result = build_question_bank(structure_of(bundle))
+        structure = structure_of(bundle)
+        store = ProposalStore.load(proposals_store_path(paths, edition_key))
+        review = review_store(structure, store) if len(store) else None
+        result = build_question_bank(structure, review.picks if review else None)
         full = with_bank(bundle, result.lessons, result.questions)
         digest = bundle_sha256(full)
         counts = {
@@ -255,6 +275,12 @@ def make_build_bank_handler(
             "questions": len(result.questions),
             "skipped": len(result.skipped),
         }
+        proposals = usage_summary(structure, review, result.usage) if review else None
+        if proposals:
+            by = proposals["proposedBy"]
+            counts.update(
+                {"parts_ai": by["ai"], "parts_partial": by["partial"], "parts_rules": by["rules"]}
+            )
         by_type = Counter(
             q["type"] + (f"/{q['variant']}" if q["variant"] else "") for q in result.questions
         )
@@ -266,6 +292,8 @@ def make_build_bank_handler(
             "questionsByType": dict(sorted(by_type.items())),
             "skipped": result.skipped,
         }
+        if proposals:
+            summary["proposals"] = proposals
         now = clock()
         _write_outputs(
             paths,
@@ -276,6 +304,7 @@ def make_build_bank_handler(
             skipped=result.skipped,
             now=now,
             write_bundle=True,
+            proposals=proposals,
         )
         return StepOutcome(
             "succeeded", cursor=cursor, summary=summary, digest=digest, counts=counts
@@ -346,6 +375,7 @@ def make_validate_handler(
             skipped=(built.validation_summary or {}).get("skipped", []),
             now=now,
             write_bundle=False,
+            proposals=(built.validation_summary or {}).get("proposals"),
         )
         if issues:
             raise ValidationFailedError(
@@ -358,3 +388,97 @@ def make_validate_handler(
         )
 
     return handler
+
+
+# --- propose-questions (D92) ---------------------------------------------------------------
+
+
+def proposals_store_path(paths: BuildPaths, edition_key: str) -> Path:
+    return paths.edition_dir(edition_key) / "question-proposals.json"
+
+
+def proposals_report_path(paths: BuildPaths, edition_key: str) -> Path:
+    return paths.edition_dir(edition_key) / "question-proposals.md"
+
+
+@dataclass(frozen=True, slots=True)
+class ProposalRun:
+    """What ``propose-questions`` did: counts and reason codes only (never source text)."""
+
+    dry_run: bool
+    counts: dict[str, int]
+    stopped: str | None = None
+    failures: tuple[tuple[str, str], ...] = ()
+    models: tuple[str, ...] = ()
+    wrote: list[Path] = field(default_factory=list)
+
+
+def run_propose_questions(
+    *,
+    edition_key: str,
+    bank_version: int,
+    jobs: JobRepository,
+    paths: BuildPaths,
+    provider: ProposalProvider | None,
+    timeout_sec: float,
+    max_requests: int,
+    daily_limit: int | None,
+    pause_sec: float,
+    refresh: bool,
+    dry_run: bool,
+    sleep: Callable[[float], None] = time.sleep,
+) -> ProposalRun:
+    """Ask the free model to pick the question words of every passage that has no current stored
+    proposal, then write the store and the owner's review sheet. Needs ``segment``; writes no job
+    row. A passage whose request fails keeps the rules choice at ``build-bank``."""
+    _prior(jobs, edition_key, bank_version, "segmented")
+    bundle = _read_bundle(paths, edition_key)
+    structure = structure_of(bundle)
+    store = ProposalStore.load(proposals_store_path(paths, edition_key))
+    result = propose_questions(
+        structure,
+        provider,
+        store,
+        timeout_sec=timeout_sec,
+        max_requests=max_requests,
+        daily_limit=daily_limit,
+        pause_sec=pause_sec,
+        refresh=refresh,
+        dry_run=dry_run,
+        sleep=sleep,
+    )
+    counts = {
+        "passages": result.passages,
+        "requests": result.requests,
+        "proposed": result.proposed,
+        "reused": result.reused,
+        "failed": result.failed,
+        "deferred": result.deferred,
+    }
+    wrote: list[Path] = []
+    if dry_run:
+        counts["planned"] = result.planned
+    elif len(store):
+        review = review_store(structure, store)
+        usage = {
+            key: {
+                "keyword": "ai" if pick.keyword_ref else "rules",
+                "choice": "ai" if pick.choice_ref else "rules",
+            }
+            for key, pick in review.picks.items()
+        }
+        by = usage_summary(structure, review, usage)["proposedBy"]
+        counts.update(
+            {"parts_ai": by["ai"], "parts_partial": by["partial"], "parts_rules": by["rules"]}
+        )
+        report = proposals_report_path(paths, edition_key)
+        write_text(report, render_review_markdown(structure, review, bank_version=bank_version))
+        wrote = [proposals_store_path(paths, edition_key), report]
+    return ProposalRun(
+        dry_run=dry_run,
+        counts=counts,
+        stopped=result.stopped,
+        failures=tuple(result.failures),
+        models=tuple(sorted(result.models)),
+        wrote=wrote,
+    )

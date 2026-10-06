@@ -18,7 +18,7 @@ from app.middleware import (
     NoStoreMiddleware,
     OriginGuardMiddleware,
 )
-from app.routers import catalog, health, plan_chats, plans
+from app.routers import catalog, health, lessons, plan_chats, plans
 from app.routers.auth import install_auth
 from app.wiring import install_content_admin, install_learning_core
 
@@ -72,6 +72,7 @@ def create_app(
     app.include_router(catalog.router)
     app.include_router(plans.router)
     app.include_router(plan_chats.router)
+    app.include_router(lessons.router)
     return app
 
 

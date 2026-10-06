@@ -7,7 +7,7 @@ import { formatPosition, questionMessages } from "@/i18n/question-messages";
 import { cx } from "@/lib/cx";
 import type { AnswerPayload, TokenRef, TokenView, WordOrderQuestion } from "@/lib/api/types";
 import { ErrorLine } from "./ErrorLine";
-import { ContextSide, originalFontClass } from "./OriginalText";
+import { Blank, ContextLine, originalFontClass } from "./OriginalText";
 import { errorMessage, orderOf } from "./question-logic";
 import type { HintEffect, QuestionError, QuestionResult, TextKind } from "./types";
 import { useRoving } from "./use-roving";
@@ -15,7 +15,8 @@ import { useRoving } from "./use-roving";
 const CHIP_BASE =
   "inline-flex min-h-target min-w-target items-center justify-center gap-q8 rounded-sm py-q8 text-token transition-[color,background-color,border-color] duration-(--q-duration-fast)";
 
-// S-15: the learner puts the words of one part back in the book's order by tapping. A tap places a pool chip or removes a placed one; undo
+// S-15: the learner puts the words of one part back in the book's order by tapping. The whole passage stands above with a dashed place where the part
+// goes (D92); the answer line and the tiles below are where the part is built. A tap places a pool chip or removes a placed one; undo
 // removes the last unlocked chip. There is no drag in this build, so the tap path is the only path (WCAG 2.5.7).
 export function WordOrder({
   question,
@@ -116,7 +117,7 @@ export function WordOrder({
       <p id={helperId} className="text-small text-ink-secondary">
         {messages.helpers.wordOrder}
       </p>
-      <ContextSide tokens={question.context.before} textKind={textKind} />
+      {question.context.before.length + question.context.after.length > 0 ? <ContextLine context={question.context} textKind={textKind} slot={<Blank part />} /> : null}
 
       <div role="group" aria-label={messages.groups.answerLine} aria-describedby={error !== null ? errorId : undefined}>
         <ol dir="rtl" lang="ar" className="flex min-h-tile flex-wrap gap-q8 rounded-md border border-edge bg-surface p-q8">
@@ -166,8 +167,6 @@ export function WordOrder({
           })}
         </ol>
       </div>
-
-      <ContextSide tokens={question.context.after} textKind={textKind} />
 
       <div role="group" aria-label={messages.groups.pool} dir="rtl" lang="ar" className="flex flex-wrap gap-q8">
         {question.tokens.map((token) => {

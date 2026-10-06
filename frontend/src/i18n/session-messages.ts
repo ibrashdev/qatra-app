@@ -21,7 +21,6 @@ export interface SessionMessages {
     hiddenAnnounce: string;
     shownAnnounce: string;
     textLabel: string;
-    paths: { quran: string; matn: string; sanad: string; grade: string };
     takhrij: string;
     grade: string;
     notStated: string;
@@ -54,9 +53,8 @@ const ar: SessionMessages = {
     hiddenAnnounce: "تم إخفاء النص",
     shownAnnounce: "تم إظهار النص",
     textLabel: "نص المقطع",
-    paths: { quran: "القرآن", matn: "متن", sanad: "سند", grade: "الدرجة" },
-    takhrij: "التخريج من سجل HadeethEnc:",
-    grade: "الدرجة من سجل HadeethEnc:",
+    takhrij: "التخريج:",
+    grade: "درجة الحديث:",
     notStated: "غير مذكور في النسخة",
   },
   question: {
@@ -104,9 +102,8 @@ const en: SessionMessages = {
     hiddenAnnounce: "The text is hidden",
     shownAnnounce: "The text is shown",
     textLabel: "Passage text",
-    paths: { quran: "Quran", matn: "Matn", sanad: "Sanad", grade: "Grade" },
-    takhrij: "Takhrij from the HadeethEnc record:",
-    grade: "Grade from the HadeethEnc record:",
+    takhrij: "Takhrij:",
+    grade: "Hadith grade:",
     notStated: "Not stated in the edition",
   },
   question: {

@@ -1,12 +1,12 @@
 export { AnswerFeedback } from "./AnswerFeedback";
 export { AssistedChip } from "./AssistedChip";
 export { HintControl } from "./HintControl";
-export { Blank, ContextLine, ContextSide, OriginalText, originalFontClass } from "./OriginalText";
+export { AyahEndMark, Blank, ContextLine, OriginalText, PassageRuns, originalFontClass } from "./OriginalText";
 export { QuestionSource } from "./QuestionSource";
 export { QuestionView, type QuestionViewProps } from "./QuestionView";
 export { Recall } from "./Recall";
 export { SimilarDistinction } from "./SimilarDistinction";
 export { WordChoice } from "./WordChoice";
 export { WordOrder } from "./WordOrder";
-export { errorMessage, expectedOriginal, finalizeAnswer, questionPrompt, resolveHint, validateAnswer, type PromptOptions } from "./question-logic";
+export { errorMessage, expectedFiller, expectedOriginal, finalizeAnswer, questionPrompt, resolveHint, validateAnswer, type PromptOptions } from "./question-logic";
 export type { HintEffect, QuestionError, QuestionErrorKind, QuestionResult, QuestionViewHandle, TextKind } from "./types";

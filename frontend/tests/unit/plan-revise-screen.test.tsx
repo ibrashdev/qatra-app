@@ -86,7 +86,7 @@ describe("S-13 Plan revision: the entry", () => {
 
     const goal = await screen.findByRole("region", { name: "الهدف الكلي" });
     expect(goal).toHaveTextContent("عنوان الكتاب (عنصر نائب) · تسمية الطبعة (عنصر نائب)");
-    expect(screen.getByRole("region", { name: "الزمن اليومي" })).toHaveTextContent("١٠ دقائق يوميًا، وحتى ٢٥ كلمة جديدة في اليوم.");
+    expect(screen.getByRole("region", { name: "الزمن اليومي" })).toHaveTextContent("١٠ دقائق يوميًا، ونحو ٣ آيات جديدة في اليوم.");
 
     expect(screen.getByText(/^تُعدَّل الخطة بالحديث مع المساعد: أقل دقائق، موعد أبعد، مسارات الحديث، أو ترتيب جزء عم\./)).toBeInTheDocument();
     expect(screen.getByText("يمكنك التعديل بالاختصارات وحدها دون كتابة نص حر.")).toBeInTheDocument();
@@ -413,7 +413,7 @@ describe("S-13 Plan revision: the structured form (E15 and E17)", () => {
     });
     const preview = screen.getByRole("region", { name: "التقدير الجديد" });
     expect(preview).toHaveTextContent("نحو ٣ أيام، حتى ٨ أكتوبر ٢٠٢٦");
-    expect(preview).toHaveTextContent("١٥ دقيقة يوميًا، وحتى ٤٠ كلمة جديدة");
+    expect(preview).toHaveTextContent("١٥ دقيقة يوميًا، ونحو ٧ آيات جديدة في اليوم");
     expect(preview).toHaveTextContent("عند الاعتماد يسري التعديل من يوم التعلم التالي.");
     expect(preview).toHaveTextContent("يناسب هذا التقدير موعدك المفضل.");
     expect(within(preview).getByText("الزمن الكلي")).toBeInTheDocument();
@@ -678,7 +678,7 @@ describe("S-13 Plan revision: the form in English", () => {
     await user.click(calculateButton());
     const preview = await screen.findByRole("region", { name: "New estimate" });
     expect(preview).toHaveTextContent("about 3 days, until October 8, 2026");
-    expect(preview).toHaveTextContent("15 minutes a day, up to 40 new words");
+    expect(preview).toHaveTextContent("15 minutes a day, about 7 new ayat a day");
     expect(preview).toHaveTextContent("This estimate fits your preferred date.");
     await user.click(screen.getByRole("button", { name: "Confirm the change" }));
     expect(await screen.findByRole("dialog", { name: "Confirm the change?" })).toHaveTextContent("It takes effect from the next learning day.");

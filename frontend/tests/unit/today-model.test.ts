@@ -1,6 +1,7 @@
 ﻿import { describe, expect, it } from "vitest";
 import { classifyTodayError, isAlertFailure } from "@/components/today/today-failure";
 import { addDays, currentStage, daysBetween, formatLearningDate, inactivePlan, isReturnAfterAbsence, minutesOf, pendingMinutes, upcomingReviewDate } from "@/components/today/today-model";
+import { dailyAmountText } from "@/i18n/daily-amount";
 import { todayMessages } from "@/i18n/today-messages";
 import { ApiError, ConnectivityError } from "@/lib/api/errors";
 import { mockToday } from "@/lib/api/mock/fixtures";
@@ -160,10 +161,11 @@ describe("S-11 catalog", () => {
     expect(en).not.toContain(dash);
   });
 
-  it("builds the plural nouns of the minutes and words line", () => {
+  it("builds the plural nouns of the minutes and the amount line", () => {
     const { daily } = todayMessages("ar");
-    expect(daily.text("٥", 5, "٢٥", 25)).toBe("٥ دقائق يوميًا، وحتى ٢٥ كلمة جديدة في اليوم");
-    expect(daily.text("١٥", 15, "٨", 8)).toBe("١٥ دقيقة يوميًا، وحتى ٨ كلمات جديدة في اليوم");
-    expect(todayMessages("en").daily.text("10", 10, "1", 1)).toBe("10 minutes a day, up to 1 new word a day");
+    expect(daily.text("٥", 5, dailyAmountText("ar", { newWordsPerDay: 25 }))).toBe("٥ دقائق يوميًا، وحتى ٢٥ كلمة جديدة في اليوم");
+    expect(daily.text("١٥", 15, dailyAmountText("ar", { newWordsPerDay: 8 }))).toBe("١٥ دقيقة يوميًا، وحتى ٨ كلمات جديدة في اليوم");
+    expect(todayMessages("en").daily.text("10", 10, dailyAmountText("en", { newWordsPerDay: 1 }))).toBe("10 minutes a day, up to 1 new word a day");
+    expect(daily.text("١٥", 15, dailyAmountText("ar", { newWordsPerDay: 40, dailyNew: { unit: "ayah", perDay: 3, everyDays: null } }))).toBe("١٥ دقيقة يوميًا، ونحو ٣ آيات جديدة في اليوم");
   });
 });

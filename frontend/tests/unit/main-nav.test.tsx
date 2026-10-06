@@ -1,4 +1,5 @@
 import { render } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const navigation = vi.hoisted(() => ({ pathname: "/today" as string | null }));
@@ -39,11 +40,11 @@ describe("main navigation: tab icons (FC-01)", () => {
     );
   }
 
-  it("gives each of the four tabs one decorative icon above its label, and keeps the labels, the order and the names", () => {
+  it("gives each of the five tabs one decorative icon above its label, and keeps the labels, the order and the names", () => {
     const { container } = renderBar("/games");
     const links = Array.from(container.querySelectorAll("a"));
-    expect(links.map((link) => link.getAttribute("href"))).toEqual(["/today", "/games", "/progress", "/settings"]);
-    expect(links.map((link) => link.textContent)).toEqual(["اليوم", "الألعاب", "التقدم", "الإعدادات"]);
+    expect(links.map((link) => link.getAttribute("href"))).toEqual(["/today", "/lessons", "/games", "/progress", "/settings"]);
+    expect(links.map((link) => link.textContent)).toEqual(["اليوم", "الدروس", "الألعاب", "التقدم", "الإعدادات"]);
     for (const link of links) {
       const icons = link.querySelectorAll("svg");
       expect(icons).toHaveLength(1);
@@ -56,15 +57,27 @@ describe("main navigation: tab icons (FC-01)", () => {
   it("uses a different glyph for each destination", () => {
     const { container } = renderBar("/today");
     const shapes = Array.from(container.querySelectorAll("a svg")).map((svg) => svg.innerHTML);
-    expect(new Set(shapes).size).toBe(4);
+    expect(new Set(shapes).size).toBe(5);
   });
 
   it("draws the active icon at stroke 2 with the 3 px top rule and aria-current, the others at 1.5", () => {
     const { container } = renderBar("/progress");
     const links = Array.from(container.querySelectorAll("a"));
-    expect(links.map((link) => link.querySelector("svg")?.getAttribute("stroke-width"))).toEqual(["1.5", "1.5", "2", "1.5"]);
-    expect(links.map((link) => link.getAttribute("aria-current"))).toEqual([null, null, "page", null]);
-    expect(links[2]).toHaveClass("border-t-[3px]", "border-primary");
+    expect(links.map((link) => link.querySelector("svg")?.getAttribute("stroke-width"))).toEqual(["1.5", "1.5", "1.5", "2", "1.5"]);
+    expect(links.map((link) => link.getAttribute("aria-current"))).toEqual([null, null, null, "page", null]);
+    expect(links[3]).toHaveClass("border-t-[3px]", "border-primary");
+  });
+
+  it("reaches the five tabs with the keyboard, in the order of the bar, each as a link with the name of its label (D92)", async () => {
+    const user = userEvent.setup();
+    const { container } = renderBar("/lessons");
+    const visited: string[] = [];
+    for (let step = 0; step < 5; step += 1) {
+      await user.tab();
+      visited.push(`${document.activeElement?.getAttribute("href")} ${document.activeElement?.textContent}`);
+    }
+    expect(visited).toEqual(["/today اليوم", "/lessons الدروس", "/games الألعاب", "/progress التقدم", "/settings الإعدادات"]);
+    expect(container.querySelectorAll("a[aria-current='page']")).toHaveLength(1);
   });
 
   it("keeps the 4 rem bar height as a floor and the safe-area inset on the bar, not a fixed frame size", () => {
@@ -83,6 +96,19 @@ describe("main navigation: tab icons (FC-01)", () => {
 describe("main navigation: the active tab", () => {
   it("marks the tab of the current path, in the bar and in the rail", () => {
     expect(activeTabs("/today")).toEqual(["/today", "/today"]);
+  });
+
+  it("marks the lessons tab on the list and on the reader of a section (D92), in the bar and in the rail", () => {
+    expect(activeTabs("/lessons")).toEqual(["/lessons", "/lessons"]);
+    document.body.innerHTML = "";
+    expect(activeTabs("/lessons/3")).toEqual(["/lessons", "/lessons"]);
+  });
+
+  it("marks no tab on a lookalike of the lessons path", () => {
+    for (const path of ["/lessonsx", "/lesson/3", "/lessons-old"]) {
+      document.body.innerHTML = "";
+      expect(activeTabs(path), path).toEqual([]);
+    }
   });
 
   it("keeps the progress tab for its own path", () => {

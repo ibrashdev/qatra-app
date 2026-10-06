@@ -87,7 +87,8 @@ describe("S-11 Plan and today: the five sections", () => {
     expect(goal).toHaveTextContent("عنوان الكتاب (عنصر نائب) · الموعد ٢٠ أكتوبر ٢٠٢٦");
 
     const daily = screen.getByRole("region", { name: "الزمن اليومي" });
-    expect(daily).toHaveTextContent("١٠ دقائق يوميًا، وحتى ٢٥ كلمة جديدة في اليوم");
+    expect(daily).toHaveTextContent("١٠ دقائق يوميًا، ونحو ٣ آيات جديدة في اليوم");
+    expect(daily).not.toHaveTextContent("كلمة");
     expect(daily).toHaveTextContent("الإنجاز اليومي");
     expect(daily).toHaveTextContent("٧/١٠ دقائق، ٧٠٪");
     expect(within(daily).getByRole("link", { name: "تعديل الوقت والهدف" })).toHaveAttribute("href", "/plan/revise");
@@ -152,13 +153,30 @@ describe("S-11 Plan and today: the five sections", () => {
     expect(screen.queryByText("الإنجاز الكلي للخطة")).toBeNull();
   });
 
+  it("tells the daily amount in whole units, one hadith every two days, and falls back to words without a unit amount (D92)", async () => {
+    const estimate = (mockToday.plan as Plan).agreedEstimate;
+    const planWith = (dailyNew: NonNullable<Plan["agreedEstimate"]["dailyNew"]> | null) => withPlan({ agreedEstimate: { ...estimate, dailyNew } });
+    const hadith = { unit: "hadith", perDay: null, everyDays: 2 } as const;
+    const first = renderToday({ handlers: { "GET /today": todayWith({ plan: planWith(hadith) }) } });
+    expect(await screen.findByRole("region", { name: "الزمن اليومي" })).toHaveTextContent("١٠ دقائق يوميًا، وحديث جديد كل يومين");
+    first.unmount();
+    const second = renderToday({ language: "en", handlers: { "GET /today": todayWith({ plan: planWith(hadith) }) } });
+    expect(await screen.findByRole("region", { name: "Daily time" })).toHaveTextContent("10 minutes a day, a new hadith every 2 days");
+    second.unmount();
+    const third = renderToday({ handlers: { "GET /today": todayWith({ plan: planWith(null) }) } });
+    expect(await screen.findByRole("region", { name: "الزمن اليومي" })).toHaveTextContent("١٠ دقائق يوميًا، وحتى ٢٥ كلمة جديدة في اليوم");
+    third.unmount();
+    renderToday({ language: "en", handlers: { "GET /today": todayWith({ plan: planWith(null) }) } });
+    expect(await screen.findByRole("region", { name: "Daily time" })).toHaveTextContent("10 minutes a day, up to 25 new words a day");
+  });
+
   it("is written in English and left to right for the English interface", async () => {
     renderToday({ language: "en" });
     expect(await screen.findByRole("heading", { level: 1, name: "Your step today" })).toBeInTheDocument();
     await screen.findByText("Overall goal");
     expect(sectionLabels()).toEqual(["Overall goal", "Daily time", "Stages", "Reviews", "Next step"]);
     expect(screen.getByRole("region", { name: "Overall goal" })).toHaveTextContent("Book title (placeholder) · Target October 20, 2026");
-    expect(screen.getByRole("region", { name: "Daily time" })).toHaveTextContent("10 minutes a day, up to 25 new words a day");
+    expect(screen.getByRole("region", { name: "Daily time" })).toHaveTextContent("10 minutes a day, about 3 new ayat a day");
     expect(screen.getByRole("region", { name: "Daily time" })).toHaveTextContent("7/10 minutes, 70%");
     expect(screen.getByRole("region", { name: "Stages" })).toHaveTextContent("Section placeholder 1");
     expect(screen.getByRole("region", { name: "Reviews" })).toHaveTextContent("Reviews due today: 2");

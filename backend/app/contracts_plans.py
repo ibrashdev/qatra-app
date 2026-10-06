@@ -30,8 +30,19 @@ class TargetScopeInput(RequestModel):
     section_ordinals: list[StrictInt]
 
 
+class DailyNewInput(RequestModel):
+    """The ``dailyNew`` of an echoed estimate (D92). Optional and never compared: it is derived
+    from the same inputs as the other fields, so a client that predates it, or one that echoes a
+    stale value, is judged on the nine compared fields alone."""
+
+    unit: Literal["ayah", "hadith"]
+    per_day: StrictInt | None = None
+    every_days: StrictInt | None = None
+
+
 class EstimateInput(RequestModel):
-    """A ``confirmedEstimate`` as the client echoes it (the nine fields of ``Estimate``)."""
+    """A ``confirmedEstimate`` as the client echoes it (the nine compared fields of ``Estimate``,
+    plus the optional ``dailyNew``)."""
 
     days: StrictInt
     end_date: date
@@ -42,6 +53,7 @@ class EstimateInput(RequestModel):
     session_minutes: Literal[5, 10, 15]
     scope: TargetScopeInput
     paths: list[Literal["quran", "matn", "sanad", "grade"]]
+    daily_new: DailyNewInput | None = None
 
     def to_estimate(self) -> Estimate:
         return Estimate(

@@ -20,11 +20,13 @@ from app.repositories.content_admin import (
 )
 from app.repositories.learning import InMemoryLearningStore
 from app.repositories.plan_chats import PlanChatRepository
+from app.routers.lessons import install_lessons
 from app.routers.sessions import install_sessions
 from app.services.content_admin import ContentAdminService
 from app.services.plan_access import PlanServiceAccess, PlanServiceCalendar
 from app.services.plan_chat import PlanChatApi, build_plan_chat_gateway
 from app.services.plans import build_planning_services
+from app.services.progress import PlanServiceDirectory
 
 if TYPE_CHECKING:
     import httpx
@@ -62,6 +64,11 @@ def install_learning_core(
         client=planning.client,
         clock=clock,
         open_chat_lookup=_open_chat_lookup(app),
+    )
+    install_lessons(
+        app,
+        bank=getattr(app.state, "bank_repository", None),
+        plans=None if plans is None else PlanServiceDirectory(plans),
     )
     install_plan_chat(app, settings, clock=clock)
 

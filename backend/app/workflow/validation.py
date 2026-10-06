@@ -18,7 +18,7 @@ from collections.abc import Collection, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
-from app.domain.normalization import tokenize
+from app.domain.normalization import has_latin_letter, tokenize
 from app.workflow.bundle import BUNDLE_VERSION, TOP_LEVEL_KEYS, content_hash
 from app.workflow.bundle_index import BundleIndex, Word, parse_ref, window_key
 from app.workflow.editions import (
@@ -67,6 +67,30 @@ class ValidationReport:
 
 def _has_astral(text: str) -> bool:
     return any(ord(ch) > 0xFFFF for ch in text)
+
+
+# Markers of the Islamic Content MCP envelope. None of them is source text: when one reaches a
+# stored record or a unit, the publisher's framing was kept with the text (a defect, never data).
+_ENVELOPE_MARKERS = (
+    "[EXACT]",
+    "[/EXACT]",
+    "[ATTRIBUTION]",
+    "[/ATTRIBUTION]",
+    "[COMMENTARY]",
+    "[/COMMENTARY]",
+    "RETRIEVED",
+)
+
+
+def non_arabic_source_text(text: str) -> bool:
+    """True when ``text`` (an ayah, narration, takhrij or grade) has a Latin letter, an MCP
+    envelope marker or a box-drawing character. The sources are Arabic only, so any of these
+    means the publisher's framing or a foreign string was stored with the source text."""
+    return (
+        has_latin_letter(text)
+        or any(marker in text for marker in _ENVELOPE_MARKERS)
+        or any(0x2500 <= ord(ch) <= 0x257F for ch in text)
+    )
 
 
 def validate_quran_records(
@@ -151,6 +175,13 @@ def validate_hadith_records(
             if _has_astral(value):
                 report.add("non_bmp_character", ref, "token offsets assume BMP-only text")
                 break
+        texts = (record.narration, record.narrator, record.grade)
+        if any(non_arabic_source_text(value) for value in texts):
+            report.add(
+                "non_arabic_source_text",
+                ref,
+                "the narration, narrator or grade has Latin letters or envelope markers",
+            )
         if not record.grade.strip():
             grade_missing += 1
         if not record.narrator.strip():
@@ -346,6 +377,12 @@ def validate_edition(
             report.add("text_not_nfc", ref, "canonical text is not NFC")
         if any(ord(ch) > 0xFFFF for ch in text):
             report.add("non_bmp_character", ref, "token offsets assume BMP-only text")
+        if non_arabic_source_text(text):
+            report.add(
+                "non_arabic_source_text",
+                ref,
+                "unit text has Latin letters or envelope markers",
+            )
         if unit["textHash"] != sha256_hex(text.encode("utf-8")):
             report.add("text_hash", ref, "textHash does not match the text")
         elif unicodedata.is_normalized("NFC", text):

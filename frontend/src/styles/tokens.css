@@ -41,8 +41,8 @@
   /* Families (3.1); the font files are self-hosted */
   --q-font-ui-ar: "Cairo", "Noto Sans Arabic", "Segoe UI", Tahoma, system-ui, sans-serif;
   --q-font-ui-en: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, Arial, "Cairo", sans-serif;
-  --q-font-quran: "Amiri Quran", "Amiri", "Noto Naskh Arabic", "Traditional Arabic", serif;
-  --q-font-hadith: "Amiri", "Noto Naskh Arabic", "Traditional Arabic", serif;
+  --q-font-quran: "Scheherazade New", "Noto Naskh Arabic", "Traditional Arabic", serif;
+  --q-font-hadith: "Scheherazade New", "Noto Naskh Arabic", "Traditional Arabic", serif;
   --q-font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 
   /* Type scale (3.3): Arabic line heights here, English overrides below */

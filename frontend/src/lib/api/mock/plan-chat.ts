@@ -2,6 +2,8 @@
 // for synthetic data: no model is called, every number comes from this file, and nothing outlives the page.
 import type { ChatMessage, Estimate, ISODate, Path, Plan, PlanChat, PlanOrder, PlanProposal, PlanSections, QuickReply, QuickReplyCode } from "../types";
 import type { MockHandler, MockResponse } from "./handlers";
+import { dailyAmountText } from "@/i18n/daily-amount";
+import { mockDailyNew } from "./daily-new";
 import { mockCatalog, MOCK_PLAN_ID, mockToday } from "./fixtures";
 import {
   MOCK_CHANGED_ELSEWHERE_TEXT,
@@ -106,6 +108,7 @@ function estimateOf(params: Params): Estimate {
     sessionMinutes: params.sessionMinutes,
     scope: { sectionOrdinals: params.scope },
     paths: params.paths,
+    dailyNew: mockDailyNew(sections, days, totalWords),
   };
 }
 
@@ -119,7 +122,10 @@ function sectionsOf(params: Params, estimate: Estimate, language: Language): Pla
     return {
       goal: `إتمام ${n(params.scope.length)} من أقسام «${title}»${reverse ? " بالترتيب العكسي" : ""}.`,
       totalTime: `${n(estimate.days)} يومًا تقريبًا، وتنتهي في ${end}.`,
-      dailyTime: `${n(params.sessionMinutes)} دقائق في اليوم، بنحو ${n(estimate.newWordsPerDay)} كلمة جديدة.`,
+      dailyTime:
+        estimate.dailyNew == null
+          ? `${n(params.sessionMinutes)} دقائق في اليوم، بنحو ${n(estimate.newWordsPerDay)} كلمة جديدة.`
+          : `${n(params.sessionMinutes)} دقائق يوميًا، ${dailyAmountText("ar", estimate)}.`,
       stages: "التعلم، ثم المراجعة، ثم التثبيت.",
       reviews: "مراجعات منتظمة بفواصل تتسع تدريجيًا.",
       nextStep: "ابدأ جلسة اليوم بعد اعتماد الخطة.",
@@ -128,7 +134,10 @@ function sectionsOf(params: Params, estimate: Estimate, language: Language): Pla
   return {
     goal: `Complete ${n(params.scope.length)} section(s) of "${title}"${reverse ? " in reverse order" : ""}.`,
     totalTime: `About ${n(estimate.days)} days, ending on ${end}.`,
-    dailyTime: `${n(params.sessionMinutes)} minutes a day, about ${n(estimate.newWordsPerDay)} new words.`,
+    dailyTime:
+      estimate.dailyNew == null
+        ? `${n(params.sessionMinutes)} minutes a day, about ${n(estimate.newWordsPerDay)} new words.`
+        : `${n(params.sessionMinutes)} minutes a day, ${dailyAmountText("en", estimate)}.`,
     stages: "Learning, then review, then consolidation.",
     reviews: "Regular reviews with gradually wider gaps.",
     nextStep: "Start today's session once the plan is confirmed.",

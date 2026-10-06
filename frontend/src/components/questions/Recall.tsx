@@ -46,7 +46,7 @@ export function Recall({
 
   return (
     <div className="flex flex-col gap-q16">
-      <ContextLine before={question.context.before} after={question.context.after} textKind={textKind} slot={<Blank />} />
+      <ContextLine context={question.context} textKind={textKind} slot={<Blank />} />
       <div>
         <label htmlFor={inputId} className="mb-q8 block text-body-compact font-semibold text-ink">
           {messages.recallLabel}
