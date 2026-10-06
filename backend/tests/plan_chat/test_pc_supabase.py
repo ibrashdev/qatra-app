@@ -471,7 +471,7 @@ def test_a_model_turn_is_counted_and_recorded_through_the_restricted_role(
     assert increment["p_messages"] == [] and increment["p_model_turns_increment"] == 1
 
     (write,) = usage_database.writes
-    assert write == ("openrouter", MODEL_ID, "plan-chat-v1", 11, 4, None, "succeeded", None)
+    assert write == ("openrouter", MODEL_ID, "plan-chat-v2", 11, 4, None, "succeeded", None)
     assert usage_database.connects[0][0] == DSN
     recorded = json.dumps(usage_database.statements, default=str)
     for secret in (str(USER), TOKEN, chat["chatId"], FREE_GOAL):

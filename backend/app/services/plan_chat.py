@@ -40,6 +40,7 @@ from app.contracts_plan_chat import (
     MAX_DAILY_TIME_ITEMS,
     MAX_RECENT_ATTEMPTS,
     PATH_ORDER,
+    SESSION_MINUTES_OPTIONS,
     CatalogEdition,
     ChatMessage,
     CreatePlanChatRequest,
@@ -79,6 +80,8 @@ from app.providers.llm import (
     PROMPT_VERSION,
     EditionSectionView,
     EditionView,
+    FastestPlanView,
+    LimitsView,
     MessageView,
     ModelContext,
     ModelReply,
@@ -200,6 +203,7 @@ class _Turn:
     scope_locked_hit: bool = False
     params_from_model: bool = False
     note: dict[str, Any] = field(default_factory=dict)
+    limits: policy.PlanLimits | None = None  # the fastest plan the model was shown, if any
 
 
 class PlanChatService:
@@ -409,6 +413,28 @@ class PlanChatService:
             attempts=sorted(summary.attempts, key=lambda item: item.date)[-MAX_RECENT_ATTEMPTS:],
         )
 
+    def _plan_limits(
+        self, ctx: SessionContext, params: PlanParameters, placement_id: UUID | None
+    ) -> policy.PlanLimits | None:
+        """The fastest plan the rules allow for the same edition, scope and paths: the largest
+        daily minutes and no preferred date. A failure here never breaks the turn."""
+        try:
+            result = self._planning.estimate(
+                ctx.user_id,
+                params.edition_id,
+                params.target_scope,
+                list(params.paths),
+                max(SESSION_MINUTES_OPTIONS),
+                None,
+                placement_id,
+                params.order,  # type: ignore[arg-type]
+            )
+        except Exception:
+            return None
+        return policy.PlanLimits(
+            max(SESSION_MINUTES_OPTIONS), result.estimate.days, result.estimate.end_date
+        )
+
     def _model_context(
         self,
         ctx: SessionContext,
@@ -416,6 +442,7 @@ class PlanChatService:
         params: PlanParameters,
         edition: CatalogEdition,
         estimate: Estimate,
+        limits: policy.PlanLimits | None = None,
     ) -> ModelContext:
         ar = chat.language == "ar"
         history = chat.messages[-MODEL_CONTEXT_MESSAGES:]
@@ -454,6 +481,16 @@ class PlanChatService:
                 for m in history
             ],
             learning_record=self._learning_record(ctx, chat),
+            limits=LimitsView(
+                session_minutes_options=list(SESSION_MINUTES_OPTIONS),
+                fastest=FastestPlanView(
+                    session_minutes=limits.session_minutes,
+                    days=limits.days,
+                    end_date=limits.end_date.isoformat(),
+                ),
+            )
+            if limits is not None
+            else None,
         )
 
     def _record_usage(
@@ -492,6 +529,7 @@ class PlanChatService:
         today: date,
         *,
         persist: bool = True,
+        placement_id: UUID | None = None,
     ) -> _Turn:
         """One model request for the learner's latest message (already in ``chat.messages``).
 
@@ -506,7 +544,8 @@ class PlanChatService:
             return fallback
         if not policy.caps_allow(self._cap_counts(ctx, chat), self._settings):
             return fallback
-        context = self._model_context(ctx, chat, params, edition, estimate)
+        limits = self._plan_limits(ctx, params, placement_id)
+        context = self._model_context(ctx, chat, params, edition, estimate, limits)
         payload = context.to_payload()
         if policy.find_disallowed_keys(payload):
             return fallback  # defence in depth for NFR-17: never send an unexpected field
@@ -533,11 +572,11 @@ class PlanChatService:
 
         output = reply.output
         if output.intent == "religious":
-            return _Turn("fixed_religious", params, model=reply.model)
+            return _Turn("fixed_religious", params, model=reply.model, limits=limits)
         if output.intent == "out_of_scope":
-            return _Turn("fixed_out_of_scope", params, model=reply.model)
+            return _Turn("fixed_out_of_scope", params, model=reply.model, limits=limits)
         if output.intent == "confirm":
-            return _Turn("confirm", params, model=reply.model)
+            return _Turn("confirm", params, model=reply.model, limits=limits)
 
         patch = output.parameters.as_patch() if output.parameters else {}
         if output.intent == "set_parameters" and patch:
@@ -555,8 +594,9 @@ class PlanChatService:
                 rejected=merged.rejected,
                 scope_locked_hit=scope_hit,
                 params_from_model=bool(merged.accepted),
+                limits=limits,
             )
-        return _Turn("text", params, reply=output.reply, model=reply.model)
+        return _Turn("text", params, reply=output.reply, model=reply.model, limits=limits)
 
     # ------------------------------------------------------------------ DTO assembly
 
@@ -686,7 +726,14 @@ class PlanChatService:
                 route = "guard"
             else:
                 turn = self._model_turn(
-                    ctx, chat, params, edition, result.estimate, today, persist=False
+                    ctx,
+                    chat,
+                    params,
+                    edition,
+                    result.estimate,
+                    today,
+                    persist=False,
+                    placement_id=placement_id,
                 )
                 route = _TURN_ROUTES.get(turn.kind, "model")
 
@@ -814,7 +861,7 @@ class PlanChatService:
                 )
             ]
         if turn.kind == "text" and turn.reply:
-            guarded = policy.guard_reply(turn.reply, proposal, language)
+            guarded = policy.guard_reply(turn.reply, proposal, language, turn.limits)
             if guarded.ok:
                 return [
                     NewMessage("assistant", "text", guarded.text, "model", {"model": turn.model})
@@ -978,7 +1025,15 @@ class PlanChatService:
         edition = self._edition(stored.edition_id)
         today = self._planning.learning_date(ctx.user_id)
         params = self._params_of(stored)
-        turn = self._model_turn(ctx, chat, params, edition, stored.estimate, today)
+        turn = self._model_turn(
+            ctx,
+            chat,
+            params,
+            edition,
+            stored.estimate,
+            today,
+            placement_id=stored.placement_session_id,
+        )
         current = stored.public()
         route = _TURN_ROUTES.get(turn.kind, "model")
         log_event(logger, "plan_chat_turn", route=route, outcome=turn.kind)
@@ -1040,7 +1095,9 @@ class PlanChatService:
                 source="rules",
             )
         else:
-            message, source = self._shown_reply(turn, current, language, templates.templated_reply)
+            message, source = self._shown_reply(
+                turn, current, language, templates.templated_reply, limits=turn.limits
+            )
             self._append(
                 ctx,
                 chat.id,
@@ -1057,10 +1114,12 @@ class PlanChatService:
         proposal: PlanProposal,
         language: str,
         template: Callable[[PlanProposal, str], str],
+        *,
+        limits: policy.PlanLimits | None = None,
     ) -> tuple[str, str]:
         """The model's text when it passes the output guard, otherwise the templated text."""
         if turn.reply:
-            guarded = policy.guard_reply(turn.reply, proposal, language)
+            guarded = policy.guard_reply(turn.reply, proposal, language, limits)
             if guarded.ok:
                 return guarded.text, "model"
         return template(proposal, language), "rules"
