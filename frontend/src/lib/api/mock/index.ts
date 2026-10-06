@@ -5,6 +5,7 @@ export { MOCK_SESSION_ID, mockProgress, todayMockHandlers } from "./today-handle
 export { MOCK_LESSON_PASSAGE_IDS, MOCK_LESSON_SECTION_IDS, lessonMockHandlers, mockLessonSection, mockLessons } from "./lesson-handlers";
 export { MOCK_COMPLETED_PLAN_ID, MOCK_PAUSED_PLAN_ID, mockProgressWithOtherPlans, planMockHandlers } from "./plan-handlers";
 export { MOCK_QUESTION_IDS, MOCK_RECALL_WORD, mockSessionSnapshot, sessionMockHandlers } from "./session-handlers";
+export { MOCK_OFFLINE_USER_ID, buildMockPlanSnapshot, mockOfflineControl, offlineMockHandlers, type MockOfflineControl } from "./offline-handlers";
 export { placementMockHandlers, withPlacementMock } from "./placement-handlers";
 export { withGameMock, mockGameQuestions, MOCK_GAME_SESSION_PREFIX, type GameMockOptions } from "./game-handlers";
 export { adminMockHandlers, MOCK_ADMIN } from "./admin-handlers";

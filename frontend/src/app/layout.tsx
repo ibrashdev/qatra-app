@@ -11,10 +11,16 @@ import "../styles/fonts.css";
 import "./globals.css";
 import { Providers } from "@/components/Providers";
 import { LOCALE_BOOT_SCRIPT } from "@/i18n/locale";
+import { PwaBootstrap } from "./PwaBootstrap";
 
 export const metadata: Metadata = {
-  // No logo exists yet; an empty icon stops browsers from requesting /favicon.ico.
-  icons: { icon: "data:," },
+  // The icons are the approved S-01 droplet glyph, white on the brand blue, rasterised once by scripts/make-icons.mjs (offline decision G-08).
+  icons: {
+    icon: [{ url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" }],
+    apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+  },
+  // iOS has no install prompt: the learner adds the app by hand, and this is how the home-screen app is named and shown.
+  appleWebApp: { capable: true, title: "قطرة غيث", statusBarStyle: "default" },
 };
 
 export const viewport: Viewport = {
@@ -32,6 +38,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <script dangerouslySetInnerHTML={{ __html: LOCALE_BOOT_SCRIPT }} />
       </head>
       <body>
+        <PwaBootstrap />
         <Providers>{children}</Providers>
       </body>
     </html>

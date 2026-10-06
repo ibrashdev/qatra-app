@@ -85,12 +85,17 @@ interface Answer {
 }
 
 // Opens /login once React has hydrated (the first health request is the sign), with E01 and the session probe under control.
-async function openLogin(page: Page, { language = "ar", viewport = VIEWPORTS.phone, query = "", mode = "ok" }: { language?: Language; viewport?: { width: number; height: number }; query?: string; mode?: HealthMode } = {}) {
+// The session probe (E11) is sent after the first health request, once the pending-logout check (an IndexedDB read) has finished, so a test that answers
+// E11 differently afterwards passes `probed` and waits here until the visitor's own probe has been answered. Otherwise a late probe could receive that
+// new answer and send the visitor away from /login before the test acts.
+async function openLogin(page: Page, { language = "ar", viewport = VIEWPORTS.phone, query = "", mode = "ok", probed = false }: { language?: Language; viewport?: { width: number; height: number }; query?: string; mode?: HealthMode; probed?: boolean } = {}) {
   await page.addInitScript((value) => localStorage.setItem("qatra.language", value), language);
   await page.setViewportSize(viewport);
   const health = await controlHealth(page, mode);
+  const probe = probed ? page.waitForResponse((response) => new URL(response.url()).pathname === "/api/me") : null;
   await page.goto(`/login${query}`);
   await waitForFirstHealthRequest(health);
+  await probe;
   return health;
 }
 
@@ -503,7 +508,7 @@ test.describe("sending E04 and leaving (S-01 section 1)", () => {
   }
 
   test("reconsentRequired goes to the re-consent gate, without asking E18", async ({ page }) => {
-    await openLogin(page, { query: "?next=%2Fgames" });
+    await openLogin(page, { query: "?next=%2Fgames", probed: true });
     await serveLogin(page, { status: 200, body: { profile: mockProfile, reconsentRequired: true } });
     // S-06 is built: it reads E11 itself, and the session now exists with a terms version that differs from the build's.
     await page.route("**/api/me", (route) => route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ ...mockProfile, termsVersion: "2025-01-01" }) }));

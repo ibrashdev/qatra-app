@@ -36,6 +36,9 @@ export function createApiRuntime(options: { mode?: ApiMode; fetch?: typeof fetch
     wakeUp,
     boot: () => {
       if (booted) return;
+      // The browser says there is no connection: no probe is sent (offline-spec 6, R23 case 2: the offline shell makes no /api request). `booted` stays false,
+      // so a later call after the connection is back still starts the first request.
+      if (typeof navigator !== "undefined" && navigator.onLine === false) return;
       booted = true;
       // The outcome is not used: the wake-up controller watches the request through the monitor.
       api.health({ track: true }).catch(() => undefined);

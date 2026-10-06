@@ -78,9 +78,18 @@ describe("the text of S-03 in both languages (UI-screens S-03 sections 2 and 3)"
     for (const text of [...texts(ar), ...texts(en)]) expect(internal.test(text), text.slice(0, 60)).toBe(false);
   });
 
-  it("does not show the sentence of the earlier rules-engine design, nor the embedding provider or the offline paragraph (not built in this batch)", () => {
+  it("does not show the sentence of the earlier rules-engine design, nor the embedding provider or the lesson-feedback row (not built)", () => {
     const all = [...texts(ar), ...texts(en)].join("\n");
-    for (const left of ["أثناء التحدي", "وكيل التعليم", "حساب العرض", "مزود التضمين", "embedding", "دون اتصال", "offline", "الملاحظات"]) expect(all, left).not.toContain(left);
+    for (const left of ["أثناء التحدي", "وكيل التعليم", "حساب العرض", "مزود التضمين", "embedding", "الملاحظات"]) expect(all, left).not.toContain(left);
+  });
+
+  it("shows the offline plan: the downloaded-plan row and the local-access paragraph, in both languages (F13, D46, D58)", () => {
+    const items = (text: TermsText) => text.privacy.flatMap((topic) => topic.blocks).flatMap((block) => (block.kind === "list" ? [...block.items] : []));
+    const paragraphs = (text: TermsText) => text.privacy.flatMap((topic) => topic.blocks).flatMap((block) => (block.kind === "paragraph" ? [block.text] : []));
+    expect(items(ar).some((item) => item.startsWith("لقطة الخطة المحملة والأحداث المحلية:"))).toBe(true);
+    expect(items(en).some((item) => item.startsWith("Downloaded plan snapshot and local events:"))).toBe(true);
+    expect(paragraphs(ar).some((paragraph) => paragraph.startsWith("إعادة فتح الخطة المحملة دون اتصال وصول محلي مؤقت"))).toBe(true);
+    expect(paragraphs(en).some((paragraph) => paragraph.startsWith("Reopening the downloaded plan without a connection is temporary local access"))).toBe(true);
   });
 
   it("writes no em dash or en dash and no invisible character, so the text is only what it seems to be", () => {
@@ -169,8 +178,8 @@ describe.skipIf(!hasDocs)("the Arabic text against its source, docs/Authenticati
       .filter((line) => line.startsWith("- "))
       .map((line) => line.slice(2));
     // Ten bullets. Not compared here: the one on the data collected (its purposes and periods are in the table rows, checked above), the
-    // plan-conversation paragraph (quoted exactly above), the pointer to the deletion policy, and the offline paragraph (shown when F13 ships).
-    const SKIPPED = new Set([3, 5, 7, 8]);
+    // plan-conversation paragraph (quoted exactly above) and the pointer to the deletion policy. The offline paragraph (bullet 8) is compared, since F13 ships.
+    const SKIPPED = new Set([3, 5, 7]);
     expect(bullets).toHaveLength(10);
     const page = words([...ar.terms, ...ar.privacy].flatMap((topic) => topic.blocks).map((block) => (block.kind === "paragraph" ? block.text : block.items.join(" "))).join(" "));
     const clauses = bullets
@@ -188,6 +197,7 @@ describe.skipIf(!hasDocs)("the Arabic text against its source, docs/Authenticati
       ["البياناتالمسموحةومكانها", "the name of that section, which the page does not show"],
       ["يحلهذاالسطرمحلنصD51بقرارD75", "a note on the change of wording, for the document and not for the reader"],
       ["المرجعيةص٥", "a page reference to the document of the challenge"],
+      ["حدودالتخزينوفقدغيرالمتزامنكمافيقسمD46", "pointer to a section of the documents; the page states the same limit in the last sentence of the paragraph instead"],
     ]);
     expect(missing.filter((clause) => !OMITTED.has(clause))).toEqual([]);
     expect([...OMITTED.keys()].filter((clause) => !missing.includes(clause))).toEqual([]);

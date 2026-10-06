@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
 import { RecoveryCodeUnavailableBanner } from "@/components/auth/RecoveryCodeUnavailableBanner";
 import { takePlanConfirmed } from "@/components/plan-chat/confirmed-flash";
+import { DownloadCard } from "@/components/pwa/DownloadCard";
 import { Banner } from "@/components/ui/Banner";
 import { Button } from "@/components/ui/Button";
 import { Countdown } from "@/components/ui/Countdown";
@@ -211,6 +212,7 @@ function TodayContent() {
           <DailySection locale={locale} t={t} today={today} plan={plan} goalReached={today.dailyCompleted} />
           {stage !== null ? <StageSection locale={locale} t={t} stage={stage} /> : null}
           <ReviewsSection locale={locale} t={t} dueReviews={today.dueReviews} nextReviewDate={upcomingReviewDate(progress, plan.planId, today.learningDate)} />
+          <DownloadCard planId={plan.planId} planVersion={plan.currentVersion} />
           <NextStepSection t={t} line={nextLine}>
             {sessionButton}
           </NextStepSection>

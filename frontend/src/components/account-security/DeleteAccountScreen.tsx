@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useId, useRef, useState, type FormEvent } from "react";
+import { LocalCopyDeletionNote } from "@/components/pwa/OfflineSettings";
 import { LinkButton } from "@/components/progress/LinkButton";
 import { ResultSlot } from "@/components/recovery/account-form";
 import { Banner } from "@/components/ui/Banner";
@@ -18,6 +19,7 @@ import { raiseLoginArrival } from "@/lib/auth/flash";
 import { wipeRecoveryCode } from "@/lib/auth/recovery-handoff";
 import { clearRegisterDraft } from "@/lib/auth/register-draft";
 import { afterPress } from "@/lib/dom/after-press";
+import { clearLocalCopy } from "@/lib/offline/owner";
 import { CurrentPasswordField } from "./CurrentPasswordField";
 import { DestructiveButton } from "./DestructiveButton";
 import { ScreenHeader } from "./ScreenHeader";
@@ -90,6 +92,8 @@ export function DeleteAccountScreen() {
         clearRegisterDraft();
         wipeRecoveryCode();
         raiseLoginArrival("account_deleted");
+        // The account is gone, so the copy kept for offline use goes with it (it never outlives the account on this device).
+        void clearLocalCopy().catch(() => undefined);
         router.replace("/login");
       },
     });
@@ -142,6 +146,9 @@ export function DeleteAccountScreen() {
             </li>
           ))}
         </ul>
+        <div className="mt-q8 empty:hidden">
+          <LocalCopyDeletionNote />
+        </div>
         <div className="mt-q8">
           <TextLink href="/settings/privacy#privacy">{text.privacyLink}</TextLink>
         </div>

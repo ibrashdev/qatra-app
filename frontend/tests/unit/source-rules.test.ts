@@ -26,8 +26,12 @@ describe("the rules the screens keep, checked over the source (antislop D80, UI-
   });
 
   it("writes no colour value outside the token file: components read tokens only", () => {
-    // themeColor of the viewport metadata cannot take a CSS variable, so that one literal is the documented exception.
-    const allowed = new Map([["src/app/layout.tsx", 1]]);
+    // themeColor of the viewport metadata cannot take a CSS variable, so that one literal is the documented exception; the web app manifest is JSON and
+    // repeats it for background_color and theme_color (two literals).
+    const allowed = new Map([
+      ["src/app/layout.tsx", 1],
+      ["src/app/manifest.ts", 2],
+    ]);
     const literal = /#[0-9a-fA-F]{3,8}\b|\brgba?\(|\bhsla?\(/g;
     const offenders: string[] = [];
     for (const file of sources) {

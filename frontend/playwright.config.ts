@@ -18,6 +18,9 @@ export default defineConfig({
     baseURL: `http://127.0.0.1:${APP_PORT}`,
     locale: "ar-AE",
     trace: "retain-on-failure",
+    // The service worker of the offline plan caches every static file of the build, so a request would no longer reach `page.route`. The existing specs keep their
+    // old hermetic behaviour with workers blocked; the offline specs (offline*.spec.ts and one test of platform.spec.ts) allow them with `test.use`.
+    serviceWorkers: "block",
   },
   projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
   webServer: [
