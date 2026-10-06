@@ -1608,7 +1608,7 @@ The ordered messages of a conversation (D75, Approved — D75, A1 (owner, 4 Octo
 - **RLS:** enabled · anon: none · authenticated: select, insert own rows (`P-OWN`; no update, no delete) · qatra_server: none · service_role: none (revoked).
 - **Triggers:** none. **Retention:** as `plan_chats`.
 
-`ai_usage` (below) is reused unchanged by the conversation: its rows carry `prompt_version = 'plan-chat-v1'`, no learner text and no account id (D75; Plan-conversation §2.1).
+`ai_usage` (below) is reused unchanged by the conversation: its rows carry `prompt_version = 'plan-chat-v1'` (`'plan-chat-v2'` since D98, 6 October 2026), no learner text and no account id (D75; Plan-conversation §2.1).
 
 ### 6.4 Conditional table (D45, migration `0007_feedback`)
 

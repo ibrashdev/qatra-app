@@ -224,7 +224,7 @@ def test_the_model_path_runs_through_the_wired_provider_and_ledger() -> None:
     assert chat["proposal"]["sessionMinutes"] == 10  # the model's parameter, validated by rules
     assert chat["modelTurnsLeft"] == 5
     (row,) = journey.gateway.ledger.rows
-    assert (row.status, row.model, row.prompt_version) == ("succeeded", MODEL_ID, "plan-chat-v1")
+    assert (row.status, row.model, row.prompt_version) == ("succeeded", MODEL_ID, "plan-chat-v2")
     assert (row.input_tokens, row.output_tokens) == (11, 4)
 
     plan = post(journey.client, chat["chatId"], "confirm", {"proposalVersion": 1}).json()

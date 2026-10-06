@@ -40,7 +40,7 @@ Classification = Literal["religious", "out_of_scope", "logistics"]
 
 MAX_REPLY_CHARS = 600
 MAX_SECTION_ORDINALS = 60  # A-12 configuration (API-spec amendment: raised from 40 to 60)
-PROMPT_VERSION = "plan-chat-v1"
+PROMPT_VERSION = "plan-chat-v2"
 
 # --- text normalization ---
 
@@ -640,8 +640,18 @@ def _unit_count_matches(value: int, after: str, estimate: Estimate) -> bool:
     return value == (daily.per_day if daily.per_day is not None else 1)
 
 
-def allowed_numbers(proposal: PlanProposal) -> set[int]:
-    """Numbers the reply may mention: the proposal's own, the fixed options and the ladder."""
+@dataclass(frozen=True, slots=True)
+class PlanLimits:
+    """The fastest plan the rules allow (largest daily minutes), which the model may name."""
+
+    session_minutes: int
+    days: int
+    end_date: date
+
+
+def allowed_numbers(proposal: PlanProposal, limits: PlanLimits | None = None) -> set[int]:
+    """Numbers the reply may mention: the proposal's own, the fixed options and the ladder, and
+    the fastest plan's numbers when ``limits`` is given."""
     estimate = proposal.estimate
     numbers = {
         0,
@@ -662,7 +672,11 @@ def allowed_numbers(proposal: PlanProposal) -> set[int]:
         *templates.REVIEW_LADDER_CUMULATIVE,
         *proposal.target_scope.section_ordinals,
     }
-    for value in (estimate.end_date, proposal.preferred_date):
+    dates = [estimate.end_date, proposal.preferred_date]
+    if limits is not None:
+        numbers.update({limits.days, limits.session_minutes})
+        dates.append(limits.end_date)
+    for value in dates:
         if value is not None:
             numbers.update({value.year, value.month, value.day})
     return numbers
@@ -677,9 +691,12 @@ def _truncate(text: str) -> str:
     return cut[: best + 1] if best >= 120 else ""
 
 
-def guard_reply(text: str, proposal: PlanProposal, language: str) -> GuardedReply:
+def guard_reply(
+    text: str, proposal: PlanProposal, language: str, limits: PlanLimits | None = None
+) -> GuardedReply:
     """Output guard: the model's reply is shown only when it passes. Otherwise the templated
-    reply (a restatement of the proposal) is returned with ``ok=False``."""
+    reply (a restatement of the proposal) is returned with ``ok=False``. ``limits`` lets the
+    reply name the fastest plan the rules allow (days, date, minutes)."""
     fallback = templates.templated_reply(proposal, language)
     cleaned = "".join(ch for ch in text if ch == "\n" or unicodedata.category(ch)[0] != "C").strip()
     cleaned = _truncate(cleaned)
@@ -696,8 +713,16 @@ def guard_reply(text: str, proposal: PlanProposal, language: str) -> GuardedRepl
         return GuardedReply(fallback, False, "out_of_scope")
 
     digits_only = cleaned.translate(_DIGITS)
-    allowed = allowed_numbers(proposal)
+    allowed = allowed_numbers(proposal, limits)
     estimate = proposal.estimate
+    allowed_days = {
+        estimate.days,
+        *templates.REVIEW_LADDER_DAYS,
+        *templates.REVIEW_LADDER_CUMULATIVE,
+        *_every_days(estimate),  # "a new hadith every 3 days" is a pace, not the length
+    }
+    if limits is not None:
+        allowed_days.add(limits.days)
     pieces: list[str] = []
     last = 0
     replaced = False
@@ -706,12 +731,7 @@ def guard_reply(text: str, proposal: PlanProposal, language: str) -> GuardedRepl
         after = digits_only[match.end() :]
         replacement: int | None = None
         if _DAY_UNIT.match(after):
-            if value not in {
-                estimate.days,
-                *templates.REVIEW_LADDER_DAYS,
-                *templates.REVIEW_LADDER_CUMULATIVE,
-                *_every_days(estimate),  # "a new hadith every 3 days" is a pace, not the length
-            }:
+            if value not in allowed_days:
                 replacement = estimate.days
         elif _MINUTE_UNIT.match(after):
             if value not in SESSION_MINUTES_OPTIONS:
@@ -746,9 +766,11 @@ def guard_reply(text: str, proposal: PlanProposal, language: str) -> GuardedRepl
     return GuardedReply(result, True, None, replaced)
 
 
-def sanitize_reply(text: str, proposal: PlanProposal, language: str) -> str:
+def sanitize_reply(
+    text: str, proposal: PlanProposal, language: str, limits: PlanLimits | None = None
+) -> str:
     """The text to show: the (possibly number-corrected) reply or the templated reply."""
-    return guard_reply(text, proposal, language).text
+    return guard_reply(text, proposal, language, limits).text
 
 
 # --- outbound payload allowlist (R27, NFR-17) ---
@@ -759,7 +781,7 @@ ALLOWED_PAYLOAD_KEYS: frozenset[str] = _words(
     "knownWords language learningRecord messages newWordsPerDay order ordinal parameters "
     "passageCount passages passed paths placement preferredDate questionType reference "
     "reviewOutcomes role scope sectionOrdinals sections sessionMinutes state targetScope text "
-    "title totalWords wordCount dailyNew everyDays perDay unit"
+    "title totalWords wordCount dailyNew everyDays perDay unit limits fastest sessionMinutesOptions"
 )
 
 

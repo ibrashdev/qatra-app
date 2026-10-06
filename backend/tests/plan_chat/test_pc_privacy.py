@@ -93,6 +93,7 @@ def test_creation_payload_has_only_allowed_fields_and_no_learning_record() -> No
         "estimate",
         "placement",
         "messages",
+        "limits",
     }
     assert payload["placement"] == {
         "knownWords": 20,
@@ -282,7 +283,7 @@ def test_ai_usage_rows_hold_no_text_and_no_account() -> None:
     }
     dump = repr(row)
     assert "distinctive" not in dump and str(USER_ID) not in dump
-    assert row.prompt_version == "plan-chat-v1" and row.cost_usd is None
+    assert row.prompt_version == "plan-chat-v2" and row.cost_usd is None
 
 
 def test_stored_messages_never_keep_raw_model_output() -> None:

@@ -108,7 +108,7 @@ def test_free_goal_text_uses_one_model_turn_and_rules_recompute_the_numbers() ->
     assert chat.assistant.source == "model" and chat.assistant.model == "free/model:free"
     assert chat.model_turns_left == 5
     (row,) = env.ledger.rows
-    assert (row.prompt_version, row.status, row.provider) == ("plan-chat-v1", "succeeded", "fake")
+    assert (row.prompt_version, row.status, row.provider) == ("plan-chat-v2", "succeeded", "fake")
     assert row.quota_record is None
 
 
@@ -642,7 +642,7 @@ def test_provider_failures_fall_back_and_are_recorded_without_text(failure, stat
     result = send(env, chat, text="make the schedule easier please")
     assert result.messages[-1].kind == "fallback" and result.proposal.proposal_version == 1
     (row,) = env.ledger.rows
-    assert (row.status, row.prompt_version, row.cost_usd) == (status, "plan-chat-v1", None)
+    assert (row.status, row.prompt_version, row.cost_usd) == (status, "plan-chat-v2", None)
     consumed = 0 if status == "rules_fallback" else 1
     assert result.model_turns_left == 6 - consumed
     assert env.ledger.counts(USER_ID, env.clock.now).global_day == consumed
