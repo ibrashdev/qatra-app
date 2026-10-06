@@ -8,6 +8,7 @@ import { cx } from "@/lib/cx";
 import { useLocale } from "@/i18n/LocaleProvider";
 import { planChatMessages } from "@/i18n/plan-chat-messages";
 import type { ChatMessage, PlanChat, PlanProposal } from "@/lib/api/types";
+import { isolateDates } from "./isolate-dates";
 import { PlanCard } from "./PlanCard";
 import { firstFallbackId, proposalVersions } from "./rules";
 
@@ -66,7 +67,7 @@ export function ChatThread({
           <Bubble learner>
             <Author name={text.thread.you} />
             <p dir="auto" lang={chat.language}>
-              {message.text}
+              {isolateDates(message.text)}
             </p>
           </Bubble>
         </div>
@@ -81,7 +82,7 @@ export function ChatThread({
           <Author name={text.thread.assistant} />
           <p dir="auto" lang={chat.language} className={cx(fixedNotice && "flex items-start gap-q8")}>
             {fixedNotice ? <Icon name="info" size="sm" className="mt-1 text-info-edge" /> : null}
-            <span>{message.text}</span>
+            <span>{isolateDates(message.text)}</span>
           </p>
         </Bubble>
         {card !== null ? <PlanCard proposal={card} current={version === proposal?.proposalVersion} domId={version === proposal?.proposalVersion ? CURRENT_CARD_ID : undefined} /> : null}
@@ -103,7 +104,7 @@ export function ChatThread({
           <Bubble learner>
             <Author name={text.thread.you} />
             <p dir="auto" lang={chat.language}>
-              {outgoing.text}
+              {isolateDates(outgoing.text)}
             </p>
           </Bubble>
           {outgoing.status === "failed" ? (

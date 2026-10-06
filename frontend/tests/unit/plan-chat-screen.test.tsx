@@ -456,6 +456,32 @@ describe("the assistant's fixed messages (c9 to c11)", () => {
     expect(screen.getByText("Fallback text")).toBeInTheDocument();
     expect(composer()).not.toHaveAttribute("aria-disabled"); // rules replies and shortcuts continue
   });
+
+  it("isolates an ISO date in an assistant text and in a card section, so it neither wraps at its hyphens nor mixes into the Arabic line", async () => {
+    const sentence = "الخطة الحالية: 5 أيام بمعدل 15 دقيقة يوميًا، وتنتهي في 2026-10-11. يمكنك المتابعة بالخيارات أدناه.";
+    const backend = makeBackend({
+      [CHAT_KEY]: async (real) => {
+        const chat = (await (await real()).json()) as PlanChat;
+        const reply = { ...chat.messages[0], messageId: "77777777-7777-4777-8777-0000000000bb", ordinal: 2, kind: "text", text: sentence };
+        const proposal = chat.proposal === null ? null : { ...chat.proposal, sections: { ...chat.proposal.sections, nextStep: "نبدأ في 2026-10-12 بإذن الله" } };
+        return jsonResponse({ ...chat, proposal, messages: [...chat.messages, reply] });
+      },
+    });
+    await open({ backend });
+    await ready();
+
+    const messageDate = screen.getByText("2026-10-11");
+    expect(messageDate.tagName).toBe("BDI");
+    expect(messageDate).toHaveAttribute("dir", "ltr");
+    expect(messageDate).toHaveClass("whitespace-nowrap");
+    expect(messageDate.closest("span")?.textContent).toBe(sentence);
+
+    const cardDate = screen.getByText("2026-10-12");
+    expect(cardDate.tagName).toBe("BDI");
+    expect(cardDate).toHaveAttribute("dir", "ltr");
+    expect(cardDate).toHaveClass("whitespace-nowrap");
+    expect(cardDate.closest("dd")?.textContent).toBe("نبدأ في 2026-10-12 بإذن الله");
+  });
 });
 
 describe("confirming (c14, P-12)", () => {

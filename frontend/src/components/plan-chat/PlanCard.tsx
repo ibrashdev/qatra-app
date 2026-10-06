@@ -6,6 +6,7 @@ import { useLocale } from "@/i18n/LocaleProvider";
 import { formatInteger } from "@/i18n/format";
 import { planChatMessages } from "@/i18n/plan-chat-messages";
 import type { PlanProposal, PlanSections } from "@/lib/api/types";
+import { isolateDates } from "./isolate-dates";
 
 const SECTION_ORDER: readonly (keyof PlanSections)[] = ["goal", "totalTime", "dailyTime", "stages", "reviews", "nextStep"];
 
@@ -35,7 +36,7 @@ export function PlanCard({ proposal, current, domId }: { proposal: PlanProposal;
           <div key={key}>
             <dt className="text-section text-ink">{text.card.labels[key]}</dt>
             <dd dir="auto" className="mt-q4 text-body-compact text-ink">
-              {proposal.sections[key]}
+              {isolateDates(proposal.sections[key])}
             </dd>
           </div>
         ))}
