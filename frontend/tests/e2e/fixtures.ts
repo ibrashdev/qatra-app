@@ -1,6 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test as base, type ConsoleMessage, type Page, type Route } from "@playwright/test";
-import { mockProfile } from "../../src/lib/api/mock";
+import { createMockFetch, mockProfile } from "../../src/lib/api/mock";
 
 interface Options {
   // The wake-up tests make /api/health fail on purpose, and the browser logs those failures.
@@ -172,3 +172,36 @@ export const VIEWPORTS = {
   tablet: { width: 768, height: 1024 },
   desktop: { width: 1280, height: 800 },
 } as const;
+
+export interface AdminStub {
+  // Every admin request the page made, in order, with the body it sent.
+  requests: { method: string; path: string; body: unknown }[];
+}
+
+// The content manager screens (AD-00 to AD-06, D91). E11 answers the synthetic profile for a page under /settings or /admin, and every /api/admin/*
+// request is served by the mock layer of the app (the same handlers the unit tests use, with their data kept for this page only), so the browser
+// exercises the real fetch, the real envelope parsing and the real screens. `contentManager: false` makes GET /api/admin/access answer 200 with
+// `contentManager: false` and every data route answer 403 `forbidden`, as the server does for a signed-in account that is not named in its setting.
+// Register it after controlHealth, so this route is consulted first.
+export async function stubAdminApi(page: Page, options: { contentManager?: boolean } = {}): Promise<AdminStub> {
+  await page.route("**/api/me", async (route: Route) => {
+    const pathname = new URL(page.url()).pathname;
+    if (pathname.startsWith("/settings") || pathname.startsWith("/admin")) {
+      await route.fulfill({ status: 200, contentType: "application/json", json: mockProfile });
+    } else {
+      await route.fallback();
+    }
+  });
+  const mock = createMockFetch({ latencyMs: 0, scenario: { signedIn: true, hasPlan: true, contentManager: options.contentManager ?? true } });
+  const stub: AdminStub = { requests: [] };
+  await page.route("**/api/admin/**", async (route: Route) => {
+    const request = route.request();
+    const url = new URL(request.url());
+    const posted = request.postData();
+    stub.requests.push({ method: request.method(), path: url.pathname.replace(/^\/api/, ""), body: posted === null ? undefined : JSON.parse(posted) });
+    const response = await mock(url.pathname, { method: request.method(), body: posted ?? undefined });
+    const text = await response.text();
+    await route.fulfill({ status: response.status, contentType: "application/json; charset=utf-8", headers: { "cache-control": "no-store" }, body: text });
+  });
+  return stub;
+}

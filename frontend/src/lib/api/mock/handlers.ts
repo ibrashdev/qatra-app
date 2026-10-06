@@ -22,6 +22,9 @@ export interface MockScenario {
   signedIn: boolean; // false: session routes answer 401 unauthenticated (G-03)
   hasPlan: boolean; // false: E18 returns plan null (G-24)
   isDemo?: boolean; // true: E11 answers a demo account (D71)
+  // The content manager API (D91): false makes every /admin/* route answer 403 `forbidden`, as for a signed-in account that is not named in the
+  // server setting. Left out, the account is a manager, so the default development mock shows the admin screens. A demo account is never one.
+  contentManager?: boolean;
   planChats?: MockPlanChatStore; // the conversations of this mock session, created on first use (E31 to E34)
 }
 

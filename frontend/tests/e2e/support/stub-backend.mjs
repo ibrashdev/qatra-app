@@ -34,6 +34,13 @@ const server = createServer((request, response) => {
     response.end(JSON.stringify({ error: { code: "unauthenticated", message: "Authentication is required.", details: {} } }));
     return;
   }
+  // The settings screen asks whether the account is a content manager (AD-00). The real server answers 200 to every signed-in account; the stub knows no
+  // session and no manager, so it answers 200 false, and the row is not shown. Specs that need a manager route-intercept the call (stubAdminApi).
+  if (request.method === "GET" && url.pathname === "/api/admin/access") {
+    response.writeHead(200, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store", "X-Stub-Backend": "1" });
+    response.end(JSON.stringify({ contentManager: false }));
+    return;
+  }
   response.writeHead(404, { "Content-Type": "application/json; charset=utf-8", "X-Stub-Backend": "1" });
   response.end(JSON.stringify({ error: { code: "not_found", message: "Not found.", details: {} } }));
 });

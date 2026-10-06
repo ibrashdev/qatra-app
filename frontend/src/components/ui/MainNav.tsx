@@ -22,7 +22,11 @@ const SESSION_RESULT_PATH = /^\/session\/[^/]+\/result\/?$/;
 // S-12 (/plan) and S-13 (/plan/revise) are children of the today tab (UI-design 2.1). S-34 (/plan/chat/<id>) is a focus flow and matches no tab.
 const TODAY_CHILD_PATH = /^\/plan(?:\/revise)?\/?$/;
 
+// The content manager screens (AD-01 to AD-06, D91) are reached from settings and keep the settings tab active.
+const ADMIN_PATH = /^\/admin(?:\/|$)/;
+
 function isActive(pathname: string | null, href: string): boolean {
+  if (href === "/settings" && pathname !== null && ADMIN_PATH.test(pathname)) return true;
   if (href === "/progress" && pathname !== null && SESSION_RESULT_PATH.test(pathname)) return true;
   if (href === "/today" && pathname !== null && TODAY_CHILD_PATH.test(pathname)) return true;
   return pathname === href || (pathname?.startsWith(`${href}/`) ?? false);
