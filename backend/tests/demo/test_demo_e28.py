@@ -99,6 +99,8 @@ def test_a_demo_plan_is_built_by_the_rules_engine_when_there_is_no_model(tmp_pat
         "sessionMinutes": 10,
         "scope": {"sectionOrdinals": [1]},
         "paths": ["quran"],
+        # D92: the 4 ayat of the section over the single estimated day
+        "dailyNew": {"unit": "ayah", "perDay": 4, "everyDays": None},
     }
 
 
@@ -167,6 +169,36 @@ def test_valid_advice_sets_the_pace_and_is_labelled_teaching_agent(tmp_path: Pat
         "free-model-x",
         "demo-planner-v1",
     )
+
+
+def test_an_advised_pace_changes_the_days_and_the_daily_amount_together(tmp_path: Path) -> None:
+    """D92: ``dailyNew`` is derived from the estimated days, so advice that stretches the days
+    must restate the daily amount for the new days, never keep the rules engine's amount."""
+    rules_env = build_env(tmp_path / "rules", provider=None)
+    agent_env = build_env(
+        tmp_path / "agent", provider=FakeJsonProvider(advice_reply(newWordsPerDay=3))
+    )
+    rules = post_plan(rules_env.demo(), "scenario-02").json()["agreedEstimate"]
+    agent_plan = post_plan(agent_env.demo(), "scenario-02").json()
+    agent = agent_plan["agreedEstimate"]
+    assert agent_plan["planner"]["source"] == "teaching_agent"
+    # 15 ayat (100 words): the rules pace gives 10 days, two ayat a day ...
+    assert (rules["days"], rules["newWordsPerDay"]) == (10, 12)
+    assert rules["dailyNew"] == {"unit": "ayah", "perDay": 2, "everyDays": None}
+    # ... the advised pace of 3 words a day gives 39 days: fewer ayat than days, one every 3 days.
+    assert (agent["days"], agent["newWordsPerDay"]) == (39, 3)
+    assert agent["dailyNew"] == {"unit": "ayah", "perDay": None, "everyDays": 3}
+    assert (agent["totalWords"], agent["knownWords"]) == (rules["totalWords"], rules["knownWords"])
+    stored = agent_env.plan_repository.versions_of(UUID(agent_plan["planId"]))[0]
+    assert stored["policy"]["agreedEstimate"]["dailyNew"] == agent["dailyNew"]
+    assert stored["policy"]["agreedEstimate"]["days"] == 39
+
+
+def test_an_advised_pace_restates_the_daily_amount_of_a_single_section(tmp_path: Path) -> None:
+    env = build_env(tmp_path, provider=FakeJsonProvider(advice_reply(newWordsPerDay=5)))
+    estimate = post_plan(env.demo()).json()["agreedEstimate"]
+    assert estimate["days"] == 3  # the rules engine's single day became three
+    assert estimate["dailyNew"] == {"unit": "ayah", "perDay": 1, "everyDays": None}  # not 4
 
 
 def test_the_advised_offsets_and_priority_are_recorded_with_the_plan_version(

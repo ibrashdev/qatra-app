@@ -49,6 +49,7 @@ from app.domain.plan_policy import (
     PlanValues,
     build_plan_commit,
     canonical_paths,
+    daily_new_amount,
     edition_dto,
     estimate_with_alternatives,
     estimates_equal,
@@ -625,12 +626,12 @@ class PlanService:
         The rules engine computes the plan exactly as E16 would. ``planner`` (the restricted
         Teaching Agent with its rules fallback, ``services/planner.py``) then sees only the
         ``PlannerBasis`` and answers with the rules outcome or validated advice. Advice changes the
-        pace only: ``agreedEstimate.newWordsPerDay`` takes the advised value and ``days`` and
-        ``endDate`` follow from it; the order of the new passages and the passages themselves
-        never change. The advised review offsets and priority ids are recorded in
-        ``policy_json.planner.advice`` (G-6). The commit pauses the previous active plan.
-        ``fallback_placement`` is the scenario's synthetic placement summary, used as the agent's
-        input when no placement session is sent.
+        pace only: ``agreedEstimate.newWordsPerDay`` takes the advised value and ``days``,
+        ``endDate`` and ``dailyNew`` (D92) follow from it; the order of the new passages and the
+        passages themselves never change. The advised review offsets and priority ids are
+        recorded in ``policy_json.planner.advice`` (G-6). The commit pauses the previous active
+        plan. ``fallback_placement`` is the scenario's synthetic placement summary, used as the
+        agent's input when no placement session is sent.
         """
         if not ctx.is_demo:
             raise AppError(ErrorCode.forbidden)
@@ -679,6 +680,15 @@ class PlanService:
                         "days": days,
                         "end_date": today + timedelta(days=days),
                         "new_words_per_day": advice.new_words_per_day,
+                        # D92: the learner-facing daily amount follows the advised days.
+                        "daily_new": daily_new_amount(
+                            resolved.edition,
+                            ordinals=resolved.scope,
+                            paths=resolved.paths,
+                            days=days,
+                            total_words=base.total_words,
+                            known_words=base.known_words,
+                        ),
                     }
                 )
                 advised = replace(
