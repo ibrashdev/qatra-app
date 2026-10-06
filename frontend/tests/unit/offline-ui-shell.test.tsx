@@ -44,7 +44,7 @@ import { enqueueEvent, listPendingEvents } from "@/lib/offline/outbox";
 import { readOwnerState } from "@/lib/offline/owner";
 import type { LocalPlanInspection, SyncResult } from "@/lib/offline/types";
 import { installDialogPolyfill } from "./dialog-polyfill";
-import { OWNER_ID, USERNAME, activityAt, makeSnapshot, profile, resetOfflineEnvironment } from "./offline-support";
+import { OWNER_ID, USERNAME, activityAt, makeSnapshot, orderQuestion, profile, resetOfflineEnvironment } from "./offline-support";
 
 const snapshot = makeSnapshot();
 
@@ -121,7 +121,12 @@ describe("S-31 offline: the local day", () => {
     const sessions = screen.getByRole("heading", { level: 2, name: "Sessions ready on this device" }).closest("section") as HTMLElement;
     const rows = within(sessions).getAllByRole("listitem");
     expect(rows.map((row) => row.querySelector("p")?.textContent)).toEqual(["Today's session", "Word order", "Word or segment choice", "Similar distinction", "Word recall"]);
-    expect(within(sessions).getAllByText("This game needs a connection to be prepared again")).toHaveLength(3);
+    // The bank holds choice and recall questions, so a connection would prepare those two again; it holds no similar passage, so that game is not offered.
+    expect(within(sessions).getAllByText("This game needs a connection to be prepared again")).toHaveLength(2);
+    expect(within(sessions).getAllByText("This game is not available for this part")).toHaveLength(1);
+    const similar = within(sessions).getByText("Similar distinction").closest("li") as HTMLElement;
+    expect(within(similar).getByText("This game is not available for this part")).toBeInTheDocument();
+    expect(within(similar).queryByText("This game needs a connection to be prepared again")).toBeNull();
     expect(within(sessions).getByRole("button", { name: "Start: Today's session" })).toBeInTheDocument();
     // The provisional figure: nothing is done yet, and the day is never called completed.
     expect(screen.getByRole("progressbar")).toHaveAttribute("aria-valuenow", "0");
@@ -138,7 +143,20 @@ describe("S-31 offline: the local day", () => {
     renderShell({ language: "ar" });
     expect(await screen.findByText("الخطة جاهزة دون اتصال")).toBeInTheDocument();
     expect(screen.getByText("غير متصل \u2014 النتائج بانتظار التحقق")).toBeInTheDocument();
-    expect(screen.getAllByText("هذه اللعبة تحتاج اتصالًا لتجهيزها مجددًا")).toHaveLength(3);
+    expect(screen.getAllByText("هذه اللعبة تحتاج اتصالًا لتجهيزها مجددًا")).toHaveLength(2);
+    expect(screen.getAllByText("لا تتوفر هذه اللعبة لهذا الجزء")).toHaveLength(1);
+  });
+
+  it("says a game is not available, and not that it needs a connection, when the material holds no question of its kind", async () => {
+    setOnline(false);
+    const passageId = snapshot.downloadedTargetRefs[0]!;
+    const short = makeSnapshot({ games: [orderQuestion("q-order", passageId)] });
+    expect((await cacheActivePlan(short, { username: USERNAME })).ready).toBe(true);
+    renderShell();
+    const sessions = (await screen.findByRole("heading", { level: 2, name: "Sessions ready on this device" })).closest("section") as HTMLElement;
+    expect(within(sessions).getAllByText("This game is not available for this part")).toHaveLength(3);
+    expect(within(sessions).queryByText("This game needs a connection to be prepared again")).toBeNull();
+    expect(within(sessions).getAllByRole("button", { name: /^Start: / })).toHaveLength(2);
   });
 
   it("does not say the plan is ready while the app files are not cached yet", async () => {

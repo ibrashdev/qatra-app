@@ -84,9 +84,11 @@ test.describe("R23 case 2: close the browser, reopen with the network off", () =
       await page.goto("/offline");
       await expect(page.getByText(TEXT.ready).first()).toBeVisible({ timeout: 30_000 });
       await expect(page.getByText(TEXT.offlinePending).first()).toBeVisible();
-      // The daily session and the four game templates are all prepared in the snapshot: five rows with a start button, none that needs a connection.
+      // The daily session and the four game templates are all prepared in the snapshot: five rows with a start button, none that needs a connection
+      // and none that is unavailable for the material.
       await expect(page.getByRole("button", { name: /^ابدأ: / })).toHaveCount(5);
       await expect(page.getByText(TEXT.needsConnection)).toHaveCount(0);
+      await expect(page.getByText(TEXT.notAvailable)).toHaveCount(0);
       expect(log.api(), "no /api request while offline").toEqual([]);
       expect(log.rsc(), "no RSC payload request while offline").toEqual([]);
 

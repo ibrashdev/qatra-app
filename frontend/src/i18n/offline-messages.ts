@@ -31,7 +31,8 @@ export interface OfflineMessages {
     dailyHint: string;
     start: string; // the button; the row name follows it for assistive technology
     startLabel: (name: string) => string;
-    needsConnection: string; // fixed: «هذه اللعبة تحتاج اتصالًا لتجهيزها مجددًا»
+    needsConnection: string; // fixed: «هذه اللعبة تحتاج اتصالًا لتجهيزها مجددًا», for a game the material has but whose prepared session is gone
+    notAvailable: string; // «لا تتوفر هذه اللعبة لهذا الجزء», for a game the material has no question for: a connection would not help
     progressHeading: string;
     provisionalMinutes: (done: string, goal: string) => string;
     provisionalNote: string;
@@ -183,6 +184,7 @@ const ar: OfflineMessages = {
     start: "ابدأ",
     startLabel: (name) => `ابدأ: ${name}`,
     needsConnection: "هذه اللعبة تحتاج اتصالًا لتجهيزها مجددًا",
+    notAvailable: "لا تتوفر هذه اللعبة لهذا الجزء",
     progressHeading: "وقتك اليوم",
     provisionalMinutes: (done, goal) => `${done} من ${goal} دقيقة (مؤقت)`,
     provisionalNote: "رقم مؤقت من هذا الجهاز. يحلّ محلّه رقم الخادم بعد المزامنة.",
@@ -348,6 +350,7 @@ const en: OfflineMessages = {
     start: "Start",
     startLabel: (name) => `Start: ${name}`,
     needsConnection: "This game needs a connection to be prepared again",
+    notAvailable: "This game is not available for this part",
     progressHeading: "Your time today",
     provisionalMinutes: (done, goal) => `${done} of ${goal} minutes (provisional)`,
     provisionalNote: "A provisional figure from this device. The server's figure replaces it after syncing.",

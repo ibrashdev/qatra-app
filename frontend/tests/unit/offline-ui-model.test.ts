@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { learningDateOf, missingGames, provisionalActiveMs, provisionalDaily, provisionalTodayMs, sessionEntries, snapshotTextKind, summarizeRun } from "@/components/pwa/offline-model";
+import { absentGames, learningDateOf, missingGames, provisionalActiveMs, provisionalDaily, provisionalTodayMs, sessionEntries, snapshotTextKind, summarizeRun } from "@/components/pwa/offline-model";
 import type { PlanSnapshot } from "@/lib/api/types";
 import type { PendingEvent, RevalidationRecord } from "@/lib/offline/types";
-import { DAILY_SESSION, GAME_SESSION, activityAt, answerAt, makeSnapshot, uuid } from "./offline-support";
+import { DAILY_SESSION, GAME_SESSION, activityAt, answerAt, makeSnapshot, orderQuestion, uuid } from "./offline-support";
 
 const snapshot = makeSnapshot();
 const RUN = "99999999-9999-4999-8999-999999999999";
@@ -46,6 +46,41 @@ describe("the sessions a snapshot offers (S-31)", () => {
     const entries = sessionEntries(broken, null);
     expect(entries).toHaveLength(1);
     expect(entries[0]).toMatchObject({ kind: "daily", runnable: false });
+  });
+
+  it("says why a game has no row: the material has no question of its kind, or it has some but no prepared session can be started", () => {
+    // The fixture holds questions of three kinds (choice, recall, order) and no similar passages, as a short surah can.
+    expect(absentGames(snapshot, sessionEntries(snapshot, null))).toEqual([
+      { kind: "word_choice", reason: "needs_connection" },
+      { kind: "similar_distinction", reason: "no_material" },
+      { kind: "word_recall", reason: "needs_connection" },
+    ]);
+  });
+
+  it("counts only the question bank and the game descriptors as material, never the questions of the daily session", () => {
+    const passageId = snapshot.downloadedTargetRefs[0]!;
+    const onlyOrder: PlanSnapshot = { ...snapshot, games: [orderQuestion("q-order", passageId)] };
+    // The daily session still holds a choice and a recall question, yet a connection would not prepare those games: the bank has none.
+    expect(absentGames(onlyOrder, sessionEntries(onlyOrder, null)).map((absent) => [absent.kind, absent.reason])).toEqual([
+      ["word_choice", "no_material"],
+      ["similar_distinction", "no_material"],
+      ["word_recall", "no_material"],
+    ]);
+  });
+
+  it("keeps the connection line for a game whose descriptor is no longer prepared, even when the bank is empty", () => {
+    const used: PlanSnapshot = { ...snapshot, games: [], preparedSessions: [snapshot.preparedSessions[0]!, { ...snapshot.preparedSessions[1]!, status: "completed" }] };
+    expect(absentGames(used, sessionEntries(used, null))).toEqual([
+      { kind: "word_order", reason: "needs_connection" },
+      { kind: "word_choice", reason: "no_material" },
+      { kind: "similar_distinction", reason: "no_material" },
+      { kind: "word_recall", reason: "no_material" },
+    ]);
+  });
+
+  it("gives no absent game when every game of the hub has a row", () => {
+    const entries = sessionEntries(snapshot, null);
+    expect(absentGames(snapshot, [...entries, ...missingGames(entries).map((kind) => ({ ...entries[1]!, kind }))])).toEqual([]);
   });
 
   it("takes the font of the book text from the lessons: a Quran path is quran, any other is hadith, none falls back to quran", () => {

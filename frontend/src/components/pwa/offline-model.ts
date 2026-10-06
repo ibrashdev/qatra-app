@@ -39,7 +39,7 @@ function allowedBy(revalidation: RevalidationRecord | null, sessionId: string): 
 }
 
 // The daily descriptors first, then one row per game in the order of the hub (S-14). A game with no descriptor in the snapshot has no row of its own: the
-// shell shows its fixed «needs a connection» line instead (offline-spec 4.2).
+// shell says why instead (see absentGames, offline-spec 4.2).
 export function sessionEntries(snapshot: PlanSnapshot, revalidation: RevalidationRecord | null): OfflineSessionEntry[] {
   const entries: OfflineSessionEntry[] = [];
   for (const session of snapshot.preparedSessions) {
@@ -57,6 +57,28 @@ export function sessionEntries(snapshot: PlanSnapshot, revalidation: Revalidatio
 export function missingGames(entries: readonly OfflineSessionEntry[]): GameKind[] {
   const have = new Set(entries.map((entry) => entry.kind));
   return GAMES.filter((game) => !have.has(game.kind)).map((game) => game.kind);
+}
+
+// Why a game has no row of its own. "no_material": the downloaded material holds no question of that kind (a short surah can have no similar
+// passages), so a connection would not help. "needs_connection": the material has such questions, but no prepared session of the kind can be started
+// on this device (the descriptor is not in the prepared state any more), so the server must prepare it again.
+export type AbsentReason = "no_material" | "needs_connection";
+
+export interface AbsentGame {
+  kind: GameKind;
+  reason: AbsentReason;
+}
+
+// The games without a row, each with its reason. The material has a kind when the snapshot's question bank holds a question of it, or a game descriptor of
+// the snapshot, in any state, is made of it. The server prepares a game session only when it has something to play, so a kind that none of these
+// mention has nothing to prepare.
+export function absentGames(snapshot: PlanSnapshot, entries: readonly OfflineSessionEntry[]): AbsentGame[] {
+  const material = new Set<GameKind>(snapshot.games.map((question) => question.type));
+  for (const session of snapshot.preparedSessions) {
+    const kind = gameKindOf(session);
+    if (kind !== null) material.add(kind);
+  }
+  return missingGames(entries).map((kind) => ({ kind, reason: material.has(kind) ? "needs_connection" : "no_material" }));
 }
 
 // The font of the book text follows the edition's format. A snapshot carries no catalog, so its lessons decide: a Quran path is "quran", any other path is

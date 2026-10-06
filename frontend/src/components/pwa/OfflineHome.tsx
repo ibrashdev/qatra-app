@@ -17,7 +17,7 @@ import { cx } from "@/lib/cx";
 import type { OutboxCounts, SyncProgress } from "@/lib/offline/types";
 import { ClearLocalControl } from "./ClearLocalControl";
 import { InstallPrompt } from "./InstallPrompt";
-import { missingGames, snapshotTextKind, type OfflineSessionEntry } from "./offline-model";
+import { absentGames, snapshotTextKind, type OfflineSessionEntry } from "./offline-model";
 import { SyncStatus } from "./SyncStatus";
 
 // S-31 "local ready": the day as the device can state it. The chip says the plan is ready offline, the line says results wait for verification, the figure
@@ -56,7 +56,7 @@ export function OfflineHome({
   const games = gamesMessages(locale).games;
   const progressId = useId();
   const sessionsId = useId();
-  const absent = useMemo(() => missingGames(entries), [entries]);
+  const absent = useMemo(() => absentGames(snapshot, entries), [snapshot, entries]);
 
   const doneMinutes = formatInteger(locale, Math.floor(daily.dailyActiveMs / 60000));
   const goalMinutes = formatInteger(locale, Math.round(daily.dailyGoalMs / 60000));
@@ -111,10 +111,10 @@ export function OfflineHome({
               </li>
             );
           })}
-          {absent.map((kind) => (
+          {absent.map(({ kind, reason }) => (
             <li key={kind} className="flex flex-col gap-q4 rounded-md border border-divider bg-surface p-q16">
               <p className="text-section text-ink">{games[kind].name}</p>
-              <p className="text-small text-ink-secondary">{t.home.needsConnection}</p>
+              <p className="text-small text-ink-secondary">{reason === "no_material" ? t.home.notAvailable : t.home.needsConnection}</p>
             </li>
           ))}
         </ul>

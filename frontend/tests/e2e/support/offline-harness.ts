@@ -19,6 +19,7 @@ export const TEXT = {
   savedOnDevice: "محفوظ على الجهاز، بانتظار المزامنة",
   synced: "متزامن",
   needsConnection: "هذه اللعبة تحتاج اتصالًا لتجهيزها مجددًا",
+  notAvailable: "لا تتوفر هذه اللعبة لهذا الجزء",
   sessionEnded: "انتهت جلستك. سجّل الدخول للمتابعة.",
   unavailable: "غير متاح",
   noPlan: "لا توجد خطة محمّلة على هذا الجهاز",
