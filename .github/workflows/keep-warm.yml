@@ -4,9 +4,9 @@ name: keep-warm
 # Every request is a plain GET to a public endpoint: no secrets, no tokens, no repository files.
 #
 # Schedules (cron runs in UTC):
-#   4-59/10 * * * *  liveness: GET /api/health at minutes 4, 14, 24, 34, 44 and 54 of every hour.
-#                    The 10-minute step leaves a 5-minute margin before the 15-minute idle stop
-#                    of the Render free service and avoids minute 0.
+#   4-59/5 * * * *   liveness: GET /api/health every 5 minutes, starting at minute 4 of each hour.
+#                    This avoids minute 0 and gives more margin against the Render free-service
+#                    idle stop; GitHub Actions timing remains best-effort.
 #   23 2 * * 1,4     readiness: GET /api/health/ready on Monday and Thursday at 02:23 UTC
 #                    (06:23 Asia/Dubai). It runs a trivial database query so the free Supabase
 #                    project is not paused for inactivity.
@@ -21,12 +21,12 @@ name: keep-warm
 # then 10 seconds per step, until about 90 seconds have passed since the first attempt. If no 200
 # arrived by then, the run fails; the failed run in the Actions list is the only alarm.
 #
-# KEEP_WARM_START, KEEP_WARM_END, READY_CHECK_END and PUBLIC_BASE_URL are non-secret repository
-# variables. The defaults in env below apply when a variable is unset or empty.
+# KEEP_WARM_START, READY_CHECK_END and PUBLIC_BASE_URL are non-secret repository variables.
+# The liveness end date is fixed by D99 through 2026-10-31 (inclusive, Asia/Dubai).
 
 on:
   schedule:
-    - cron: "4-59/10 * * * *"
+    - cron: "4-59/5 * * * *"
     - cron: "23 2 * * 1,4"
   workflow_dispatch:
     inputs:
@@ -56,7 +56,7 @@ jobs:
       - name: Check the date window, then call the health endpoint
         env:
           KEEP_WARM_START: ${{ vars.KEEP_WARM_START || '2026-10-06' }}
-          KEEP_WARM_END: ${{ vars.KEEP_WARM_END || '2026-10-15' }}
+          KEEP_WARM_END: '2026-10-31'
           READY_CHECK_END: ${{ vars.READY_CHECK_END || '2026-10-31' }}
           PUBLIC_BASE_URL: ${{ vars.PUBLIC_BASE_URL || 'https://qatra-api-knmj.onrender.com' }}
           EVENT_NAME: ${{ github.event_name }}
@@ -70,7 +70,7 @@ jobs:
           case "$EVENT_NAME" in
             schedule)
               case "$EVENT_SCHEDULE" in
-                '4-59/10 * * * *') check=health ;;
+                '4-59/5 * * * *') check=health ;;
                 '23 2 * * 1,4') check=ready ;;
                 *)
                   echo "::error::keep-warm: unknown schedule '$EVENT_SCHEDULE'"
