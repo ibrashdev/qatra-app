@@ -11,17 +11,18 @@
       "goalRecognition": {
         "editionKeyPrefix": "quran-hafs-quranenc",
         "sectionRefs": [
-          "112"
+          "112",
+          "81"
         ]
       },
       "realisticDays": {
-        "min": 4,
-        "max": 6
+        "min": 10,
+        "max": 15
       },
       "errorPriorityRefs": [],
       "lightReviewExpected": false,
       "basis": {
-        "totalWords": 86,
+        "totalWords": 209,
         "sessionMinutes": 10
       }
     },
@@ -33,17 +34,21 @@
         "sectionRefs": [
           "112",
           "113",
-          "114"
+          "114",
+          "78",
+          "79",
+          "80",
+          "81"
         ]
       },
       "realisticDays": {
-        "min": 29,
-        "max": 44
+        "min": 69,
+        "max": 104
       },
       "errorPriorityRefs": [],
       "lightReviewExpected": false,
       "basis": {
-        "totalWords": 297,
+        "totalWords": 711,
         "sessionMinutes": 5
       }
     },
@@ -54,17 +59,18 @@
         "editionKeyPrefix": "quran-hafs-quranenc",
         "sectionRefs": [
           "112",
-          "113"
+          "113",
+          "80"
         ]
       },
       "realisticDays": {
-        "min": 22,
-        "max": 33
+        "min": 29,
+        "max": 44
       },
       "errorPriorityRefs": [],
       "lightReviewExpected": false,
       "basis": {
-        "totalWords": 225,
+        "totalWords": 295,
         "sessionMinutes": 5
       }
     },
@@ -76,19 +82,23 @@
         "sectionRefs": [
           "112",
           "113",
-          "114"
+          "114",
+          "79",
+          "80",
+          "81"
         ]
       },
       "realisticDays": {
-        "min": 14,
-        "max": 21
+        "min": 29,
+        "max": 44
       },
       "errorPriorityRefs": [
-        "113"
+        "113",
+        "80"
       ],
       "lightReviewExpected": true,
       "basis": {
-        "totalWords": 297,
+        "totalWords": 627,
         "sessionMinutes": 10
       }
     },
@@ -99,19 +109,22 @@
         "editionKeyPrefix": "quran-hafs-quranenc",
         "sectionRefs": [
           "112",
-          "113"
+          "113",
+          "80",
+          "81"
         ]
       },
       "realisticDays": {
-        "min": 11,
-        "max": 17
+        "min": 20,
+        "max": 30
       },
       "errorPriorityRefs": [
-        "112"
+        "112",
+        "81"
       ],
       "lightReviewExpected": false,
       "basis": {
-        "totalWords": 225,
+        "totalWords": 418,
         "sessionMinutes": 10
       }
     },
@@ -141,17 +154,18 @@
       "goalRecognition": {
         "editionKeyPrefix": "quran-hafs-quranenc",
         "sectionRefs": [
-          "112"
+          "112",
+          "78"
         ]
       },
       "realisticDays": {
-        "min": 4,
-        "max": 6
+        "min": 8,
+        "max": 12
       },
       "errorPriorityRefs": [],
       "lightReviewExpected": false,
       "basis": {
-        "totalWords": 86,
+        "totalWords": 170,
         "sessionMinutes": 10
       }
     },

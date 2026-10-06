@@ -83,6 +83,45 @@ def test_the_real_scenarios_resolve_against_the_published_bundle_pair(
     assert by_id(resolved, "scenario-09").paths == ("matn", "sanad")
 
 
+def live_shaped(editions: list[CatalogEdition]) -> list[CatalogEdition]:
+    """A catalog shaped like the live one: surahs 78-81 and the first hadith only."""
+    live: list[CatalogEdition] = []
+    for edition in editions:
+        template = edition.sections[0]
+        if edition.content_format == "quran":
+            references = ["78", "79", "80", "81"]
+            key = "quran-hafs-quranenc-ai-20261005"
+        else:
+            references = ["nawawi40:1"]
+            key = "nawawi40-hadeethenc-ai-20261005"
+        sections = [
+            template.model_copy(update={"ordinal": ordinal, "reference": reference})
+            for ordinal, reference in enumerate(references, start=1)
+        ]
+        live.append(edition.model_copy(update={"edition_key": key, "sections": sections}))
+    return live
+
+
+def test_the_real_scenarios_also_resolve_against_the_live_shaped_catalog(
+    editions: list[CatalogEdition],
+) -> None:
+    resolved = policy.resolve_all(
+        policy.parse_scenario_fixture((REAL_FIXTURES / "demo_scenarios.json").read_bytes()),
+        live_shaped(editions),
+    )
+    assert len(resolved) == 10  # none is omitted from E27 on the live catalog
+    # each Quran scenario keeps its intent: the vague goal and the surah stay small, the deadline
+    # and the large plan cover everything published
+    assert by_id(resolved, "scenario-01").section_ordinals == (4,)
+    assert by_id(resolved, "scenario-02").section_ordinals == (1, 2, 3, 4)
+    assert by_id(resolved, "scenario-03").section_ordinals == (3,)
+    assert by_id(resolved, "scenario-04").section_ordinals == (2, 3, 4)
+    assert by_id(resolved, "scenario-05").section_ordinals == (3, 4)
+    assert by_id(resolved, "scenario-07").section_ordinals == (1,)
+    assert by_id(resolved, "scenario-06").section_ordinals == (1, 2, 3, 4)  # "*"
+    assert by_id(resolved, "scenario-09").section_ordinals == (1,)
+
+
 def test_only_the_scenarios_of_a_published_edition_resolve(
     editions: list[CatalogEdition],
 ) -> None:
