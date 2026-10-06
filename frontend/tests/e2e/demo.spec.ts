@@ -142,15 +142,14 @@ const noHorizontalScroll = async (page: Page) => {
   expect(scrollWidth, offenders.join(" | ")).toBeLessThanOrEqual(clientWidth);
 };
 
-test.describe("the committee journey from S-01 to today", () => {
+test.describe("the committee journey from S-28 to today", () => {
   for (const language of ["ar", "en"] as const) {
-    test(`${language}: the demo link, S-28, S-04, S-29 and today, with no demo flag ever sent`, async ({ page }) => {
+    test(`${language}: S-28 opened by its address, S-04, S-29 and today, with no demo flag ever sent`, async ({ page }) => {
       const copy = COPY[language];
       const seen = await serveMockBackend(page, { signedIn: false });
-      const { go } = await open(page, "/login", { language });
+      const { go } = await open(page, "/demo", { language });
       await go();
 
-      await page.getByRole("link", { name: copy.loginLink }).click();
       await expect(page).toHaveURL(/\/demo$/);
       await expect(page.getByRole("heading", { level: 1, name: copy.entry })).toBeVisible();
       expect(await axeViolations(page)).toEqual([]);
@@ -246,7 +245,7 @@ test.describe("S-03 opened from S-28", () => {
     await serveMockBackend(page, { signedIn: false });
     const { go } = await open(page, "/login");
     await go();
-    await page.getByRole("link", { name: copy.loginLink }).click();
+    await page.goto("/demo");
     await expect(page).toHaveURL(/\/demo$/);
     await fillDemoForm(page, "ar");
     await page.getByRole("link", { name: "شروط الاستخدام وبيان الخصوصية", exact: true }).click();
@@ -393,16 +392,13 @@ test.describe("states of S-29", () => {
   });
 });
 
-test.describe("the demo link on S-01", () => {
-  test("is reachable by Tab right after the create-account link, and every target is still 44 px", async ({ page }) => {
+test.describe("S-01 without the demo link (D97)", () => {
+  test("has no link to /demo, and every target is still 44 px", async ({ page }) => {
     await serveMockBackend(page, { signedIn: false });
     const { go } = await open(page, "/login");
     await go();
-    const names: string[] = [];
-    await page.getByRole("link", { name: "إنشاء حساب" }).focus();
-    await page.keyboard.press("Tab");
-    names.push(await page.evaluate(() => document.activeElement?.textContent?.trim() ?? ""));
-    expect(names).toEqual([COPY.ar.loginLink]);
+    await expect(page.locator('a[href="/demo"]')).toHaveCount(0);
+    await expect(page.getByRole("link", { name: COPY.ar.loginLink })).toHaveCount(0);
     expect(await smallTargets(page)).toEqual([]);
   });
 });
