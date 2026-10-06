@@ -34,7 +34,7 @@ export function RoundShell({
     <div className="flex min-h-dvh flex-col">
       <PageTitle screenName={title} />
       <SkipLink />
-      <header ref={barRef} data-wrapped={wrapped} className="sticky top-0 z-(--q-z-sticky) bg-page pt-[env(safe-area-inset-top)] data-[wrapped=true]:static">
+      <header ref={barRef} data-bar="top" data-wrapped={wrapped} className="sticky top-0 z-(--q-z-sticky) bg-page pt-[env(safe-area-inset-top)] data-[wrapped=true]:static">
         <div className="flex min-h-appbar items-center gap-q12 px-page">
           <button type="button" aria-label={backLabel} onClick={onBack} className={BACK_CLASS}>
             <Icon name="back" size="lg" />
@@ -49,7 +49,7 @@ export function RoundShell({
         {children}
       </main>
       {actionBar ? (
-        <div className="sticky bottom-0 z-(--q-z-sticky) border-t border-divider bg-page px-page pt-q12 pb-[calc(var(--q-space-12)+env(safe-area-inset-bottom))] tablet:static">
+        <div data-bar="bottom-below-tablet" className="sticky bottom-0 z-(--q-z-sticky) border-t border-divider bg-page px-page pt-q12 pb-[calc(var(--q-space-12)+env(safe-area-inset-bottom))] tablet:static">
           <div className="mx-auto w-full max-w-column">{actionBar}</div>
         </div>
       ) : null}

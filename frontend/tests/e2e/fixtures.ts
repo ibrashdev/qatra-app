@@ -1,5 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test as base, type ConsoleMessage, type Page, type Route } from "@playwright/test";
+import { readdirSync, readFileSync } from "node:fs";
+import path from "node:path";
 import { createMockFetch, mockProfile } from "../../src/lib/api/mock";
 
 interface Options {
@@ -93,6 +95,20 @@ export async function signInOnSettingsRoutes(page: Page) {
       await route.fallback();
     }
   });
+}
+
+// The chunk that holds the text of S-03 or of S-26 (each route has its own, and it loads with that route only), so a test can hold it back or make it
+// fail. Both hold the terms text; the one of S-26 also holds the closing button of S-26, «العودة إلى الإعدادات», which the one of S-03 does not.
+export function termsChunk(screen: "terms" | "privacy" = "terms"): string {
+  const directory = path.resolve(process.cwd(), ".next/static/chunks");
+  const file = readdirSync(directory).find((name) => {
+    if (!name.endsWith(".js")) return false;
+    const source = readFileSync(path.join(directory, name), "utf8");
+    // A sentence of the terms text only: the shorter «الكتاب كما هو» is also in the catalog Notice of S-07 and S-25.
+    return source.includes("التطبيق يحفظ الكتاب كما هو") && source.includes("العودة إلى الإعدادات") === (screen === "privacy");
+  });
+  if (file === undefined) throw new Error(`the chunk that holds the text of ${screen} was not found in the build`);
+  return file;
 }
 
 export type HealthMode = "ok" | "hang" | "gateway";

@@ -1,8 +1,6 @@
-import { readdirSync, readFileSync } from "node:fs";
-import path from "node:path";
 import type { Locator, Page } from "@playwright/test";
 import { mockProfile } from "../../src/lib/api/mock";
-import { axeViolations, controlHealth, expect, smallTargets, test, VIEWPORTS, waitForFirstHealthRequest, WAKE_LINE, type HealthMode } from "./fixtures";
+import { axeViolations, controlHealth, expect, smallTargets, termsChunk, test, VIEWPORTS, waitForFirstHealthRequest, WAKE_LINE, type HealthMode } from "./fixtures";
 
 // S-03 (UI-screens Batch 1) in a real browser, against a production build in live mode. Every API answer is route-intercepted;
 // the stub backend only answers E01 and, as a visitor, E11. The page itself calls no API.
@@ -128,15 +126,6 @@ const horizontalOverflow = (page: Page) => page.evaluate(() => document.document
 async function pressSegment(page: Page, name: string) {
   const radio = await box(page.getByRole("radio", { name }));
   await page.mouse.click(radio.x + radio.width / 2, radio.y + radio.height / 2);
-}
-
-// The chunk that holds the text of S-03 (it loads with the route only), so a test can hold it back or make it fail.
-function termsChunk(): string {
-  const directory = path.resolve(process.cwd(), ".next/static/chunks");
-  // A sentence of the terms text only: the shorter «الكتاب كما هو» is also in the catalog Notice of S-07 and S-25.
-  const file = readdirSync(directory).find((name) => name.endsWith(".js") && readFileSync(path.join(directory, name), "utf8").includes("التطبيق يحفظ الكتاب كما هو"));
-  if (file === undefined) throw new Error("the chunk that holds the terms text was not found in the build");
-  return file;
 }
 
 test.describe("layout and design (UI-screens S-03 sections 2, 5 and 6)", () => {
