@@ -109,3 +109,14 @@ Searches for better candidates (phrases from the Forty's own opening, from the w
 2. Is honorific-level variation (an added or missing epithet after a name or divine name) acceptable as "the Forty's wording" for numbers 8 and 36, as the D68 anchors suggest? If not, move them to uncertain.
 3. Does the oracle used at `verify` contain the zero-width characters, or should the CLI strip them (see flag above)?
 
+
+
+## Reference follow-up — 2026-10-06 (CONTENT-EXPANSION-04)
+
+The earlier uncertain-record notes were based partly on recollection. A bounded visual check now used IslamHouse item 5271 and its Dar Alsalam PDF as verification references only; the content source remains Islamic Content MCP/HadeethEnc. No candidate was promoted into `nawawi40-id-map.json` or the bank.
+
+- Hadith 14: the earlier assertion that candidate 4714 omits a clause from the Forty is not established for the Dar Alsalam body. The cited clause appears in that PDF's footnote, while the HTML body includes it as a bracketed addition. The candidate's core narration agrees with the printed body; an opening honorific differs. This edition difference is unresolved, not a confirmed body omission.
+- Hadith 42: the candidate differs from the Dar Alsalam page in a pronoun in the first clause, a repeated closing phrase after the second clause, and the opening narrator/divine attribution wording. A partial visual resemblance is not full wording equality.
+- The other five candidates also remain uncertain. All seven are retained privately as evidence with their unchanged source text. The two-pass acquisition equality does not settle the required Forty wording or authorize replacing it from a different edition.
+
+The visual comparison is bounded and does not replace the documented OpenITI letter-skeleton follow-up, human source review or publication approval. The complete hadith collection remains unfinished at 35/42 mapped records.

@@ -13,7 +13,12 @@ import httpx
 import pytest
 
 from app.workflow import source_only
-from app.workflow.editions import EDITION_HADITH, EDITION_QURAN, EditionScope
+from app.workflow.editions import (
+    EDITION_HADITH,
+    EDITION_QURAN,
+    QURAN_AYAH_COUNTS,
+    EditionScope,
+)
 from app.workflow.errors import ExitCode, InputError, PreconditionError
 from tests.workflow.wf_d83_support import (
     D83_HADITH_ID,
@@ -61,6 +66,29 @@ def verify_quran(build: Path, server: McpMock, *extra: str) -> int:
     return run_cli(args, build, transport=httpx.MockTransport(server))
 
 
+def full_juz_server(*, mismatch_surah: int | None = None) -> McpMock:
+    verse = quran_verses()[0]
+    answers = {}
+    for surah, ayah_count in QURAN_AYAH_COUNTS.items():
+        first = surah_text(surah, ayah_count, verse)
+        if surah == mismatch_surah:
+            changed = surah_text(surah, ayah_count, verse + " مختلف")
+            answers[("get_quran_verses", surah)] = [first, changed]
+        else:
+            answers[("get_quran_verses", surah)] = first
+    return McpMock(answers)
+
+
+def acquire_full_juz_d95(build: Path, server: McpMock) -> int:
+    args = quran_args("acquire", "--http", "--surahs", "78-114", bank=4)
+    return run_cli(args, build, transport=httpx.MockTransport(server))
+
+
+def verify_full_juz_d95(build: Path, server: McpMock) -> int:
+    args = quran_args("verify", "--source-only-decision", "D95", "--http-recheck", bank=4)
+    return run_cli(args, build, transport=httpx.MockTransport(server))
+
+
 # --- Quran ---------------------------------------------------------------------------------
 
 
@@ -101,6 +129,51 @@ def test_quran_two_http_acquisitions_verify_the_surah(
     # one fetch for the acquisition, one for the re-acquisition, nothing from any other host
     assert server.calls == [("get_quran_verses", 112)] * 2
     assert server.hosts == {HOST}
+
+
+def test_d95_verifies_only_the_full_juz_scope_by_http_reacquisition(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    build = tmp_path / "build"
+    server = full_juz_server()
+    assert acquire_full_juz_d95(build, server) == 0
+    capsys.readouterr()
+
+    assert verify_full_juz_d95(build, server) == 0
+    out = capsys.readouterr().out
+    summary = rows(build, QURAN_ED, bank=4)["verified"].validation_summary
+    assert summary["verification"]["method"] == (
+        "source_only(D95):http_reacquisition_byte_equality"
+    )
+    assert summary["sourceOnly"]["decision"] == "D95"
+    assert summary["sourceOnly"]["priorEvidence"]["decision"] == "D95"
+    assert summary["counts"]["units"] == summary["counts"]["passed"] == 564
+    assert summary["counts"]["failed"] == 0
+    assert len(summary["sourceOnly"]["acquisitions"]) == 74
+    verification = json.loads((build / QURAN_ED / "verification.json").read_text(encoding="utf-8"))
+    assert verification["sourceOnlyDecision"] == "D95"
+    assert all(unit["result"] == "passed" for unit in verification["units"])
+    assert "source_only=D95" in out
+    assert len(server.calls) == 74
+    assert server.hosts == {HOST}
+    assert_no_source_text(out, all_report_text(build))
+
+
+def test_d95_http_mismatch_fails_the_affected_quran_ayahs(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    build = tmp_path / "build"
+    server = full_juz_server(mismatch_surah=82)
+    assert acquire_full_juz_d95(build, server) == 0
+    capsys.readouterr()
+
+    assert verify_full_juz_d95(build, server) == ExitCode.VERIFICATION_FAILED
+    capsys.readouterr()
+    verified = rows(build, QURAN_ED, bank=4)["verified"]
+    assert verified.cursor["blockedUnits"]
+    assert all(ref.startswith("82:") for ref in verified.cursor["blockedUnits"])
+    assert verified.validation_summary["verification"]["method"].startswith("source_only(D95):")
+    assert verified.validation_summary["sourceOnly"]["decision"] == "D95"
 
 
 def test_a_different_re_acquisition_blocks_the_affected_unit(
@@ -215,7 +288,7 @@ def test_without_the_option_the_missing_oracle_still_fails_closed(
     assert "sourceOnly" not in summary
 
 
-def test_only_the_d83_decision_exists(tmp_path: Path) -> None:
+def test_unknown_source_only_decision_is_refused(tmp_path: Path) -> None:
     build = tmp_path / "build"
     args = quran_args("verify", "--source-only-decision", "D84", "--http-recheck")
     assert run_cli(args, build) == ExitCode.USAGE
@@ -405,10 +478,15 @@ def test_verify_waits_for_both_hadith_passes(tmp_path: Path) -> None:
 
 def test_module_constants_and_names() -> None:
     assert source_only.DECISION_ID == "D83" and source_only.BANK_VERSION == 1
+    assert source_only.DECISION_IDS == ("D83", "D95")
     assert source_only.QURAN_SURAHS == (112,)
     assert dict(source_only.HADITH_IDS) == {1: 66511}
     assert source_only.method_name("x") == "source_only(D83):x"
+    assert source_only.method_name("x", decision="D95") == "source_only(D95):x"
     source_only.require_decision("D83")
+    source_only.require_decision("D95")
+    assert source_only.prior_evidence("D83")["decision"] == "D68"
+    assert source_only.prior_evidence("D95")["decision"] == "D95"
     with pytest.raises(InputError):
         source_only.require_decision("D68")
 
@@ -437,3 +515,27 @@ def test_the_scope_guard_accepts_exactly_the_d83_scope(
     else:
         with pytest.raises(PreconditionError):
             source_only.assert_scope(edition, bank, scope)
+
+
+@pytest.mark.parametrize(
+    ("edition", "bank", "scope"),
+    [
+        (
+            EDITION_QURAN,
+            4,
+            EditionScope(surahs=tuple(range(78, 115))),
+        ),
+        (EDITION_QURAN, 3, EditionScope(surahs=tuple(range(78, 115)))),
+        (EDITION_QURAN, 4, EditionScope(surahs=tuple(range(78, 82)))),
+        (EDITION_QURAN, 4, EditionScope(surahs=tuple(range(82, 115)))),
+        (EDITION_HADITH, 4, EditionScope(forty_numbers=(1,))),
+    ],
+)
+def test_d95_accepts_exactly_full_juz_bank_four(
+    edition: str, bank: int, scope: EditionScope
+) -> None:
+    if edition == EDITION_QURAN and bank == 4 and scope.surahs == tuple(range(78, 115)):
+        source_only.assert_scope(edition, bank, scope, decision="D95")
+    else:
+        with pytest.raises(PreconditionError):
+            source_only.assert_scope(edition, bank, scope, decision="D95")

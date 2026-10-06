@@ -15,9 +15,11 @@ them, and the owner reads ``question-proposals.md`` before ``approve`` (it write
 check their preconditions through ``app.domain.content_policy`` and then exit with code 6 and
 the message "not implemented in B7 (B8/C6)" (C6 implements them).
 
-``verify --source-only-decision D83`` accepts, for exactly surah 112 and Forty hadith 1 at bank
-version 1, two independent HTTP acquisitions from the service in place of the oracle and the
-skeleton (no other source is fetched). ``segment``, ``build-bank`` and ``validate`` follow the
+``verify --source-only-decision`` accepts exactly the source scopes defined in
+``app.workflow.source_only``: D83 covers surah 112 and Forty hadith 1 at bank version 1; D95
+covers all Quran surahs 78-114 at bank version 4 only. These decisions use HTTP acquisitions from
+the service in place of the oracle and skeleton (no other source is fetched). ``segment``,
+``build-bank`` and ``validate`` follow the
 scope recorded by ``acquire``. ``approve`` records the owner's approval only from explicit
 inputs (the owner's verbatim words, their source and time, the reviewer, the scope of the review
 and a note) and refuses when any is missing or empty. ``publish --sql-out PATH`` writes ONE
@@ -273,9 +275,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
     verify.add_argument(
         "--source-only-decision",
-        choices=(source_only.DECISION_ID,),
-        help="D83: two HTTP acquisitions from the service replace --oracle and --skeleton "
-        "(surah 112 and hadith 1, bank version 1 only; the Quran also needs --http-recheck)",
+        choices=source_only.DECISION_IDS,
+        help="D83: surah 112 and hadith 1 at bank 1; D95: all Quran surahs 78-114 at bank 4 only. "
+        "For Quran, two HTTP acquisitions replace --oracle; pass --http-recheck.",
     )
 
     segment = sub.add_parser(
