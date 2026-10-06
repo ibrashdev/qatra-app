@@ -3,7 +3,7 @@ import { gradeLocally } from "@/components/session/local-grade";
 import { isRenderableQuestion } from "@/components/session/session-model";
 import { GAMES } from "@/components/games/game-model";
 import type { DailyProgress, GameKind, ISODate, PlanSnapshot, Question, SessionSnapshot } from "@/lib/api/types";
-import type { EnvelopedEvent, PendingEvent, RevalidationRecord } from "@/lib/offline/types";
+import type { EnvelopedEvent, LocalPlanInspection, PendingEvent, RevalidationRecord } from "@/lib/offline/types";
 
 // Pure derivations of the offline shell (S-31): what the downloaded snapshot offers, and the provisional figures the device can compute alone.
 // Nothing here reads storage, the network or React, so the rules are tested without a browser.
@@ -87,6 +87,18 @@ export function snapshotTextKind(snapshot: PlanSnapshot): TextKind {
   const first = snapshot.lessons[0];
   if (first === undefined) return "quran";
   return first.path === "quran" ? "quran" : "hadith";
+}
+
+// ---------------------------------------------------------------------------------------------------------------------------------------------
+// Who is on the device
+// ---------------------------------------------------------------------------------------------------------------------------------------------
+
+// A visitor who never signed in on this device: the read ended with "nothing downloaded" and holds no owner, no plan and no unsent answer. A 401 for such a
+// visitor is not an ended session (G-03), so the launcher invites them to log in instead. A read that failed or is locked says nothing about the past, so
+// those keep the G-03 line. Null (the read has not ended) is not decided either way.
+export function isNeverSignedIn(inspection: LocalPlanInspection | null): boolean {
+  if (inspection === null || inspection.status !== "none") return false;
+  return inspection.owner?.ownerId == null && inspection.snapshot === null && inspection.record === null && inspection.counts.total === 0;
 }
 
 // ---------------------------------------------------------------------------------------------------------------------------------------------

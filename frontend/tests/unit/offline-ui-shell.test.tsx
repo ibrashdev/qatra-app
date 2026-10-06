@@ -304,12 +304,38 @@ describe("S-31 online: the launcher (G-10) and the account states", () => {
     expect(navigation.router.replace).not.toHaveBeenCalled();
   });
 
-  it("says the session ended for a visitor with nothing on the device", async () => {
+  it("invites a visitor who never signed in on this device to log in, without saying a session ended", async () => {
     setOnline(true);
     sync.run.mockResolvedValue(syncResult("nothing_to_do"));
     renderShell({ me: () => json({ error: { code: "unauthenticated", message: "m", details: {} } }, 401) });
-    expect(await screen.findByText("Your session has ended. Log in to continue.")).toBeInTheDocument();
+    expect(await screen.findByText("Log in to download your plan and use it offline")).toBeInTheDocument();
+    expect(screen.queryByText("Your session has ended. Log in to continue.")).toBeNull();
+    expect(screen.getByRole("link", { name: "Log in" })).toHaveAttribute("href", "/login");
+    // The "no plan downloaded" panel stays as it was.
+    expect(await screen.findByRole("heading", { level: 2, name: "No plan is downloaded on this device" })).toBeInTheDocument();
     expect(navigation.router.replace).not.toHaveBeenCalled();
+  });
+
+  it("speaks the sign-in invitation in Arabic for a visitor who never signed in", async () => {
+    setOnline(true);
+    sync.run.mockResolvedValue(syncResult("nothing_to_do"));
+    renderShell({ language: "ar", me: () => json({ error: { code: "unauthenticated", message: "m", details: {} } }, 401) });
+    expect(await screen.findByText("سجّل الدخول لتنزيل خطتك واستعمالها دون اتصال")).toBeInTheDocument();
+    expect(screen.queryByText("انتهت جلستك. سجّل الدخول للمتابعة.")).toBeNull();
+    expect(screen.getByRole("link", { name: "تسجيل الدخول" })).toHaveAttribute("href", "/login");
+  });
+
+  it("keeps the session-ended line when the device holds an owner but no downloaded plan (a real ended session)", async () => {
+    setOnline(true);
+    inspecting({
+      status: "none",
+      owner: { ownerId: OWNER_ID, username: USERNAME, generation: 1, logoutPending: false, clearFailed: false, updatedAt: "2026-10-06T00:00:00.000Z" },
+    });
+    sync.run.mockResolvedValue(syncResult("unauthenticated"));
+    renderShell();
+    expect(await screen.findByText("Your session has ended. Log in to continue.")).toBeInTheDocument();
+    expect(screen.queryByText("Log in to download your plan and use it offline")).toBeNull();
+    expect(screen.getByRole("link", { name: "Log in" })).toHaveAttribute("href", "/login");
   });
 
   it("blocks the copy of another account until the learner clears it, then goes on", async () => {

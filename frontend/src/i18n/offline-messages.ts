@@ -13,7 +13,8 @@ export interface OfflineMessages {
     ready: string; // fixed: «الخطة جاهزة دون اتصال»
     serverWaking: string; // fixed: G-01 line
     retry: string; // fixed: «إعادة المحاولة»
-    sessionEnded: string; // fixed: G-03
+    sessionEnded: string; // fixed: G-03, for a device that holds an owner or a plan (a real ended session)
+    signInPrompt: string; // a visitor who never signed in on this device: a neutral invitation, not "session ended"
     login: string;
     launcherOpening: string; // online: the app is opening
     unsupported: string; // no IndexedDB or no service worker in this browser
@@ -146,6 +147,7 @@ const ar: OfflineMessages = {
     serverWaking: "جارٍ تشغيل الخادم المجاني، قد يستغرق ذلك دقيقة.",
     retry: "إعادة المحاولة",
     sessionEnded: "انتهت جلستك. سجّل الدخول للمتابعة.",
+    signInPrompt: "سجّل الدخول لتنزيل خطتك واستعمالها دون اتصال",
     login: "تسجيل الدخول",
     launcherOpening: "جارٍ فتح التطبيق",
     unsupported: "هذا المتصفح لا يدعم الاستخدام دون اتصال. افتح التطبيق في متصفح حديث.",
@@ -312,6 +314,7 @@ const en: OfflineMessages = {
     serverWaking: "Starting the free server, this may take about a minute.",
     retry: "Try again",
     sessionEnded: "Your session has ended. Log in to continue.",
+    signInPrompt: "Log in to download your plan and use it offline",
     login: "Log in",
     launcherOpening: "Opening the app",
     unsupported: "This browser does not support offline use. Open the app in a modern browser.",

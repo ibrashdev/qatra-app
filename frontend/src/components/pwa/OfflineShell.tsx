@@ -17,7 +17,7 @@ import { getOfflineSyncController } from "@/lib/offline/sync";
 import type { SyncTrigger } from "@/lib/offline/types";
 import { OfflineChrome } from "./OfflineChrome";
 import { OfflineHome } from "./OfflineHome";
-import { learningDateOf, provisionalDaily, provisionalTodayMs, sessionEntries, type LocalRunSummary, type OfflineSessionEntry } from "./offline-model";
+import { isNeverSignedIn, learningDateOf, provisionalDaily, provisionalTodayMs, sessionEntries, type LocalRunSummary, type OfflineSessionEntry } from "./offline-model";
 import { OfflineResult } from "./OfflineResult";
 import { OfflineGameRun, OfflineSessionRun, type OfflineRunCallbacks } from "./offline-run";
 import {
@@ -27,6 +27,7 @@ import {
   OwnerMismatchPanel,
   SchemaPanel,
   SessionEndedBanner,
+  SignInPromptBanner,
   StalePanel,
   StoragePanel,
   UnavailablePanel,
@@ -53,7 +54,8 @@ const SKELETON_DELAY_MS = 300; // UI-tokens 6.14
 
 // S-31 at /offline (the PWA start_url). Public and prerendered; everything personal is read from IndexedDB after hydration, and nothing in it is a <Link> or
 // a router transition (offline-spec 4.2). The state machine:
-//   booting, then the foreground check (G-10): online and the account answers, sync, then replace to /today; 401 keeps the local copy and says so (G-03);
+//   booting, then the foreground check (G-10): online and the account answers, sync, then replace to /today; 401 keeps the local copy and says so (G-03), or
+//   for a visitor who never signed in on this device invites them to log in;
 //   a waking server shows the G-01 line while the local day stays usable; offline or unreachable stays here and shows the local day, a run, or the
 //   reason there is nothing to show (no plan, incomplete, stale, revoked, expired, locked, newer data than the app, a storage failure, another account's copy).
 export function OfflineShell() {
@@ -342,11 +344,15 @@ export function OfflineShell() {
     }
   }
 
+  // A 401 ends a session only where one was held: a device with an owner or a plan keeps the G-03 line, a visitor who never signed in is invited to log in.
+  let accountBanner: ReactNode = null;
+  if (effectiveNet === "unauthenticated" && inspection !== null) accountBanner = isNeverSignedIn(inspection) ? <SignInPromptBanner /> : <SessionEndedBanner />;
+
   return (
     <OfflineChrome title={t.shell.screenName}>
       {/* The polite region stays in the page while empty, so a banner added later is announced. */}
       <div role="status" aria-live="polite" className="flex flex-col gap-q12 empty:hidden">
-        {effectiveNet === "unauthenticated" ? <SessionEndedBanner /> : null}
+        {accountBanner}
         {waking ? <WakingBanner timedOut={timedOut} onRetry={retryCheck} /> : null}
       </div>
       <UpdateNotice />
