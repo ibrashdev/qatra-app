@@ -58,7 +58,11 @@ function syncResult(outcome: SyncResult["outcome"], overrides: Partial<SyncResul
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 
-function renderShell({ language = "en", me = (): Response => json(profile()) }: { language?: "ar" | "en"; me?: () => Response } = {}) {
+function renderShell({
+  language = "en",
+  me = (): Response => json(profile()),
+  embedded,
+}: { language?: "ar" | "en"; me?: () => Response; embedded?: { onReconnected: () => void; onReturn?: () => void } } = {}) {
   localStorage.setItem(LOCALE_STORAGE_KEY, language);
   resetLocaleStoreForTests();
   const fetchImpl = vi.fn<typeof fetch>(async (input) => {
@@ -70,7 +74,7 @@ function renderShell({ language = "en", me = (): Response => json(profile()) }: 
   const view = render(
     <LocaleProvider>
       <ApiRuntimeProvider runtime={runtime}>
-        <OfflineShell />
+        <OfflineShell embedded={embedded} />
       </ApiRuntimeProvider>
     </LocaleProvider>,
   );
@@ -365,5 +369,100 @@ describe("S-31 online: the launcher (G-10) and the account states", () => {
       retry.click();
     });
     expect(sync.run).toHaveBeenCalledWith("manual");
+  });
+});
+
+// PWA-design 6: the signed-in shell hosts this screen in place of an open page. Only the end of the check changes: it hands control back instead of replacing the route.
+describe("S-31 embedded in the signed-in shell (PWA-design 6)", () => {
+  it("hands control back to the page once the check passes, and never replaces the route", async () => {
+    setOnline(true);
+    await seedPlan();
+    sync.run.mockResolvedValue(syncResult("completed"));
+    const onReconnected = vi.fn();
+    renderShell({ embedded: { onReconnected } });
+    await waitFor(() => expect(onReconnected).toHaveBeenCalledTimes(1));
+    expect(navigation.router.replace).not.toHaveBeenCalled();
+    expect(sync.run).toHaveBeenCalledWith("app_open");
+  });
+
+  it("stays while offline, then hands control back when the browser reports the connection and the check passes", async () => {
+    setOnline(false);
+    await seedPlan();
+    sync.run.mockResolvedValue(syncResult("completed"));
+    const onReconnected = vi.fn();
+    const { fetchImpl } = renderShell({ embedded: { onReconnected } });
+    expect(await screen.findByText("Plan ready offline")).toBeInTheDocument();
+    expect(onReconnected).not.toHaveBeenCalled();
+    expect(apiCalls(fetchImpl)).toEqual([]);
+    setOnline(true);
+    await act(async () => {
+      window.dispatchEvent(new Event("online"));
+    });
+    await waitFor(() => expect(onReconnected).toHaveBeenCalledTimes(1));
+    expect(sync.run).toHaveBeenCalledWith("reconnect");
+    expect(navigation.router.replace).not.toHaveBeenCalled();
+  });
+
+  it("waits while a run is open, and hands control back once the learner is on the list again", async () => {
+    setOnline(false);
+    await seedPlan();
+    sync.run.mockResolvedValue(syncResult("completed"));
+    const onReconnected = vi.fn();
+    const user = userEvent.setup();
+    renderShell({ embedded: { onReconnected } });
+    await user.click(await screen.findByRole("button", { name: "Start: Today's session" }));
+    await screen.findByRole("heading", { level: 2, name: "New passage" });
+    setOnline(true);
+    await act(async () => {
+      window.dispatchEvent(new Event("online"));
+    });
+    await waitFor(() => expect(sync.run).toHaveBeenCalledWith("reconnect"));
+    // The run is not interrupted by the connection coming back.
+    expect(onReconnected).not.toHaveBeenCalled();
+    expect(screen.getByRole("heading", { level: 2, name: "New passage" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Pause" }));
+    await user.click(await screen.findByRole("button", { name: "Pause and leave" }));
+    await waitFor(() => expect(onReconnected).toHaveBeenCalledTimes(1));
+    expect(navigation.router.replace).not.toHaveBeenCalled();
+  });
+
+  it("offers the way back to the page at the top of the body only when the learner opened the plan by choice", async () => {
+    setOnline(false);
+    await seedPlan();
+    const onReturn = vi.fn();
+    const user = userEvent.setup();
+    const first = renderShell({ embedded: { onReconnected: vi.fn(), onReturn } });
+    const back = await screen.findByRole("button", { name: "Back to the page" });
+    const heading = screen.getByRole("heading", { level: 1, name: "Learning offline" });
+    // It comes first in the body, before the status region and the day.
+    expect(heading.compareDocumentPosition(back) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(back.compareDocumentPosition(await screen.findByText("Plan ready offline")) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    await user.click(back);
+    expect(onReturn).toHaveBeenCalledTimes(1);
+    first.unmount();
+
+    renderShell({ embedded: { onReconnected: vi.fn() } });
+    await screen.findByText("Plan ready offline");
+    expect(screen.queryByRole("button", { name: "Back to the page" })).toBeNull();
+  });
+
+  it("takes focus on the heading when it replaces a page, and leaves focus alone on the route at /offline", async () => {
+    setOnline(false);
+    await seedPlan();
+    const first = renderShell({ embedded: { onReconnected: vi.fn() } });
+    await screen.findByText("Plan ready offline");
+    expect(screen.getByRole("heading", { level: 1, name: "Learning offline" })).toHaveFocus();
+    first.unmount();
+    renderShell();
+    await screen.findByText("Plan ready offline");
+    expect(screen.getByRole("heading", { level: 1, name: "Learning offline" })).not.toHaveFocus();
+  });
+
+  it("has no way back to the page on the route at /offline", async () => {
+    setOnline(false);
+    await seedPlan();
+    renderShell();
+    await screen.findByText("Plan ready offline");
+    expect(screen.queryByRole("button", { name: "Back to the page" })).toBeNull();
   });
 });

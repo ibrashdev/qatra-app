@@ -1,4 +1,5 @@
 import { API_MODE, type ApiMode } from "@/lib/config";
+import { ConnectivityController } from "@/lib/net/connectivity";
 import { createApiClient, type ApiClient } from "./client";
 import { createEndpoints, probeHealth, type Endpoints } from "./endpoints";
 import { createMockFetch } from "./mock";
@@ -11,6 +12,8 @@ export interface ApiRuntime {
   api: Endpoints;
   monitor: RequestMonitor;
   wakeUp: WakeUpController;
+  // Whether this device has a connection at all, as against a server that is only waking up (src/lib/net/connectivity.ts).
+  connectivity: ConnectivityController;
   // Issues the first request of a page load (GET /api/health). Safe to call more than once.
   boot: () => void;
 }
@@ -25,6 +28,9 @@ export function createApiRuntime(options: { mode?: ApiMode; fetch?: typeof fetch
   });
   const api = createEndpoints(client);
   const wakeUp = new WakeUpController({ probe: (signal) => probeHealth(api, signal) });
+  // Attached before the wake-up controller: a request that failed to leave the device is recorded as offline before the wake-up line is raised for it.
+  const connectivity = new ConnectivityController();
+  connectivity.attach({ monitor, wakeUp });
   wakeUp.attach(monitor);
 
   let booted = false;
@@ -34,6 +40,7 @@ export function createApiRuntime(options: { mode?: ApiMode; fetch?: typeof fetch
     api,
     monitor,
     wakeUp,
+    connectivity,
     boot: () => {
       if (booted) return;
       // The browser says there is no connection: no probe is sent (offline-spec 6, R23 case 2: the offline shell makes no /api request). `booted` stays false,

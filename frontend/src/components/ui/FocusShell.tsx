@@ -1,6 +1,8 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { OfflineNotice } from "@/components/pwa/OfflineNotice";
+import { useConnectivityStatus } from "@/lib/net/use-connectivity";
 import { BackControl, type BackTarget } from "./BackControl";
 import { SkipLink } from "./SkipLink";
 import { WakeUpStatus } from "./WakeUpStatus";
@@ -12,21 +14,26 @@ import { useWrappedBar } from "./use-wrapped-bar";
 // The bar is sticky while it is one row and static once it has wrapped (use-wrapped-bar.ts): a title that grows to many lines at large
 // text must not take the window for good. The bar and the action bar declare themselves with data-bar; the page's scroll padding (globals.css)
 // keeps the room of exactly the bars that are there, so a focused control is never left under them.
+// A flow that is open when the connection drops keeps its state, so the shell only says so (no switch to the downloaded plan, which would leave the flow):
+// `offlineNotice` is true unless the screen already shows its own offline line, or runs on the device with its own backend (the offline plan).
 export function FocusShell({
   title,
   back,
   actions,
   actionBar,
+  offlineNotice = true,
   children,
 }: {
   title: string;
   back?: BackTarget;
   actions?: ReactNode;
   actionBar?: ReactNode;
+  offlineNotice?: boolean;
   children: ReactNode;
 }) {
   useRouteFocus();
   const { barRef, wrapped } = useWrappedBar();
+  const { status } = useConnectivityStatus();
 
   return (
     <div className="flex min-h-dvh flex-col">
@@ -42,7 +49,7 @@ export function FocusShell({
         </div>
       </header>
       <main id="main" tabIndex={-1} className="mx-auto w-full max-w-column flex-1 px-page py-q24">
-        <WakeUpStatus />
+        <WakeUpStatus>{offlineNotice && status === "offline" ? <OfflineNotice kind="offline" /> : null}</WakeUpStatus>
         {children}
       </main>
       {actionBar ? (

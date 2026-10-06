@@ -141,6 +141,7 @@ export function PlanChatScreen({ chatId }: { chatId: string }) {
       title={text.title}
       back={{ destination: revision ? text.backRevision : text.backNew, href: revision ? "/plan/revise" : "/start" }}
       actionBar={dock}
+      offlineNotice={false}
     >
       {/* Slot T: at most one banner, under the bar. The polite region stays in the page while empty, so a banner added later is announced. */}
       <div

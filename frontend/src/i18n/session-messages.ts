@@ -28,7 +28,7 @@ export interface SessionMessages {
   question: { counter: (k: number, n: number, locale: Locale) => string; streak: (count: number, goal: number, locale: Locale) => string; skipped: string };
   primary: { check: string; next: string; finish: string; finishing: string; retry: string };
   pauseSheet: { title: string; body: string; keepGoing: string; leave: string; saving: string; failed: string; retry: string };
-  banners: { offlineQueue: string; planInactive: string; backToToday: string; tooLarge: string };
+  banners: { offlineQueue: string; keepOpen: string; planInactive: string; backToToday: string; tooLarge: string };
   empty: { text: string; action: string };
 }
 
@@ -74,6 +74,8 @@ const ar: SessionMessages = {
   },
   banners: {
     offlineQueue: "لا يوجد اتصال بالشبكة. سنعيد المحاولة تلقائيًا، أو اضغط «إعادة المحاولة».",
+    // Proposed best-practice text (D93): the answers of an online run wait in this page's memory, not on the device.
+    keepOpen: "إجاباتك محفوظة في هذه الصفحة فقط إلى أن تُرسل، فلا تُعِد تحميلها ولا تغلقها.",
     planInactive: "هذه الخطة غير نشطة.",
     backToToday: "العودة إلى اليوم",
     tooLarge: "تعذّر إرسال الطلب لأنه أكبر من الحد المسموح.",
@@ -123,6 +125,7 @@ const en: SessionMessages = {
   },
   banners: {
     offlineQueue: "There is no network connection. We will try again automatically, or press “Try again”.",
+    keepOpen: "Your answers are kept on this page only until they are sent. Do not reload or close it.",
     planInactive: "This plan is not active.",
     backToToday: "Back to Today",
     tooLarge: "The request could not be sent because it is larger than the allowed limit.",

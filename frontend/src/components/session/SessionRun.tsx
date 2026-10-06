@@ -91,7 +91,10 @@ export function SessionRun({ snapshot, daily, textKind, restarted, backend }: Se
         <Banner variant={backend.banner.variant}>{backend.banner.text}</Banner>
       )
     ) : !online ? (
-      <Banner variant="info">{t.banners.offlineQueue}</Banner>
+      <Banner variant="info">
+        <p>{t.banners.offlineQueue}</p>
+        <p className="mt-q4">{t.banners.keepOpen}</p>
+      </Banner>
     ) : null;
 
   const actionBar =
@@ -112,6 +115,8 @@ export function SessionRun({ snapshot, daily, textKind, restarted, backend }: Se
   return (
     <FocusShell
       title={t.title}
+      // The run speaks for the connection in its own banner slot; on the device (a backend) the answers are durable, which the page-level notice would deny.
+      offlineNotice={false}
       back={{ destination: t.backDestination, onClick: run.openSheet }}
       actions={
         <button

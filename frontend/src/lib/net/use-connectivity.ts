@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState, useSyncExternalStore } from "react";
+import { useApiRuntime } from "@/lib/api/react";
+import { INITIAL_CONNECTIVITY, type ConnectivityState } from "./connectivity";
 
 function subscribe(onChange: () => void): () => void {
   window.addEventListener("online", onChange);
@@ -32,4 +34,11 @@ export function useConnectivity(): { online: boolean; reconnected: boolean } {
   }, []);
 
   return { online, reconnected };
+}
+
+// What the open page can tell about the connection beyond the browser's flag: a failed request counts, and a free server that is only waking up is told
+// apart from a device with no connection (src/lib/net/connectivity.ts). The server snapshot is "online" with episode 0, so the first paint never differs.
+export function useConnectivityStatus(): ConnectivityState {
+  const { connectivity } = useApiRuntime();
+  return useSyncExternalStore(connectivity.subscribe, connectivity.getState, () => INITIAL_CONNECTIVITY);
 }

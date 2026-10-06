@@ -86,6 +86,7 @@ export function PlacementScreen() {
     <FocusShell
       title={t.title}
       back={{ destination: t.backDestination, onClick: run.openLeave }}
+      offlineNotice={false}
       actions={
         <TextButton aria-disabled={run.busy || undefined} onClick={run.openSkip}>
           {t.skipTest}
