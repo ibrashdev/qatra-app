@@ -136,6 +136,14 @@ export interface OfflineMessages {
     confirm: string; // fixed
     cancel: string; // fixed
   };
+  // ----- the page that is open when the connection drops (PWA-design 6). Proposed best-practice text, not a fixed string of the documents. -----
+  notice: {
+    title: string; // the device has no connection
+    body: string; // the page stays open; what was typed is kept on this page only and is not saved; what needs a connection; the plan works offline
+    server: string; // the browser is online but the free server does not answer
+    open: string; // the button that opens the downloaded plan
+    return: string; // the control that goes back from the downloaded plan to the page
+  };
 }
 
 const ar: OfflineMessages = {
@@ -303,6 +311,14 @@ const ar: OfflineMessages = {
     confirm: "تسجيل الخروج",
     cancel: "إلغاء",
   },
+  // Proposed best-practice text (D93), not a fixed string.
+  notice: {
+    title: "أنت غير متصل بالإنترنت",
+    body: "تبقى هذه الصفحة مفتوحة، وما أدخلته فيها باقٍ في هذه الصفحة فقط ولم يُحفظ بعد. الحفظ وتسجيل الدخول وإنشاء خطة والتنزيل والمزامنة تحتاج اتصالًا. الخطة المحمّلة تعمل دون اتصال.",
+    server: "الخادم غير متاح الآن. يمكنك متابعة التعلم بالخطة المحمّلة على هذا الجهاز.",
+    open: "افتح الخطة المحمّلة",
+    return: "العودة إلى الصفحة",
+  },
 };
 
 const en: OfflineMessages = {
@@ -469,6 +485,14 @@ const en: OfflineMessages = {
     body: (n) => `${n} answers have not synced yet. If you log out now they will be deleted from this device.`,
     confirm: "Log out",
     cancel: "Cancel",
+  },
+  // Proposed best-practice text (D93), not a fixed string.
+  notice: {
+    title: "You are offline",
+    body: "This page stays open, and what you entered here is kept on this page only and is not saved yet. Saving, logging in, creating a plan, downloading and syncing need a connection. The downloaded plan works offline.",
+    server: "The server is not available right now. You can keep learning with the plan downloaded on this device.",
+    open: "Open the downloaded plan",
+    return: "Back to the page",
   },
 };
 

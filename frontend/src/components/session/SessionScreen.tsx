@@ -48,7 +48,7 @@ export function SessionScreen({ routeId }: { routeId: string }) {
   const waking = wake.phase === "waking" || wake.phase === "timed_out";
 
   return (
-    <FocusShell title={t.title} back={{ destination: t.backDestination, href: "/today" }}>
+    <FocusShell title={t.title} back={{ destination: t.backDestination, href: "/today" }} offlineNotice={false}>
       <div role="status" aria-live="polite" className="has-[*]:mb-q16">
         {failure === null || failure.kind === "revoked" ? null : (
           <SessionFailureBanner failure={failure} online={online} waking={waking} onRetry={reload} onRefresh={reload} />

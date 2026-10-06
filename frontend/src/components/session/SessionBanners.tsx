@@ -50,7 +50,8 @@ export function SessionFailureBanner({
       if (failure.kind === "connectivity" && !online) {
         return (
           <Banner id={id} variant="info" action={retry}>
-            {t.banners.offlineQueue}
+            <p>{t.banners.offlineQueue}</p>
+            <p className="mt-q4">{t.banners.keepOpen}</p>
           </Banner>
         );
       }

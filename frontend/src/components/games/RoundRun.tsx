@@ -85,7 +85,10 @@ export function RoundRun({
         <Banner variant={backend.banner.variant}>{backend.banner.text}</Banner>
       )
     ) : !online ? (
-      <Banner variant="info">{session.banners.offlineQueue}</Banner>
+      <Banner variant="info">
+        <p>{session.banners.offlineQueue}</p>
+        <p className="mt-q4">{session.banners.keepOpen}</p>
+      </Banner>
     ) : null;
 
   const primaryLabel = run.action === "check" ? t.round.primary.check : run.action === "next" ? t.round.primary.next : t.round.primary.finish;

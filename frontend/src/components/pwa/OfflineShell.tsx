@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Button } from "@/components/ui/Button";
 import { SkeletonBlock } from "@/components/ui/Skeleton";
 import { useLocale } from "@/i18n/LocaleProvider";
 import { offlineMessages } from "@/i18n/offline-messages";
@@ -52,13 +53,21 @@ const RETRY_CAP_MS = 30_000;
 const BOOT_GRACE_MS = 1200; // how long a pending check holds the loading view before a ready local plan is shown
 const SKELETON_DELAY_MS = 300; // UI-tokens 6.14
 
+// How the signed-in shell hosts this screen in place of an open page when the connection drops (PWA-design 6): the check that would send the launcher to the
+// online app calls `onReconnected` instead, and `onReturn`, when given, adds the control that goes back to the page the learner left (a manual opening).
+export interface OfflineShellEmbedded {
+  onReconnected: () => void;
+  onReturn?: () => void;
+}
+
 // S-31 at /offline (the PWA start_url). Public and prerendered; everything personal is read from IndexedDB after hydration, and nothing in it is a <Link> or
 // a router transition (offline-spec 4.2). The state machine:
 //   booting, then the foreground check (G-10): online and the account answers, sync, then replace to /today; 401 keeps the local copy and says so (G-03), or
 //   for a visitor who never signed in on this device invites them to log in;
 //   a waking server shows the G-01 line while the local day stays usable; offline or unreachable stays here and shows the local day, a run, or the
 //   reason there is nothing to show (no plan, incomplete, stale, revoked, expired, locked, newer data than the app, a storage failure, another account's copy).
-export function OfflineShell() {
+// `embedded` is set only by the signed-in shell (AppShell); the route at /offline passes nothing and behaves as described above.
+export function OfflineShell({ embedded }: { embedded?: OfflineShellEmbedded }) {
   const { locale } = useLocale();
   const t = offlineMessages(locale);
   const router = useRouter();
@@ -84,6 +93,15 @@ export function OfflineShell() {
   const redirected = useRef(false);
   const runCount = useRef(0);
   const sawOffline = useRef(false);
+  const embeddedRef = useRef(embedded);
+  useEffect(() => {
+    embeddedRef.current = embedded;
+  }, [embedded]);
+  // Embedded, this screen takes the place of the page the learner was on, so the page's focus is gone with it: the heading takes it, which also tells a screen
+  // reader what is now on the screen. On the route at /offline nothing moves, as before.
+  useEffect(() => {
+    if (embeddedRef.current !== undefined) document.querySelector<HTMLElement>("[data-page-heading]")?.focus();
+  }, []);
 
   const effectiveNet: ShellNet = online ? net : "offline";
 
@@ -180,13 +198,16 @@ export function OfflineShell() {
   const snapshot = inspection?.status === "ready" ? inspection.snapshot : null;
   const ownerId = inspection?.owner?.ownerId ?? null;
 
-  // The launcher: online and the account answers, then the online app. Postponed while a run is open; answers made in the meantime are synced first.
+  // The launcher: online and the account answers, then the online app (or, embedded, back to the page that was open). Postponed while a run or its result is
+  // open; answers made in the meantime are synced first.
   useEffect(() => {
     if (effectiveNet !== "ok" || view.kind !== "home" || redirected.current || inspection === null) return;
     redirected.current = true;
     void (async () => {
       if (inspection.counts.queued > 0) await getOfflineSyncController().run("reconnect").catch(() => undefined);
-      router.replace("/today");
+      const host = embeddedRef.current;
+      if (host !== undefined) host.onReconnected();
+      else router.replace("/today");
     })();
   }, [effectiveNet, view.kind, inspection, router]);
 
@@ -350,6 +371,13 @@ export function OfflineShell() {
 
   return (
     <OfflineChrome title={t.shell.screenName}>
+      {embedded?.onReturn === undefined ? null : (
+        <div>
+          <Button variant="secondary" onClick={embedded.onReturn}>
+            {t.notice.return}
+          </Button>
+        </div>
+      )}
       {/* The polite region stays in the page while empty, so a banner added later is announced. */}
       <div role="status" aria-live="polite" className="flex flex-col gap-q12 empty:hidden">
         {accountBanner}

@@ -4,6 +4,7 @@
 // It is additive and opt-in: nothing here applies unless the request carries the cookie `qatra_e2e=<tenant>` (a spec sets it with `context.addCookies`), so every other
 // spec and the plain stub behave exactly as before. Each tenant has its own state, which lets specs run in parallel and still inject faults:
 //   POST /__stub/config?tenant=T   {user, signedIn, me401, planVersion, planActive, revoked, dropEventResponses, rateLimitNext, unavailableNext, eventDelayMs, serverLearningDate}
+//   POST /api/sessions {kind: "daily"} serves one open daily session of the synthetic plan to an online run (answers to E21 without the offline envelope, E22 to finish)
 //   GET  /__stub/state?tenant=T    what the "server" knows: acknowledged events, batches, snapshots, logout calls, the requests it saw
 //   POST /__stub/reset?tenant=T
 // Synthetic data only. The contract it follows: API-spec 4.12 (E23 to E25), E21, E22 and E10.
@@ -34,6 +35,9 @@ function freshState() {
     // what the server knows
     serial: 0,
     snapshots: new Map(),
+    // The one open daily session an online run of the signed-in learner is served (E20 `daily`), apart from the downloaded snapshots counted above.
+    onlineSnapshots: new Map(),
+    onlineDaily: null,
     operations: new Map(),
     acknowledged: new Set(),
     pendingIds: new Set(),
@@ -157,9 +161,31 @@ function grade(question, answer) {
 function findSession(state, sessionId) {
   for (const snapshot of state.snapshots.values()) {
     const session = snapshot.preparedSessions.find((entry) => entry.sessionId === sessionId);
-    if (session !== undefined) return { snapshot, session };
+    if (session !== undefined) return { snapshot, session, online: false };
+  }
+  for (const snapshot of state.onlineSnapshots.values()) {
+    const session = snapshot.preparedSessions.find((entry) => entry.sessionId === sessionId);
+    if (session !== undefined) return { snapshot, session, online: true };
   }
   return null;
+}
+
+// E20 `daily` (API-spec 4.7) for an online run: an atomic get-or-create of one open session, 201 the first time and 200 after. It is the daily descriptor of the
+// synthetic plan, served as the server serves an open session, so the answers of the run reach E21 without the offline envelope.
+function startDaily(state, response, body) {
+  const fields = isRecord(body) ? body : {};
+  if (fields.kind !== "daily") return failure(response, 422, "validation_error", "The request body is not valid.", { fields: [{ field: "kind", rule: "invalid_value" }] });
+  if (fields.planId !== PLAN_ID) return failure(response, 404, "not_found", "The plan was not found.");
+  if (!state.planActive) return failure(response, 409, "version_conflict", "The plan is not active.", { reason: "plan_not_active", currentVersion: state.planVersion });
+  if (fields.expectedPlanVersion !== state.planVersion) return failure(response, 409, "version_conflict", "The plan version moved on.", { reason: "plan_version", currentVersion: state.planVersion });
+  if (state.onlineDaily !== null) return send(response, 200, state.onlineDaily);
+  state.serial += 1;
+  const id = snapshotId(state.serial);
+  const snapshot = buildSnapshot({ snapshotId: id, planId: PLAN_ID, planVersion: state.planVersion, userId: userIdOf(state.user), serial: state.serial, learningDate: state.serverLearningDate, dailyGoalMs: today.dailyGoalMs });
+  const session = { ...snapshot.preparedSessions[0], status: "open" };
+  state.onlineSnapshots.set(id, { ...snapshot, preparedSessions: [session] });
+  state.onlineDaily = session;
+  return send(response, 201, session);
 }
 
 // E23: 201 for a new snapshot, 200 for the same operation with the same input; 409 conflicts; the version and the plan state are the tenant's.
@@ -223,7 +249,8 @@ function events(state, request, response, sessionId, body) {
       result.duplicate.push(id);
       continue;
     }
-    if (!ENVELOPE_KEYS.every((key) => key in event)) {
+    // An online run sends no envelope (it is the replay envelope of an event recorded offline), so only a downloaded session is held to it.
+    if (!found.online && !ENVELOPE_KEYS.every((key) => key in event)) {
       result.rejected.push({ clientEventId: id, code: "envelope_mismatch" });
       state.rejected.set(id, "envelope_mismatch");
       continue;
@@ -233,7 +260,7 @@ function events(state, request, response, sessionId, body) {
       state.rejected.set(id, "edition_mismatch");
       continue;
     }
-    if (state.planVersion !== found.snapshot.planVersion) {
+    if (!found.online && state.planVersion !== found.snapshot.planVersion) {
       result.pending.push({ clientEventId: id, reasonCode: "plan_changed_unverifiable" });
       state.pendingIds.add(id);
       continue;
@@ -370,12 +397,14 @@ export function handleOfflineStub(request, response) {
   const read = /^\/offline-snapshots\/([^/]+)$/.exec(path);
   const sessionEvents = /^\/sessions\/([^/]+)\/events$/.exec(path);
   const sessionComplete = /^\/sessions\/([^/]+)\/complete$/.exec(path);
+  const dailyStart = request.method === "POST" && path === "/sessions";
   const offline = (request.method === "POST" && create !== null) || (request.method === "GET" && read !== null) || (request.method === "POST" && path === "/offline/revalidate");
-  if (!offline && sessionEvents === null && sessionComplete === null) return false;
+  if (!offline && sessionEvents === null && sessionComplete === null && !dailyStart) return false;
 
   void (async () => {
     const body = request.method === "POST" ? await readBody(request) : undefined;
     if (!authenticated) return failure(response, 401, "unauthenticated", "Authentication is required.");
+    if (dailyStart) return startDaily(state, response, body);
     if (sessionEvents !== null) {
       if (state.rateLimitNext > 0) {
         state.rateLimitNext -= 1;

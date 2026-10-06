@@ -317,6 +317,13 @@ describe("S-18 word recall", () => {
 });
 
 describe("server grading and outcomes (P-21, P-22)", () => {
+  it("says the answers are kept on this page only, beside the offline line, while the browser is offline", async () => {
+    vi.spyOn(navigator, "onLine", "get").mockReturnValue(false);
+    await renderRound("word_order");
+    expect(screen.getByText("There is no network connection. We will try again automatically, or press “Try again”.")).toBeInTheDocument();
+    expect(screen.getByText("Your answers are kept on this page only until they are sent. Do not reload or close it.")).toBeInTheDocument();
+  });
+
   it("replaces the first verdict with the server's, and says so politely (O-41)", async () => {
     const backend = makeGamesBackend({
       [E21]: async (real) => {

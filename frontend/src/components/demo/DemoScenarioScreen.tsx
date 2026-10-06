@@ -233,7 +233,7 @@ export function DemoScenarioScreen() {
   }
 
   return (
-    <FocusShell title={text.screenName} actions={<LanguageSwitch />}>
+    <FocusShell title={text.screenName} actions={<LanguageSwitch />} offlineNotice={false}>
       <div className="flex flex-col gap-q24">
         {/* Slot T: the note of S-04 when the recovery code was left unconfirmed, then what this screen is for and what it never sends. */}
         <RecoveryCodeUnavailableBanner />

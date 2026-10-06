@@ -587,6 +587,9 @@ describe("S-19 connectivity and the outbox (G-02, P-22)", () => {
     renderSession({ backend });
     await ready();
     expect(screen.getByText("There is no network connection. We will try again automatically, or press “Try again”.")).toBeInTheDocument();
+    // The answers of an online run wait in this page, so the line says so; the run speaks for the connection itself, so the page-level notice is not added.
+    expect(screen.getByText("Your answers are kept on this page only until they are sent. Do not reload or close it.")).toBeInTheDocument();
+    expect(screen.queryByText("You are offline")).toBeNull();
     await user.click(radio("كلمة٢"));
     await user.click(button("Check"));
     await waitFor(() => expect(backend.count(E21)).toBe(1));

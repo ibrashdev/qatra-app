@@ -63,7 +63,7 @@ export function LessonReaderScreen({ rawId }: { rawId: string }) {
   const title = state.status === "ready" ? state.detail.referenceAr : t.screenName;
 
   return (
-    <FocusShell title={title} back={{ destination: t.screenName, href: "/lessons" }}>
+    <FocusShell title={title} back={{ destination: t.screenName, href: "/lessons" }} offlineNotice={failure?.kind !== "connectivity"}>
       <div role="status" aria-live="polite" className="has-[*]:mb-q16">
         {failure === null ? null : <FailureBanner failure={failure} t={todayMessages(locale)} online={online} waking={waking} id={bannerId} onRetry={reload} onRefresh={reload} />}
       </div>

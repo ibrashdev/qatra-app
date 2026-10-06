@@ -1,4 +1,4 @@
-import { ApiError, ConnectivityError, isAbortError } from "./errors";
+import { ApiError, ConnectivityError, isAbortError, type ConnectivityReason } from "./errors";
 import { RequestMonitor, type RequestOutcome } from "./monitor";
 import { abortError, sleep as defaultSleep } from "./sleep";
 
@@ -167,6 +167,7 @@ export function createApiClient(options: ApiClientOptions = {}): ApiClient {
     const monitor = request.track === false ? undefined : options.monitor;
     const monitorId = monitor?.start();
     let outcome: RequestOutcome = "success";
+    let reason: ConnectivityReason | undefined;
     try {
       for (let index = 0; ; index += 1) {
         try {
@@ -182,9 +183,10 @@ export function createApiClient(options: ApiClientOptions = {}): ApiClient {
       }
     } catch (error) {
       outcome = outcomeOf(error);
+      if (error instanceof ConnectivityError) reason = error.reason;
       throw error;
     } finally {
-      if (monitor !== undefined && monitorId !== undefined) monitor.settle(monitorId, outcome);
+      if (monitor !== undefined && monitorId !== undefined) monitor.settle(monitorId, outcome, reason);
     }
   }
 

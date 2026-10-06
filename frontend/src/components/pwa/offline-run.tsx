@@ -186,7 +186,7 @@ function RunStarting({ failed, onLeave }: { failed: boolean; onLeave: () => void
   const { locale } = useLocale();
   const t = offlineMessages(locale);
   return (
-    <FocusShell title={t.shell.screenName}>
+    <FocusShell title={t.shell.screenName} offlineNotice={false}>
       {failed ? (
         <div role="alert" className="flex flex-col items-start gap-q16 rounded-md border border-divider bg-surface p-q16">
           <p className="text-body text-ink">{t.run.startFailed}</p>
