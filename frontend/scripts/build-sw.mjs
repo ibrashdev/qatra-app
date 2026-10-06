@@ -46,6 +46,18 @@ async function exists(file) {
   }
 }
 
+// The routes `next build` prerendered, from .next/prerender-manifest.json. A missing or unreadable manifest is an empty set, never an error:
+// the caller falls back to the files under .next/server/app.
+async function readPrerenderedRoutes(distDir) {
+  try {
+    const manifest = JSON.parse(await readFile(path.join(distDir, "prerender-manifest.json"), "utf8"));
+    const routes = manifest !== null && typeof manifest === "object" ? manifest.routes : undefined;
+    return new Set(routes !== null && typeof routes === "object" ? Object.keys(routes) : []);
+  } catch {
+    return new Set();
+  }
+}
+
 // Every problem of an allowlist, as sentences. Empty means the list is acceptable.
 export function validateAllowlist(assets) {
   const problems = [];
@@ -90,9 +102,12 @@ export async function collectBuild({ distDir, publicDir }) {
 
   const appDir = path.join(distDir, "server", "app");
   const appFiles = (await exists(appDir)) ? await readdir(appDir) : [];
-  const shellMissing = !appFiles.includes("offline.html");
+  const prerenderedRoutes = await readPrerenderedRoutes(distDir);
+  // The standard prerender manifest is the primary proof; the files under server/app are what a local build also writes. Vercel's build layout
+  // lists the routes as static but does not keep the .html files in this directory, and the worker fetches /offline from the server at install time.
+  const shellMissing = !(prerenderedRoutes.has(SHELL_URL) || appFiles.includes("offline.html") || appFiles.includes("offline.body"));
   if (shellMissing) problems.push("the prerendered /offline page is missing from the build (src/app/offline/page.tsx must be a static page)");
-  if (!appFiles.some((name) => name.startsWith("manifest.webmanifest"))) problems.push("the manifest route is missing from the build (src/app/manifest.ts)");
+  if (!(prerenderedRoutes.has(MANIFEST_URL) || appFiles.some((name) => name.startsWith("manifest.webmanifest")))) problems.push("the manifest route is missing from the build (src/app/manifest.ts)");
   for (const url of REQUIRED_ICONS) {
     if (!(await exists(path.join(publicDir, ...url.split("/").filter(Boolean))))) problems.push(`install icon missing: public${url}`);
   }

@@ -24,6 +24,8 @@ interface FixtureOptions {
   manifest?: boolean;
   icons?: string[];
   staticFiles?: string[];
+  // Routes listed in .next/prerender-manifest.json (a string is written verbatim, to test an unreadable manifest).
+  prerender?: string[] | string;
 }
 
 async function put(file: string, content = "x"): Promise<void> {
@@ -38,6 +40,10 @@ async function fixture(options: FixtureOptions = {}, base = root) {
   for (const file of options.staticFiles ?? ["chunks/app.js", "chunks/site.css", "chunks/lazy.js", "chunks/app.js.map", "media/cairo.woff2", "BUILD1/_buildManifest.js"]) await put(path.join(dist, "static", file));
   if (options.offline !== false) await put(path.join(dist, "server", "app", "offline.html"), "<html></html>");
   if (options.manifest !== false) await put(path.join(dist, "server", "app", "manifest.webmanifest.body"), "{}");
+  if (options.prerender !== undefined) {
+    const body = typeof options.prerender === "string" ? options.prerender : JSON.stringify({ version: 4, routes: Object.fromEntries(options.prerender.map((route) => [route, { initialStatus: 200 }])) });
+    await put(path.join(dist, "prerender-manifest.json"), body);
+  }
   for (const icon of options.icons ?? REQUIRED_ICONS) await put(path.join(pub, ...icon.split("/").filter(Boolean)));
   return { dist, pub, out: path.join(pub, "sw.js") };
 }
@@ -97,6 +103,69 @@ describe("collectBuild reads the production build, never guesses", () => {
     expect((await collectBuild({ distDir: path.join(root, "nope"), publicDir: root })).problems.join()).toMatch(/BUILD_ID is missing/);
     const noShell = await fixture({ offline: false });
     expect((await collectBuild({ distDir: noShell.dist, publicDir: noShell.pub })).problems.join()).toMatch(/\/offline page is missing/);
+  });
+
+  describe("detects the shell and the manifest route in any build layout", () => {
+    const ROUTES = [SHELL_URL, MANIFEST_URL];
+
+    it("(a) Vercel-like: only the prerender manifest lists them, no files under server/app", async () => {
+      const { dist, pub, out } = await fixture({ offline: false, manifest: false, prerender: ROUTES });
+      const build = await collectBuild({ distDir: dist, publicDir: pub });
+      expect(build.problems).toEqual([]);
+      expect(build.shellMissing).toBe(false);
+      expect(build.assets).toContain(SHELL_URL);
+      expect((await buildServiceWorker({ distDir: dist, publicDir: pub, outPath: out })).ok).toBe(true);
+    });
+
+    it("(b) local: only the offline.html and manifest files under server/app, no prerender manifest", async () => {
+      const { dist, pub } = await fixture();
+      const build = await collectBuild({ distDir: dist, publicDir: pub });
+      expect(build.problems).toEqual([]);
+      expect(build.shellMissing).toBe(false);
+    });
+
+    it("accepts a prerendered offline body under server/app", async () => {
+      const { dist, pub } = await fixture({ offline: false });
+      await put(path.join(dist, "server", "app", "offline.body"), "<html></html>");
+      expect((await collectBuild({ distDir: dist, publicDir: pub })).problems).toEqual([]);
+    });
+
+    it("(c) neither: no prerender manifest entry and no file fails with the same messages", async () => {
+      const { dist, pub, out } = await fixture({ offline: false, manifest: false });
+      const problems = (await collectBuild({ distDir: dist, publicDir: pub })).problems.join("\n");
+      expect(problems).toMatch(/the prerendered \/offline page is missing from the build/);
+      expect(problems).toMatch(/the manifest route is missing from the build/);
+      expect((await buildServiceWorker({ distDir: dist, publicDir: pub, outPath: out })).ok).toBe(false);
+      await expect(readFile(out, "utf8")).rejects.toThrow();
+    });
+
+    it.each([
+      ["a prerender manifest without the shell", ["/", "/consent"]],
+      ["an unreadable prerender manifest", "{not json"],
+      ["a prerender manifest without routes", "{}"],
+      ["a prerender manifest that is null", "null"],
+    ] as [string, string[] | string][])("still fails with %s and no files", async (_name, prerender) => {
+      const { dist, pub } = await fixture({ offline: false, manifest: false, prerender });
+      const problems = (await collectBuild({ distDir: dist, publicDir: pub })).problems.join("\n");
+      expect(problems).toMatch(/\/offline page is missing/);
+      expect(problems).toMatch(/manifest route is missing/);
+    });
+
+    it("judges the shell and the manifest independently", async () => {
+      const shellOnly = await fixture({ offline: false, manifest: false, prerender: [SHELL_URL] });
+      expect((await collectBuild({ distDir: shellOnly.dist, publicDir: shellOnly.pub })).problems.join()).toMatch(/^the manifest route is missing/);
+      const manifestOnly = await fixture({ offline: false, manifest: false, prerender: [MANIFEST_URL] }, path.join(root, "second"));
+      expect((await collectBuild({ distDir: manifestOnly.dist, publicDir: manifestOnly.pub })).problems.join()).toMatch(/^the prerendered \/offline page is missing/);
+    });
+
+    it("never lets the prerender manifest widen the allowlist: an /api or personal route in it is not cached", async () => {
+      const { dist, pub, out } = await fixture({ offline: false, manifest: false, prerender: [...ROUTES, "/today", "/api/me"] });
+      const result = await buildServiceWorker({ distDir: dist, publicDir: pub, outPath: out });
+      expect(result.ok).toBe(true);
+      const source = await readFile(out, "utf8");
+      expect(source).not.toContain('"/today"');
+      expect(source).not.toContain("/api/me");
+    });
   });
 
   it("lists files recursively in a stable order", async () => {
