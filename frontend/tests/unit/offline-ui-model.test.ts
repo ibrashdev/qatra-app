@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { absentGames, learningDateOf, missingGames, provisionalActiveMs, provisionalDaily, provisionalTodayMs, sessionEntries, snapshotTextKind, summarizeRun } from "@/components/pwa/offline-model";
+import { absentGames, isNeverSignedIn, learningDateOf, missingGames, provisionalActiveMs, provisionalDaily, provisionalTodayMs, sessionEntries, snapshotTextKind, summarizeRun } from "@/components/pwa/offline-model";
 import type { PlanSnapshot } from "@/lib/api/types";
-import type { PendingEvent, RevalidationRecord } from "@/lib/offline/types";
+import type { LocalPlanInspection, OwnerState, PendingEvent, RevalidationRecord } from "@/lib/offline/types";
 import { DAILY_SESSION, GAME_SESSION, activityAt, answerAt, makeSnapshot, orderQuestion, uuid } from "./offline-support";
 
 const snapshot = makeSnapshot();
@@ -87,6 +87,35 @@ describe("the sessions a snapshot offers (S-31)", () => {
     expect(snapshotTextKind(snapshot)).toBe("quran");
     expect(snapshotTextKind({ ...snapshot, lessons: [{ ...snapshot.lessons[0]!, path: "matn" }] })).toBe("hadith");
     expect(snapshotTextKind({ ...snapshot, lessons: [] })).toBe("quran");
+  });
+});
+
+describe("who is on the device (G-03 against the sign-in invitation)", () => {
+  const inspection = (overrides: Partial<LocalPlanInspection> = {}): LocalPlanInspection => ({
+    status: "none",
+    owner: null,
+    snapshot: null,
+    record: null,
+    revalidation: null,
+    counts: { queued: 0, pending: 0, blocked: 0, total: 0 },
+    ...overrides,
+  });
+  const owner = (ownerId: string | null): OwnerState => ({ ownerId, username: null, generation: 0, logoutPending: false, clearFailed: false, updatedAt: "2026-10-06T00:00:00.000Z" });
+
+  it("names a device with nothing downloaded, no owner and no answers as a visitor who never signed in", () => {
+    expect(isNeverSignedIn(inspection())).toBe(true);
+    // After a clear the owner row stays with no id: still nobody.
+    expect(isNeverSignedIn(inspection({ owner: owner(null) }))).toBe(true);
+  });
+
+  it("does not call it a visitor when the read has not ended, when an owner, a plan or an answer is held, or when the read failed", () => {
+    expect(isNeverSignedIn(null)).toBe(false);
+    expect(isNeverSignedIn(inspection({ owner: owner("owner-1") }))).toBe(false);
+    expect(isNeverSignedIn(inspection({ status: "ready", owner: owner("owner-1"), snapshot, record: null }))).toBe(false);
+    expect(isNeverSignedIn(inspection({ counts: { queued: 1, pending: 0, blocked: 0, total: 1 } }))).toBe(false);
+    for (const status of ["incomplete", "stale", "revoked", "expired", "locked", "schema_incompatible", "storage_error"] as const) {
+      expect(isNeverSignedIn(inspection({ status }))).toBe(false);
+    }
   });
 });
 

@@ -139,21 +139,35 @@ export function UnavailablePanel({ expired }: { expired: boolean }) {
   );
 }
 
-// G-03: the session ended. The local copy and the outbox are kept. The link is a plain anchor: a router transition would need the network, and the
-// service worker answers a navigation without one by returning to the shell.
+// The login link is a plain anchor: a router transition would need the network, and the service worker answers a navigation without one by returning to
+// the shell.
+function LoginLink() {
+  const { locale } = useLocale();
+  return (
+    <a href="/login" className="inline-flex min-h-target items-center rounded-sm text-body text-link underline underline-offset-4">
+      {offlineMessages(locale).shell.login}
+    </a>
+  );
+}
+
+// G-03: the session ended. The local copy and the outbox are kept.
 export function SessionEndedBanner() {
   const { locale } = useLocale();
   const t = offlineMessages(locale).shell;
   return (
-    <Banner
-      variant="warning"
-      action={
-        <a href="/login" className="inline-flex min-h-target items-center rounded-sm text-body text-link underline underline-offset-4">
-          {t.login}
-        </a>
-      }
-    >
+    <Banner variant="warning" action={<LoginLink />}>
       {t.sessionEnded}
+    </Banner>
+  );
+}
+
+// A visitor who never signed in on this device, and so has no session to end: a neutral invitation with the same link.
+export function SignInPromptBanner() {
+  const { locale } = useLocale();
+  const t = offlineMessages(locale).shell;
+  return (
+    <Banner variant="info" action={<LoginLink />}>
+      {t.signInPrompt}
     </Banner>
   );
 }

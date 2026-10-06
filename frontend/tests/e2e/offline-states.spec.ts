@@ -111,6 +111,20 @@ test.describe("R23 case 6: a plan that changed or was withdrawn while the device
   });
 });
 
+test.describe("the launcher for a visitor who never signed in on this device", () => {
+  test("a 401 with nothing on the device invites to log in and does not say a session ended", async ({ page }) => {
+    // No cookie and no local copy: the stub answers 401 to the account check, as the server does for a visitor.
+    await page.goto("/offline");
+    await expect(page.getByText(TEXT.signInPrompt)).toBeVisible({ timeout: 45_000 });
+    await expect(page.getByText(TEXT.sessionEnded)).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "تسجيل الدخول" })).toHaveAttribute("href", "/login");
+    await expect(page.getByRole("heading", { level: 2, name: TEXT.noPlan })).toBeVisible();
+    expect(new URL(page.url()).pathname).toBe("/offline");
+    expect(await axeViolations(page)).toEqual([]);
+    expect(await smallTargets(page)).toEqual([]);
+  });
+});
+
 test.describe("R23 case 8: storage that cannot hold the plan", () => {
   test("a full quota leaves the snapshot not ready, says so, and never claims the plan is downloaded", async ({ page, context }) => {
     const tenant = newTenant();
