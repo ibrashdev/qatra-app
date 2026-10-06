@@ -5,10 +5,6 @@ import { renderTemplate } from "@/i18n/template";
 import { getTermsText, type TermsBlock, type TermsTopic } from "@/i18n/terms-text";
 import { TERMS_VERSION } from "@/lib/config";
 
-// The page already keeps a link or a focus clear of the app bar below 1024 px (html scroll-padding). From 1024 px that padding shrinks to 8 px,
-// because the app shell has no bar there; the public shell keeps its bar, so an anchored heading adds the bar's height itself (S-03 section 4).
-const ANCHOR = "rail:scroll-mt-appbar";
-
 // A paragraph or a list. The first block sits 8 px under its heading, the next ones 16 px apart; list items 8 px apart (UI-screens S-03 section 2).
 function Block({ block, first }: { block: TermsBlock; first: boolean }) {
   const spacing = first ? "mt-q8" : "mt-q16";
@@ -48,12 +44,13 @@ export function TermsBody() {
       {TERMS_VERSION !== null ? (
         <p className="mt-q8 text-small text-ink-secondary">{renderTemplate(text.versionLine, { version: <bdi>{TERMS_VERSION}</bdi> })}</p>
       ) : null}
-      <h2 id="terms" tabIndex={-1} className={`mt-q24 ${ANCHOR} text-section text-ink`}>
+      {/* The anchored headings keep clear of the sticky bar by the page's own scroll padding (globals.css), whichever shell they are in. */}
+      <h2 id="terms" tabIndex={-1} className="mt-q24 text-section text-ink">
         {text.termsHeading}
       </h2>
       <Topics topics={text.terms} />
       <hr aria-hidden="true" className="my-q32 border-0 border-t border-divider" />
-      <h2 id="privacy" tabIndex={-1} className={`${ANCHOR} text-section text-ink`}>
+      <h2 id="privacy" tabIndex={-1} className="text-section text-ink">
         {text.privacyHeading}
       </h2>
       <Topics topics={text.privacy} />

@@ -12,6 +12,7 @@ vi.mock("@/lib/config", () => ({
   },
 }));
 
+import { PrivacyFrame } from "@/components/privacy/PrivacyFrame";
 import { PrivacyScreen } from "@/components/privacy/PrivacyScreen";
 import { AppShell } from "@/components/ui/AppShell";
 import { resetRouteFocusForTests } from "@/components/ui/use-page-chrome";
@@ -70,7 +71,12 @@ function renderPrivacy({ language = "ar", me = (): Response => json(mockProfile)
   });
   runtime = createApiRuntime({ mode: "live", fetch: fetchImpl });
   const get = vi.spyOn(runtime.client, "get");
-  const screenNode = <PrivacyScreen />;
+  // The route is the layout (the frame with the H1 and the back control) around the page (the text and the closing button).
+  const screenNode = (
+    <PrivacyFrame>
+      <PrivacyScreen />
+    </PrivacyFrame>
+  );
   const view = render(
     <LocaleProvider>
       <ApiRuntimeProvider runtime={runtime}>{shell ? <AppShell>{screenNode}</AppShell> : screenNode}</ApiRuntimeProvider>

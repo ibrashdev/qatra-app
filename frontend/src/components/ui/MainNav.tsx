@@ -33,12 +33,14 @@ function isActive(pathname: string | null, href: string): boolean {
 // Bottom tab bar below 1024 px (UA-03, UI-tokens 6.6): a 24 px icon above the label. Five tabs share 320 px, 64 px each, so the label has no side padding
 // ("Progress" is about 57 px wide at the caption size and would otherwise break inside the word). The icon is decorative; the label names the link. The active tab is
 // marked by a 3 px top bar, a heavier icon stroke, the deep blue and aria-current, not by colour alone.
+// data-bar declares the bar to the page's scroll padding (globals.css), which keeps its room below 1024 px.
 export function TabBar() {
   const { messages } = useLocale();
   const pathname = usePathname();
   return (
     <nav
       aria-label={messages.mainNavigationLabel}
+      data-bar="bottom-below-rail"
       className="sticky bottom-0 z-(--q-z-sticky) border-t border-divider bg-surface pb-[env(safe-area-inset-bottom)] rail:hidden"
     >
       <ul className="flex">
