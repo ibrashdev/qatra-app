@@ -4,13 +4,14 @@ import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { isConnectivityError } from "@/lib/api/errors";
 import { useApiRuntime } from "@/lib/api/react";
+import { completePendingLogout } from "@/lib/offline/owner";
 import { homeDestination } from "./destination";
 
 // Guard 2 (UI-design 2.3): a valid session sends the guest screens to /today, or to /start without a plan. E11 answers 200 only with a session.
 // Any other answer, 401 included, leaves the form where it is. The probe is a read, so it runs again once a sleeping server answers (P-04).
 export function useSignedInRedirect(): void {
   const router = useRouter();
-  const { api, wakeUp, boot } = useApiRuntime();
+  const { api, client, wakeUp, boot } = useApiRuntime();
 
   useEffect(() => {
     // A child effect runs before the provider's, so the first request of the page load (E01) is sent here, ahead of the probe.
@@ -23,6 +24,8 @@ export function useSignedInRedirect(): void {
       const current = new AbortController();
       controller = current;
       try {
+        // A logout pressed offline wiped the device but not the server session. It is finished first, before the old session can be used again (PWA-design 7).
+        await completePendingLogout(client).catch(() => "failed");
         await api.me({ signal: current.signal });
         const destination = await homeDestination(api, current.signal);
         if (!current.signal.aborted) router.replace(destination);
@@ -39,5 +42,5 @@ export function useSignedInRedirect(): void {
       controller?.abort();
       stop();
     };
-  }, [api, boot, router, wakeUp]);
+  }, [api, client, boot, router, wakeUp]);
 }

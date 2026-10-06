@@ -153,7 +153,8 @@ describe("S-03 structure (UI-screens S-03 sections 2, 3 and 5)", () => {
     expect(screen.getAllByRole("heading").map((heading) => Number(heading.tagName.slice(1)))).toEqual([1, 2, 3, 3, 3, 2, 3, 3, 3, 3]);
     const lists = screen.getAllByRole("list");
     expect(lists).toHaveLength(1);
-    expect(within(lists[0] as HTMLElement).getAllByRole("listitem")).toHaveLength(9);
+    // Nine rows of the data list, and the tenth: the downloaded plan and local events (F13).
+    expect(within(lists[0] as HTMLElement).getAllByRole("listitem")).toHaveLength(10);
     expect(container.querySelector("hr")).toHaveAttribute("aria-hidden", "true");
     expect(container.querySelectorAll("hr")).toHaveLength(1);
   });

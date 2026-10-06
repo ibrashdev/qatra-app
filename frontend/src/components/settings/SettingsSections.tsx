@@ -1,26 +1,14 @@
 "use client";
 
 import { useId } from "react";
-import { Icon } from "@/components/ui/Icon";
+import { OfflineAccountRows, AccountSyncChip } from "@/components/pwa/OfflineSettings";
+import { UnsyncedLogoutDialog } from "@/components/pwa/logout-guard";
 import { Notice } from "@/components/ui/Notice";
 import { useLocale } from "@/i18n/LocaleProvider";
 import { planChatMessages } from "@/i18n/plan-chat-messages";
 import { settingsMessages } from "@/i18n/settings-messages";
 import type { Profile } from "@/lib/api/types";
 import { LinkRow, ReadOnlyRow, RowList } from "./SettingsRows";
-
-// c4: the sync state is always "synced" in option B (nothing is kept on the device), so the chip is fixed. It sits in a polite status region with its
-// text (UI-tokens 6.11), and its icon is the check-circle of the success tokens.
-function SyncChip({ text }: { text: string }) {
-  return (
-    <span role="status" aria-live="polite">
-      <span className="inline-flex h-badge items-center gap-q4 rounded-sm bg-success-tint px-q12 text-caption text-success-ink">
-        <Icon name="success" size="sm" />
-        {text}
-      </span>
-    </span>
-  );
-}
 
 // c2 to c7. Without the profile (E11 failed) the two read-only rows are left out, and the rows to the account screens stay.
 export function AccountSection({ profile }: { profile: Profile | null }) {
@@ -40,7 +28,7 @@ export function AccountSection({ profile }: { profile: Profile | null }) {
                 <bdi dir="ltr">{profile.username}</bdi>
               </ReadOnlyRow>
               <ReadOnlyRow label={t.syncLabel}>
-                <SyncChip text={t.synced} />
+                <AccountSyncChip />
               </ReadOnlyRow>
             </>
           )}
@@ -51,6 +39,10 @@ export function AccountSection({ profile }: { profile: Profile | null }) {
           </LinkRow>
         </RowList>
       </div>
+      <div className="mt-q12 empty:hidden">
+        <OfflineAccountRows />
+      </div>
+      <UnsyncedLogoutDialog />
     </section>
   );
 }

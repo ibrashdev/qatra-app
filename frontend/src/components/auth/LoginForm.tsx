@@ -22,6 +22,7 @@ import { homeDestination } from "@/lib/auth/destination";
 import { clearLoginArrival, peekLoginArrival, type LoginArrival } from "@/lib/auth/flash";
 import { classifyLoginError, type LoginFailure } from "@/lib/auth/login-failure";
 import { clearRegisterDraft } from "@/lib/auth/register-draft";
+import { wipeIfDifferentAccount } from "@/lib/offline/owner";
 import { setReturnPath } from "@/lib/auth/return-path";
 import { safeNextPath } from "@/lib/auth/safe-path";
 import { useSignedInRedirect } from "@/lib/auth/use-signed-in-redirect";
@@ -143,6 +144,8 @@ export function LoginForm({ demoLink = false }: { demoLink?: boolean } = {}) {
       const { profile, reconsentRequired } = await api.login({ username, password });
       // A session exists now, so a registration draft with a password in it must not outlive it.
       clearRegisterDraft();
+      // A different account than the one whose plan is saved on this device loses that local copy first (G-04).
+      await wipeIfDifferentAccount(profile.username).catch(() => false);
       if (!mounted.current) return;
       if (passwordRef.current) passwordRef.current.value = "";
       // After login the profile language prevails (P-02).

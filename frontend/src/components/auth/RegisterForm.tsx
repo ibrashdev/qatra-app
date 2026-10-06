@@ -27,6 +27,7 @@ import { browserTimeZone, reloadPage } from "@/lib/browser";
 import { TERMS_VERSION } from "@/lib/config";
 import { afterPress } from "@/lib/dom/after-press";
 import { useConnectivity } from "@/lib/net/use-connectivity";
+import { wipeIfDifferentAccount } from "@/lib/offline/owner";
 
 // P-06: a request that waits longer than this says it is still working.
 const SLOW_REQUEST_MS = 5_000;
@@ -255,6 +256,8 @@ export function RegisterForm({ variant = "learner" }: { variant?: "learner" | "d
       const { recoveryCode } = demo ? await registerDemo(client, request) : await api.register(request);
       // The account exists, so nothing typed is kept, whether or not the visitor is still on this page.
       clearRegisterDraft();
+      // A different account than the one whose plan is saved on this device loses that local copy first (G-04).
+      await wipeIfDifferentAccount(values.username).catch(() => false);
       if (!mounted.current) return;
       for (const field of ["username", "password", "confirmation"] as const) {
         const input = inputFor(field);
