@@ -629,17 +629,117 @@
   "archive": {
     "filename": "Qatra-content-expansion-20261005.zip",
     "saved": true,
-    "bytes": 2224614,
-    "version": 2,
+    "bytes": 2245488,
+    "version": 3,
     "sameFileIdentity": true,
-    "sha256": "53c47cb931d441fe8dea3ddc03379e69482e9df2fd152fc460919583e0922944",
-    "files": 234,
+    "sha256": "71015c23884f133746cbde1586efddfcc09a050f08346daa1111c92ddd6c3cc5",
+    "files": 242,
     "allEntryHashesMatch": true,
-    "includesQuranThirdPass": true
+    "includesQuranThirdPass": true,
+    "includesBoundedSourceFollowup": true
   },
   "referenceFollowup": {
     "use": "bounded verification reference only; no source substitution",
     "candidateMappingsPromoted": 0,
     "note": "Hadith 14 body-omission assertion corrected: the clause is in the PDF footnote; HTML includes it in the body. Hadith 42 has confirmed local visual wording differences. All 7 candidates remain outside the bank."
+  },
+  "archiveHistory": [
+    {
+      "filename": "Qatra-content-expansion-20261005.zip",
+      "saved": true,
+      "bytes": 2224614,
+      "version": 2,
+      "sameFileIdentity": true,
+      "sha256": "53c47cb931d441fe8dea3ddc03379e69482e9df2fd152fc460919583e0922944",
+      "files": 234,
+      "allEntryHashesMatch": true,
+      "includesQuranThirdPass": true
+    }
+  ],
+  "boundedSourceFollowup": {
+    "toolsListSucceeded": true,
+    "targetedSearches": 5,
+    "targetedNumbers": [
+      2,
+      14,
+      24,
+      25,
+      35
+    ],
+    "additionalRecordFetched": 66538,
+    "recordUse": "excluded: unrelated to all seven gaps; no supplementary attribution certified",
+    "candidateMappingsPromoted": 0,
+    "bankChanged": false,
+    "gapsResolved": 0,
+    "remainingGaps": [
+      2,
+      14,
+      24,
+      25,
+      35,
+      40,
+      42
+    ],
+    "scopeLimit": "Five bounded opening-phrase searches; not an exhaustive proof that no alternative record exists. Earlier source checks for the other gaps remain separate.",
+    "privateReport": "backend/.content-build/expansion-20261005/source-followup-20261006.json",
+    "fileSha256": "1be0672b606ba8c8d7f987ac4ef5c517071fa70bb94dc6aae45fcf2d7d74dd4e",
+    "objectMetadata": [
+      {
+        "privateFile": "candidates/final-search-forty-02.json",
+        "tool": "search",
+        "retrievedAt": "2026-10-06T03:10:32.389643+00:00",
+        "httpStatus": 200,
+        "format": "raw HTTP envelope",
+        "sha256": "8057027afdfaa8be5b3da1af8d2c4f869e2bebfbdd0e5cdf75545ee48a264603"
+      },
+      {
+        "privateFile": "candidates/final-search-forty-14.json",
+        "tool": "search",
+        "retrievedAt": "2026-10-06T03:10:32.962257+00:00",
+        "httpStatus": 200,
+        "format": "raw HTTP envelope",
+        "sha256": "6eaeb71d524370140ced76e2632a14d6c9a8e985a414cad49b79d26dd3f4225b"
+      },
+      {
+        "privateFile": "candidates/final-search-forty-24.json",
+        "tool": "search",
+        "retrievedAt": "2026-10-06T03:10:33.519149+00:00",
+        "httpStatus": 200,
+        "format": "raw HTTP envelope",
+        "sha256": "1441f19394a83fcb8e4d58e1605fc0626853936eef540ab81e8ab1a9d4aeb995"
+      },
+      {
+        "privateFile": "candidates/final-search-forty-25.json",
+        "tool": "search",
+        "retrievedAt": "2026-10-06T03:10:34.031374+00:00",
+        "httpStatus": 200,
+        "format": "raw HTTP envelope",
+        "sha256": "2abccf01b76e011715791ad4514a173d56debb344376e015050410f19c6a2160"
+      },
+      {
+        "privateFile": "candidates/final-search-forty-35.json",
+        "tool": "search",
+        "retrievedAt": "2026-10-06T03:10:34.503981+00:00",
+        "httpStatus": 200,
+        "format": "raw HTTP envelope",
+        "sha256": "d8bca4887870ca92197b70c7cf0f8e5e35745c0f648563affd1967d36258ea6d"
+      },
+      {
+        "privateFile": "candidates/final-search-record-66538.json",
+        "tool": "get_hadith",
+        "retrievedAt": "2026-10-06T03:12:46.556950+00:00",
+        "httpStatus": 200,
+        "format": "raw HTTP envelope",
+        "sha256": "addf741929208c9d68a9e3ab8ddff7d96f3e331d585a24558def77082772b320"
+      },
+      {
+        "privateFile": "candidates/final-search-tools-list.json",
+        "tool": "tools/list",
+        "retrievedAt": "2026-10-06T03:07:43.970413+00:00",
+        "httpStatus": null,
+        "format": "parsed MCP catalog",
+        "sha256": "6fb2dcfff8f35c104622f6f3bec008dc0c309875eb4b9f35c2bb915d89c79052"
+      }
+    ]
   }
 }
